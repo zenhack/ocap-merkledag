@@ -24,13 +24,13 @@ import qualified Crypto.Hash as CH
 
 newtype FilesBlobStore = FilesBlobStore { storePath :: FilePath }
 
-open :: FilePath -> IO (BlobStore IO)
+open :: FilePath -> IO (RawBlobStore IO)
 open storePath = do
     let fbs = FilesBlobStore{storePath}
     initStore fbs
-    pure BlobStore
-        { getBlob = filesGetBlob fbs
-        , putBlob = filesPutBlob fbs
+    pure RawBlobStore
+        { getBlobRaw = filesGetRaw fbs
+        , putBlobRaw = filesPutRaw fbs
         }
 
 initStore :: FilesBlobStore -> IO ()
@@ -41,49 +41,14 @@ initStore FilesBlobStore{storePath} = do
         for_ [0..0xff] $ \(b :: Word8) ->
             mkdirP $ printf "%s/sha256/%02x/%02x" storePath a b
 
-data KnownHash = Sha256 (Digest SHA256)
+filesGetRaw :: FilesBlobStore -> KnownHash -> IO BS.ByteString
+filesGetRaw fbs hash =
+    BS.readFile (hashPath fbs hash)
 
-data IllegalHash
-    = UnsupportedAlgo HashAlgo
-    | WrongDigestLen
-    deriving(Show)
-instance Exception IllegalHash
-
-require :: (MonadThrow m, Exception e) => Either e a -> m a
-require (Left e)  = throw e
-require (Right v) = pure v
-
-decodeHash :: Hash -> Either IllegalHash KnownHash
-decodeHash Hash{digest, algo} = case algo of
-    HashAlgo'unknown' _ -> Left $ UnsupportedAlgo algo
-    HashAlgo'sha256 -> case digestFromByteString digest of
-        Just d  -> Right $ Sha256 d
-        Nothing -> Left WrongDigestLen
-
-encodeHash :: KnownHash -> Hash
-encodeHash (Sha256 digest) = Hash
-    { algo = HashAlgo'sha256
-    , digest = BA.convert digest
-    }
-
-computeHash :: LBS.ByteString -> KnownHash
-computeHash bytes = Sha256 $ CH.hashlazy bytes
-
-filesGetBlob :: FilesBlobStore -> Hash -> IO StoredBlob
-filesGetBlob fbs hash = do
-    h <- require $ decodeHash hash
-    let path = hashPath fbs h
-    BS.readFile path >>= Capnp.bsToValue
-
-filesPutBlob :: FilesBlobStore -> StoredBlob -> IO Hash
-filesPutBlob fbs blob = do
-    -- TODO: canonicalize (needs support in haskell-capnp)
-    bytes <- Capnp.evalLimitT maxBound $ Capnp.valueToLBS blob
-    let digest = computeHash bytes
-        path = hashPath fbs digest
+filesPutRaw :: FilesBlobStore -> KnownHash -> LBS.ByteString -> IO ()
+filesPutRaw fbs hash bytes =
     -- FIXME: do this atomically:
-    LBS.writeFile path bytes
-    pure $ encodeHash digest
+    LBS.writeFile (hashPath fbs hash) bytes
 
 hashPath :: FilesBlobStore -> KnownHash -> FilePath
 hashPath fbs (Sha256 d) = sha256Path fbs d
