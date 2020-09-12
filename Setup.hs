@@ -12,6 +12,7 @@ import System.Process                  (callProcess)
 capnpFiles =
     [ "protocol.capnp"
     , "storage.capnp"
+    , "util.capnp"
     ]
 
 main = defaultMainWithHooks simpleUserHooks

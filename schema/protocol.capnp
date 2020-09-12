@@ -1,6 +1,8 @@
 @0xdcd5a61cb18421e5;
 # This schema defines the wire protocol used to talk to the data store.
 
+using Util = import "util.capnp";
+
 interface Store(T) {
   # A data store.
 
@@ -23,7 +25,7 @@ interface Store(T) {
   # In the capability table will be normalized as well, so structuarally equal
   # values will share the same storage.
 
-  putBytesStreaming() -> (stream :Util.ByteStream, ref :Ref(BlobTree));
+  putBytesStreaming @3 () -> (stream :Util.ByteStream, ref :Ref(BlobTree));
   # Add a large binary blob to the store. `stream` is a ByteStream to which the
   # bytes of the blob should be a written, and `ref` is a promise that will be
   # resolved once `stream`'s done() method is called, and will point to the
@@ -49,12 +51,12 @@ struct BlobTree {
 
   union {
     leaf @0 :Data;
-    branch @1 :List(Branch)
+    branch @1 :List(Branch);
   }
 
   struct Branch {
-    size :UInt64;
-    ref :Ref(BlobTree);
+    size @0 :UInt64;
+    ref @1 :Ref(BlobTree);
   }
 }
 

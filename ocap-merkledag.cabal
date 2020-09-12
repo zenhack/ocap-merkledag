@@ -46,19 +46,28 @@ library
     , Capnp.Gen.Storage.Pure
     , Capnp.Gen.Protocol
     , Capnp.Gen.Protocol.Pure
+    , Capnp.Gen.Util
+    , Capnp.Gen.Util.Pure
     , Capnp.Gen.ById.Xb4284328a4e09e0a
     , Capnp.Gen.ById.Xb4284328a4e09e0a.Pure
     , Capnp.Gen.ById.Xdcd5a61cb18421e5
     , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
+    , Capnp.Gen.ById.Xecd50d792c3d9992
+    , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
+
   other-modules:
       Capnp.Gen.Storage
     , Capnp.Gen.Storage.Pure
     , Capnp.Gen.Protocol
     , Capnp.Gen.Protocol.Pure
+    , Capnp.Gen.Util
+    , Capnp.Gen.Util.Pure
     , Capnp.Gen.ById.Xb4284328a4e09e0a
     , Capnp.Gen.ById.Xb4284328a4e09e0a.Pure
     , Capnp.Gen.ById.Xdcd5a61cb18421e5
     , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
+    , Capnp.Gen.ById.Xecd50d792c3d9992
+    , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
 
     , BlobStore
     , BlobStore.Files
