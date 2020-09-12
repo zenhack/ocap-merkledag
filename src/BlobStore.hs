@@ -22,6 +22,14 @@ import qualified Data.ByteArray         as BA
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as LBS
 
+data KnownHash = Sha256 (Digest SHA256)
+
+data IllegalHash
+    = UnsupportedAlgo HashAlgo
+    | WrongDigestLen
+    deriving(Show)
+instance Exception IllegalHash
+
 data RawBlobStore m = RawBlobStore
     { getBlobRaw :: KnownHash -> m BS.ByteString
     , putBlobRaw :: KnownHash -> LBS.ByteString -> m ()
@@ -45,14 +53,6 @@ putBlob bs blob = do
         digest = computeHash bytes
     putBlobRaw (rawStore bs) digest bytes
     pure $ encodeHash digest
-
-data KnownHash = Sha256 (Digest SHA256)
-
-data IllegalHash
-    = UnsupportedAlgo HashAlgo
-    | WrongDigestLen
-    deriving(Show)
-instance Exception IllegalHash
 
 require :: (MonadThrow m, Exception e) => Either e a -> m a
 require (Left e)  = throw e
