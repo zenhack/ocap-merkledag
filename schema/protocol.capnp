@@ -25,6 +25,12 @@ interface Store(T) {
 
   findByHash @1 (hash :Hash) -> (ref :Ref(T));
   # Find a value by hash, getting a capability to the value.
+
+  subStore @2 () -> (store :Store(T));
+  # Get an empty sub-store of this store. The resulting store will share the
+  # same underlying storage, but will be logically empty, i.e. initially
+  # findByHash will not find anything, until objects have been inserted into
+  # the sub-store via its put() method.
 }
 
 interface Ref(T) {
