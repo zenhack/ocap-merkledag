@@ -12,10 +12,10 @@ interface Ref(T) {
 struct Hash {
   # A cryptographic hash value.
 
-  algo @0 :HashAlgo;
+  algo @1 :HashAlgo;
   # The algorithm used to compute the hash
 
-  digest @1 :Data;
+  digest @0 :Data;
   # The bytes of the hash itself.
 }
 
