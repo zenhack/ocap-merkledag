@@ -23,6 +23,12 @@ interface Store(T) {
   # In the capability table will be normalized as well, so structuarally equal
   # values will share the same storage.
 
+  putBytesStreaming() -> (stream :Util.ByteStream, ref :Ref(BlobTree));
+  # Add a large binary blob to the store. `stream` is a ByteStream to which the
+  # bytes of the blob should be a written, and `ref` is a promise that will be
+  # resolved once `stream`'s done() method is called, and will point to the
+  # resulting `BlobTree`.
+
   findByHash @1 (hash :Hash) -> (ref :Ref(T));
   # Find a value by hash, getting a capability to the value.
 
@@ -31,6 +37,25 @@ interface Store(T) {
   # same underlying storage, but will be logically empty, i.e. initially
   # findByHash will not find anything, until objects have been inserted into
   # the sub-store via its put() method.
+}
+
+struct BlobTree {
+  # A tree containing the bytes of a large blob, constructed according to the
+  # hashsplit spec:
+  #
+  # https://github.com/hashsplit/hashsplit-spec
+  #
+  # TODO: specify the hashsplit config used.
+
+  union {
+    leaf @0 :Data;
+    branch @1 :List(Branch)
+  }
+
+  struct Branch {
+    size :UInt64;
+    ref :Ref(BlobTree);
+  }
 }
 
 interface Ref(T) {
