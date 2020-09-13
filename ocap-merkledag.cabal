@@ -29,10 +29,13 @@ common shared-opts
       base >=4.12 && <5
     , bytestring ^>=0.10.10
     , capnp ^>=0.6
+    , supervisors ^>=0.2
     , cryptonite ^>=0.27
     , directory ^>=1.3.6
     , memory ^>=0.15.0
+    , mtl ^>=2.2.2
     , safe-exceptions ^>= 0.1.7
+    , vector ^>=0.12.1
     , zenhack-prelude ^>=0.1
   default-language:    Haskell2010
 
@@ -71,6 +74,7 @@ library
 
     , BlobStore
     , BlobStore.Files
+    , Server
 
 test-suite tests
   import: shared-opts
