@@ -75,36 +75,38 @@ instance Ref'server_ IO RefServer where
             pure Ref'get'results { value }
 
 
-type MonadAttachCaps m = MonadState [StoredClient] m
+type MonadAttachCaps m = MonadState [Hash] m
 
 pullCap :: MonadAttachCaps m => m (Maybe Hash)
 pullCap = do
     s <- get
     case s of
         [] -> pure Nothing
-        StoredClient'hash x:xs -> do
+        x:xs -> do
             put xs
             pure $ Just x
-        _ : xs -> do
-            put xs
-            pure Nothing
 
-traverseClientsMaybePtr :: Applicative f => (Rpc.Client -> f Rpc.Client) -> Maybe (U.Ptr) -> f (Maybe U.Ptr)
-traverseClientsMaybePtr f = traverse (traverseClientsPtr f)
+traverseClientsMaybePtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> Maybe (U.Ptr) -> f (Maybe U.Ptr)
+traverseClientsMaybePtr f p = do
+    p' <- traverse (traverseClientsPtr f) p
+    case p' of
+        -- Normalize null clients to null pointers.
+        Just (U.PtrCap c) | c == RU.nullClient -> pure Nothing
+        _                                      -> pure p'
 
-traverseClientsPtr :: Applicative f => (Rpc.Client -> f Rpc.Client) -> U.Ptr -> f U.Ptr
+traverseClientsPtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> U.Ptr -> f U.Ptr
 traverseClientsPtr f = \case
     U.PtrList list -> U.PtrList <$> traverseClientsList f list
     U.PtrStruct s -> U.PtrStruct <$> traverseClientsStruct f s
     U.PtrCap client -> U.PtrCap <$> f client
 
-traverseClientsList :: Applicative f => (Rpc.Client -> f Rpc.Client) -> U.List -> f U.List
+traverseClientsList :: Monad f => (Rpc.Client -> f Rpc.Client) -> U.List -> f U.List
 traverseClientsList f = \case
     U.ListPtr list -> U.ListPtr <$> traverse (traverseClientsMaybePtr f) list
     U.ListStruct list -> U.ListStruct <$> traverse (traverseClientsStruct f) list
     list -> pure list
 
-traverseClientsStruct :: Applicative f => (Rpc.Client -> f Rpc.Client) -> U.Struct -> f U.Struct
+traverseClientsStruct :: Monad f => (Rpc.Client -> f Rpc.Client) -> U.Struct -> f U.Struct
 traverseClientsStruct f (U.Struct d (U.Slice ptrs)) =
     U.Struct d . U.Slice <$> traverse (traverseClientsMaybePtr f) ptrs
 
@@ -115,7 +117,7 @@ attachCaps ptr mkClient = flip traverseClientsMaybePtr ptr $ \_ -> do
         Nothing -> pure RU.nullClient
         Just h  -> mkClient h
 
-type MonadResolveCaps m = MonadWriter [StoredClient] m
+type MonadResolveCaps m = MonadWriter [Hash] m
 
 resolveCaps :: MonadResolveCaps m => Maybe U.Ptr -> m (Maybe U.Ptr)
 resolveCaps = traverseClientsMaybePtr resolveClient
@@ -124,5 +126,5 @@ resolveClient ::  MonadResolveCaps m => Rpc.Client -> m Rpc.Client
 resolveClient c = do
     -- TODO: wait for the promise to resolve if needed
     case Rpc.unwrapServer c of
-        Just RefServer{hash} -> tell [StoredClient'hash hash] *> pure c
-        Nothing              -> tell [StoredClient'null] *> pure RU.nullClient
+        Just RefServer{hash} -> tell [hash] *> pure c
+        Nothing              -> pure RU.nullClient
