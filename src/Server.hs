@@ -4,7 +4,9 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
-module Server where
+module Server
+    ( StoreServer(..)
+    ) where
 
 import Zhp
 

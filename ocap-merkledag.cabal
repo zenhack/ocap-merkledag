@@ -36,6 +36,7 @@ common shared-opts
     , mtl ^>=2.2.2
     , safe-exceptions ^>= 0.1.7
     , vector ^>=0.12.1
+    , network-simple ^>=0.4.5
     , zenhack-prelude ^>=0.1
   default-language:    Haskell2010
 
@@ -44,6 +45,8 @@ library
   hs-source-dirs:      src, gen
   build-tool-depends:
       capnp:capnpc-haskell ^>=0.6
+  exposed-modules:
+      LibMain
   autogen-modules:
       Capnp.Gen.Storage
     , Capnp.Gen.Storage.Pure
@@ -75,6 +78,12 @@ library
     , BlobStore
     , BlobStore.Files
     , Server
+
+executable omdd
+  import: shared-opts
+  build-depends: ocap-merkledag
+  hs-source-dirs: exe
+  main-is: Main.hs
 
 test-suite tests
   import: shared-opts
