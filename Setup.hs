@@ -1,5 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
 
+import Control.Monad                   (when)
+import Data.Char                       (toUpper)
+import Data.Foldable                   (for_)
+import Distribution.Compat.Time        (getModTime)
 import Distribution.PackageDescription (BuildInfo(hsSourceDirs), emptyBuildInfo)
 import Distribution.Simple
     (UserHooks(preBuild), defaultMainWithHooks, simpleUserHooks)
@@ -10,10 +14,14 @@ import System.Exit                     (die)
 import System.Process                  (callProcess)
 
 capnpFiles =
-    [ "protocol.capnp"
-    , "storage.capnp"
-    , "util.capnp"
+    [ "protocol"
+    , "storage"
+    , "util"
     ]
+
+firstUpper :: String -> String
+firstUpper ""     = ""
+firstUpper (x:xs) = toUpper x : xs
 
 main = defaultMainWithHooks simpleUserHooks
   { preBuild = \args buildFlags -> do
@@ -23,9 +31,14 @@ main = defaultMainWithHooks simpleUserHooks
 
       let gensrc = fromFlag (buildDistPref buildFlags) ++ "/gensrc"
       createDirectoryIfMissing False gensrc
-      callProcess capnp $
-        ["compile", "-ohaskell:" ++ gensrc, "--src-prefix=schema/" ] ++
-        [ "schema/" ++ f | f <- capnpFiles ]
+      for_ capnpFiles $ \file -> do
+        let schemaFile = "schema/" ++ file ++ ".capnp"
+            haskellFile = gensrc ++ "/Capnp/Gen/" ++ firstUpper file ++ ".hs"
+        modTime_schema <- getModTime schemaFile
+        modTime_gen <- getModTime haskellFile
+        when (modTime_gen < modTime_schema) $
+          callProcess capnp $
+            ["compile", "-ohaskell:" ++ gensrc, "--src-prefix=schema/", schemaFile ]
 
       return (Just emptyBuildInfo{hsSourceDirs=[gensrc]}, [])
   }
