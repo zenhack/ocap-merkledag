@@ -13,6 +13,7 @@ capnpFiles =
     [ "protocol.capnp"
     , "storage.capnp"
     , "util.capnp"
+    , "files.capnp"
     ]
 
 main = defaultMainWithHooks simpleUserHooks
