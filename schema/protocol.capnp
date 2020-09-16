@@ -1,12 +1,15 @@
 @0xdcd5a61cb18421e5;
 # This schema defines the wire protocol used to talk to the data store.
 
+using Schema = import "/capnp/schema.capnp";
 using Util = import "util.capnp";
 
 interface Store(T) {
   # A data store.
 
-  put @0 (value :T) -> (hash :Hash, ref :Ref(T));
+  putType @4 (type :Type) -> (hash :Hash, ref :Ref(Type));
+
+  putValue @0 (value :T, type :Ref(Type)) -> (hash :Hash, ref :Ref(T));
   # Add a value to the store. Returns the hash of the internally stored object
   # (the format of which is not part of this protocol, but is defined in
   # storage.capnp) and a capability to value, which can be used to fetch it
@@ -41,6 +44,11 @@ interface Store(T) {
   # the sub-store via its put() and putBytesStreaming() methods.
 }
 
+struct Type {
+  id @0 :UInt64;
+  nodeMap @1 :Ref(List(Schema.Node));
+}
+
 struct BlobTree {
   # A tree containing the bytes of a large blob, constructed according to the
   # hashsplit spec:
@@ -63,8 +71,10 @@ struct BlobTree {
 interface Ref(T) {
   # A reference to a value stored in a `Store`.
 
-  get @0 () -> (value :T);
+  getValue @0 () -> (value :T);
   # Retrieve the value pointed to by the Ref.
+
+  getType @1 () -> (type :Type);
 }
 
 struct Hash {
