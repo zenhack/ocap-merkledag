@@ -1,4 +1,6 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 -- | This module defines the storage-independent parts of a blob store.
 module BlobStore
     ( KnownHash(..)
@@ -14,6 +16,11 @@ import Zhp
 
 import Capnp.Gen.Protocol.Pure
 import Capnp.Gen.Storage.Pure
+
+import qualified Capnp.Gen.Storage as Storage
+
+import Capnp.Classes (toStruct)
+import Capnp.Message (singleSegment)
 
 import qualified Capnp
 import           Control.Exception.Safe
@@ -57,15 +64,21 @@ getBlob :: MonadThrow m => BlobStore m -> Hash -> m StoredBlob
 getBlob bs hash = do
     h <- require $ decodeHash hash
     -- TODO: add an integrity check.
-    getBlobRaw (rawStore bs) h >>= Capnp.bsToValue
+    bytes <- getBlobRaw (rawStore bs) h
+    msg <- singleSegment <$> Capnp.fromByteString bytes
+    Capnp.msgToValue msg
 
 -- | Add a blob to the store, canonicalizing it and returning the resulting hash.
 putBlob :: MonadThrow m => BlobStore m -> StoredBlob -> m Hash
 putBlob bs blob = do
     -- TODO: canonicalize (needs support in haskell-capnp)
-    msg <- Capnp.createPure maxBound $ Capnp.valueToMsg blob
-    let bytes = Capnp.msgToLBS msg
-        digest = computeHash bytes
+    seg :: Capnp.Segment Capnp.ConstMsg <- Capnp.createPure maxBound $ do
+        msg <- Capnp.newMessage Nothing
+        rawBlob <- Capnp.cerialize msg blob
+        (_, seg) <- Capnp.canonicalize (toStruct rawBlob)
+        pure seg
+    bytes <- LBS.fromStrict <$> Capnp.toByteString seg
+    let digest = computeHash bytes
     putBlobRaw (rawStore bs) digest bytes
     pure $ encodeHash digest
 
