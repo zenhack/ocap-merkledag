@@ -36,6 +36,7 @@ import qualified Data.ByteString.Lazy   as LBS
 -- * It does not have an unknown variant
 -- * The diges is known to be the correct length for the algorithm.
 data KnownHash = Sha256 (Digest SHA256)
+    deriving(Show, Eq)
 
 -- | An exception indicating that a 'Hash' is not a valid 'KnownHash'.
 data IllegalHash
@@ -43,6 +44,12 @@ data IllegalHash
     | WrongDigestLen -- ^ Digest length is wrong for the specified algorithm.
     deriving(Show)
 instance Exception IllegalHash
+
+data CorruptedBlob = CorruptedBlob
+    { expectedHash :: KnownHash
+    , actualHash   :: KnownHash
+    } deriving(Show)
+instance Exception CorruptedBlob
 
 -- | A raw store for bytes. Supports setting and getting blob contents by hash,
 -- but does not compute or validate the hashes itself. You will want to wrap
@@ -62,9 +69,14 @@ fromRaw = BlobStore
 -- | Fetch a blob from the store.
 getBlob :: MonadThrow m => BlobStore m -> Hash -> m StoredBlob
 getBlob bs hash = do
-    h <- require $ decodeHash hash
-    -- TODO: add an integrity check.
-    bytes <- getBlobRaw (rawStore bs) h
+    wantHash <- require $ decodeHash hash
+    bytes <- getBlobRaw (rawStore bs) wantHash
+    let gotHash = computeHash (LBS.fromStrict bytes)
+    when (wantHash /= gotHash) $
+        throwM CorruptedBlob
+            { expectedHash = wantHash
+            , actualHash = gotHash
+            }
     msg <- singleSegment <$> Capnp.fromByteString bytes
     Capnp.msgToValue msg
 
