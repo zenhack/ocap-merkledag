@@ -98,8 +98,8 @@ traverseClientsMaybePtr f p = do
 
 traverseClientsPtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> U.Ptr -> f U.Ptr
 traverseClientsPtr f = \case
-    U.PtrList list -> U.PtrList <$> traverseClientsList f list
-    U.PtrStruct s -> U.PtrStruct <$> traverseClientsStruct f s
+    U.PtrList list  -> U.PtrList <$> traverseClientsList f list
+    U.PtrStruct s   -> U.PtrStruct <$> traverseClientsStruct f s
     U.PtrCap client -> U.PtrCap <$> f client
 
 traverseClientsList :: Monad f => (Rpc.Client -> f Rpc.Client) -> U.List -> f U.List
