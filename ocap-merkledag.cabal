@@ -37,6 +37,8 @@ common shared-opts
     , safe-exceptions ^>= 0.1.7
     , vector ^>=0.12.1
     , network-simple ^>=0.4.5
+    , stm ^>=2.5
+    , monad-stm ^>=0.1.0.2
     , zenhack-prelude ^>=0.1
   default-language:    Haskell2010
 

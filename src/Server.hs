@@ -21,6 +21,8 @@ import qualified Capnp.Rpc          as Rpc
 import qualified Capnp.Rpc.Untyped  as RU
 import qualified Capnp.Untyped.Pure as U
 
+import           Control.Concurrent.STM      (atomically)
+import           Control.Monad.STM.Class     (MonadSTM)
 import           Control.Monad.State         (MonadState, evalStateT, get, put)
 import           Control.Monad.Writer.Strict (MonadWriter, runWriterT, tell)
 import           Data.Typeable               (Typeable, cast)
@@ -43,7 +45,7 @@ instance Rpc.Server IO StoreServer
 instance Store'server_ IO StoreServer where
     store'put = Rpc.pureHandler $
         \StoreServer{store, sup} Store'put'params{value} -> do
-            (data_, ptrs) <- runWriterT $ resolveCaps value
+            (data_, ptrs) <- atomically $ runWriterT $ resolveCaps value
             hash <- putBlob store StoredBlob { data_, ptrs = V.fromList ptrs }
             ref <- export_Ref sup RefServer{hash, store, sup}
             pure Store'put'results{hash, ref}
@@ -119,14 +121,14 @@ attachCaps ptr mkClient = flip traverseClientsMaybePtr ptr $ \_ -> do
         Nothing -> pure RU.nullClient
         Just h  -> mkClient h
 
-type MonadResolveCaps m = MonadWriter [Hash] m
+type MonadResolveCaps m = (MonadSTM m, MonadWriter [Hash] m)
 
 resolveCaps :: MonadResolveCaps m => Maybe U.Ptr -> m (Maybe U.Ptr)
 resolveCaps = traverseClientsMaybePtr resolveClient
 
-resolveClient ::  MonadResolveCaps m => Rpc.Client -> m Rpc.Client
+resolveClient :: MonadResolveCaps m => Rpc.Client -> m Rpc.Client
 resolveClient c = do
-    -- TODO: wait for the promise to resolve if needed
-    case Rpc.unwrapServer c of
-        Just RefServer{hash} -> tell [hash] *> pure c
+    c' <- Rpc.waitClient c
+    case Rpc.unwrapServer c' of
+        Just RefServer{hash} -> tell [hash] *> pure c'
         Nothing              -> pure RU.nullClient
