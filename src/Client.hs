@@ -40,15 +40,21 @@ storeFile path store = do
         Rpc.wait =<< P.store'put store ? P.Store'put'params { value = ptr }
     pure (hash, ref)
 
+storeFileUnion :: Posix.FileStatus -> FilePath -> P.Store -> IO Files.File'
 storeFileUnion status path store =
-    if Posix.isRegularFile status then (do
+    if Posix.isRegularFile status then do
         (contentRef, size) <- withFile path ReadMode (storeHandleBlob store)
         pure $ Files.File'file Files.File'file'
                 { Files.contents = contentRef
                 , Files.size = size
-                })
+                }
+    else if Posix.isSymbolicLink status then do
+        target <- Posix.readSymbolicLink path
+        pure $ Files.File'symlink (fromString target)
+    else if Posix.isDirectory status then
+        error "TODO: directory"
     else
-        error "TODO"
+        error "TODO: unknown file type"
 
 
 storeHandleBlob :: P.Store -> Handle -> IO (P.Ref, Word64)
