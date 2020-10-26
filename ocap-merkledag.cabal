@@ -81,7 +81,7 @@ library
     , BlobStore.Files
     , Server
 
-executable omdd
+executable omd
   import: shared-opts
   build-depends: ocap-merkledag
   hs-source-dirs: exe
