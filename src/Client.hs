@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 module Client
     ( storeFile
@@ -7,7 +8,7 @@ module Client
 
 import Zhp
 
-import System.FilePath (takeFileName)
+import System.FilePath (takeFileName, (</>))
 import System.IO       (withFile)
 
 import Foreign.C.Types (CTime (..))
@@ -15,6 +16,7 @@ import Foreign.C.Types (CTime (..))
 import qualified System.Posix.Files as Posix
 
 import           Capnp     (def)
+import qualified Capnp
 import           Capnp.Rpc ((?))
 import qualified Capnp.Rpc as Rpc
 
@@ -24,8 +26,32 @@ import qualified Capnp.Gen.Util.Pure     as Util
 
 import qualified Data.ByteString as BS
 
-storeFile :: FilePath -> P.Store -> IO (P.Hash, P.Ref)
+data FileStoreError
+    = ErrUnsupportedFileType
+    deriving(Show)
+
+storeFile :: FilePath -> P.Store -> IO (Either FileStoreError Files.File)
 storeFile path store = do
+    status <- Posix.getSymbolicLinkStatus path
+    let CTime modTime = Posix.modificationTime status
+    storeFileUnion status path store >>= \case
+        Left err -> pure $ Left err
+        Right union' -> pure $ Right Files.File
+            { Files.name = fromString $ takeFileName path
+            , Files.modTime = modTime
+            , Files.permissions = fromIntegral (Posix.fileMode status) .&. 0o777
+            , Files.union' = union'
+            }
+
+storePtr :: (Capnp.Cerialize a, Capnp.ToPtr RealWorld (Capnp.Cerial a)) => a -> IO (P.Ref, P.Hash)
+storePtr value = do
+    let ptr = makePtr value
+    P.Store'put'results{hash, ref} <-
+        Rpc.wait =<< P.store'put store ? P.Store'put'params { value = ptr }
+    pure (hash, ref)
+
+storeFileRef :: FilePath -> P.Store -> IO (P.Hash, P.Ref)
+storeFileRef path store = do
     status <- Posix.getSymbolicLinkStatus path
     let CTime modTime = Posix.modificationTime status
     union' <- storeFileUnion status path store
@@ -35,12 +61,9 @@ storeFile path store = do
             , Files.permissions = fromIntegral (Posix.fileMode status) .&. 0o777
             , Files.union' = union'
             }
-    let ptr = error "TODO: turn file into an AnyPointer"
-    P.Store'put'results{hash, ref} <-
-        Rpc.wait =<< P.store'put store ? P.Store'put'params { value = ptr }
-    pure (hash, ref)
+    storePtr file store
 
-storeFileUnion :: Posix.FileStatus -> FilePath -> P.Store -> IO Files.File'
+storeFileUnion :: Posix.FileStatus -> FilePath -> P.Store -> IO (Either FileStoreError Files.File')
 storeFileUnion status path store =
     if Posix.isRegularFile status then do
         (contentRef, size) <- withFile path ReadMode (storeHandleBlob store)
@@ -51,8 +74,12 @@ storeFileUnion status path store =
     else if Posix.isSymbolicLink status then do
         target <- Posix.readSymbolicLink path
         pure $ Files.File'symlink (fromString target)
-    else if Posix.isDirectory status then
-        error "TODO: directory"
+    else if Posix.isDirectory status then do
+        files <- listDirectory path
+        refs <- for files $ \file ->
+            storeFile (path </> file) store
+        let listRef = error "TODO: store the list" refs
+        pure $ Files.File'dir listRef
     else
         error "TODO: unknown file type"
 
