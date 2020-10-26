@@ -40,6 +40,7 @@ common shared-opts
     , stm ^>=2.5
     , monad-stm ^>=0.1.0.2
     , zenhack-prelude ^>=0.1
+    , filepath ^>=1.4.2
   default-language:    Haskell2010
 
 library
@@ -62,6 +63,9 @@ library
     , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
     , Capnp.Gen.ById.Xecd50d792c3d9992
     , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
+    , Capnp.Gen.ById.Xae1c58020a8c26ad
+    , Capnp.Gen.Files
+    , Capnp.Gen.Files.Pure
 
   other-modules:
       Capnp.Gen.Storage
@@ -76,10 +80,14 @@ library
     , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
     , Capnp.Gen.ById.Xecd50d792c3d9992
     , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
+    , Capnp.Gen.ById.Xae1c58020a8c26ad
+    , Capnp.Gen.Files
+    , Capnp.Gen.Files.Pure
 
     , BlobStore
     , BlobStore.Files
     , Server
+    , Client
 
 executable omd
   import: shared-opts
