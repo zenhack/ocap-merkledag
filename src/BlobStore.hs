@@ -23,6 +23,7 @@ import Capnp.Classes (toStruct)
 import Capnp.Message (singleSegment)
 
 import qualified Capnp
+import qualified Capnp.Untyped.Pure     as U
 import           Control.Exception.Safe
 import           Crypto.Hash            (Digest, SHA256, digestFromByteString)
 import qualified Crypto.Hash            as CH
@@ -67,7 +68,7 @@ fromRaw :: RawBlobStore m -> BlobStore m
 fromRaw = BlobStore
 
 -- | Fetch a blob from the store.
-getBlob :: MonadThrow m => BlobStore m -> Hash -> m StoredBlob
+getBlob :: MonadThrow m => BlobStore m -> Hash -> m (StoredBlob (Maybe U.Ptr))
 getBlob bs hash = do
     wantHash <- require $ decodeHash hash
     bytes <- getBlobRaw (rawStore bs) wantHash
@@ -81,7 +82,7 @@ getBlob bs hash = do
     Capnp.msgToValue msg
 
 -- | Add a blob to the store, canonicalizing it and returning the resulting hash.
-putBlob :: MonadThrow m => BlobStore m -> StoredBlob -> m Hash
+putBlob :: MonadThrow m => BlobStore m -> StoredBlob (Maybe U.Ptr) -> m Hash
 putBlob bs blob = do
     -- TODO: canonicalize (needs support in haskell-capnp)
     seg :: Capnp.Segment Capnp.ConstMsg <- Capnp.createPure maxBound $ do

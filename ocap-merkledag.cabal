@@ -28,7 +28,7 @@ common shared-opts
   build-depends:
       base >=4.12 && <5
     , bytestring ^>=0.10.10
-    , capnp ^>=0.7
+    , capnp ^>=0.8
     , supervisors ^>=0.2
     , cryptonite ^>=0.27
     , directory ^>=1.3.6
@@ -48,7 +48,7 @@ library
   import: shared-opts
   hs-source-dirs:      src, gen
   build-tool-depends:
-      capnp:capnpc-haskell ^>=0.6
+      capnp:capnpc-haskell ^>=0.8
   exposed-modules:
       LibMain
   autogen-modules:

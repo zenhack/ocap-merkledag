@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
@@ -42,7 +43,7 @@ data RefServer = RefServer
 
 instance Rpc.Server IO StoreServer
 
-instance Store'server_ IO StoreServer where
+instance Store'server_ IO StoreServer (Maybe (U.Ptr)) where
     store'put = Rpc.pureHandler $
         \StoreServer{store, sup} Store'put'params{value} -> do
             (data_, ptrs) <- atomically $ runWriterT $ resolveCaps value
@@ -66,7 +67,7 @@ instance Store'server_ IO StoreServer where
 instance Rpc.Server IO RefServer where
     unwrap = cast
 
-instance Ref'server_ IO RefServer where
+instance Ref'server_ IO RefServer (Maybe U.Ptr) where
     ref'get = Rpc.pureHandler $
         \RefServer{hash, store, sup} _ -> do
             StoredBlob{data_, ptrs} <- getBlob store hash

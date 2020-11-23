@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 module Client
@@ -8,8 +9,11 @@ module Client
 
 import Zhp
 
-import System.FilePath (takeFileName, (</>))
-import System.IO       (withFile)
+import Control.Monad.ST (RealWorld)
+import Data.Maybe       (mapMaybe)
+import System.Directory (listDirectory)
+import System.FilePath  (takeFileName, (</>))
+import System.IO        (withFile)
 
 import Foreign.C.Types (CTime (..))
 
@@ -25,12 +29,15 @@ import qualified Capnp.Gen.Protocol.Pure as P
 import qualified Capnp.Gen.Util.Pure     as Util
 
 import qualified Data.ByteString as BS
+import qualified Data.Vector     as V
 
 data FileStoreError
     = ErrUnsupportedFileType
     deriving(Show)
 
-storeFile :: FilePath -> P.Store -> IO (Either FileStoreError Files.File)
+type StoreResult a = Either FileStoreError a
+
+storeFile :: FilePath -> P.Store Files.File -> IO (StoreResult Files.File)
 storeFile path store = do
     status <- Posix.getSymbolicLinkStatus path
     let CTime modTime = Posix.modificationTime status
@@ -43,48 +50,56 @@ storeFile path store = do
             , Files.union' = union'
             }
 
-storePtr :: (Capnp.Cerialize a, Capnp.ToPtr RealWorld (Capnp.Cerial a)) => a -> IO (P.Ref, P.Hash)
-storePtr value = do
-    let ptr = makePtr value
+storeValue :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a) => P.Store a -> a -> IO (P.Hash, P.Ref a)
+storeValue store value = do
     P.Store'put'results{hash, ref} <-
-        Rpc.wait =<< P.store'put store ? P.Store'put'params { value = ptr }
+        Rpc.wait =<< P.store'put store ? P.Store'put'params { value }
     pure (hash, ref)
 
-storeFileRef :: FilePath -> P.Store -> IO (P.Hash, P.Ref)
+storeFileRef :: FilePath -> P.Store Files.File -> IO (StoreResult (P.Hash, P.Ref Files.File))
 storeFileRef path store = do
     status <- Posix.getSymbolicLinkStatus path
     let CTime modTime = Posix.modificationTime status
-    union' <- storeFileUnion status path store
-    let file = Files.File
-            { Files.name = fromString $ takeFileName path
-            , Files.modTime = modTime
-            , Files.permissions = fromIntegral (Posix.fileMode status) .&. 0o777
-            , Files.union' = union'
-            }
-    storePtr file store
+    result <- storeFileUnion status path store
+    for result $ \union' -> storeValue store Files.File
+        { Files.name = fromString $ takeFileName path
+        , Files.modTime = modTime
+        , Files.permissions = fromIntegral (Posix.fileMode status) .&. 0o777
+        , Files.union' = union'
+        }
 
-storeFileUnion :: Posix.FileStatus -> FilePath -> P.Store -> IO (Either FileStoreError Files.File')
+castStore :: P.Store a -> P.Store b
+castStore = Rpc.fromClient . Rpc.toClient
+
+storeFileUnion
+    :: Posix.FileStatus
+    -> FilePath
+    -> P.Store Files.File
+    -> IO (StoreResult Files.File')
 storeFileUnion status path store =
     if Posix.isRegularFile status then do
         (contentRef, size) <- withFile path ReadMode (storeHandleBlob store)
-        pure $ Files.File'file Files.File'file'
+        pure $ Right $ Files.File'file Files.File'file'
                 { Files.contents = contentRef
                 , Files.size = size
                 }
     else if Posix.isSymbolicLink status then do
         target <- Posix.readSymbolicLink path
-        pure $ Files.File'symlink (fromString target)
+        pure $ Right $ Files.File'symlink (fromString target)
     else if Posix.isDirectory status then do
         files <- listDirectory path
-        refs <- for files $ \file ->
+        results <- for files $ \file ->
             storeFile (path </> file) store
-        let listRef = error "TODO: store the list" refs
-        pure $ Files.File'dir listRef
+        let refs = flip mapMaybe results $ \case
+                Left _  -> Nothing
+                Right v -> Just v
+        (_, ref) <- storeValue (castStore store) (V.fromList refs)
+        pure $ Right $ Files.File'dir ref
     else
-        error "TODO: unknown file type"
+        pure $ Left ErrUnsupportedFileType
 
 
-storeHandleBlob :: P.Store -> Handle -> IO (P.Ref, Word64)
+storeHandleBlob :: P.Store Files.File -> Handle -> IO (P.Ref P.BlobTree, Word64)
 storeHandleBlob store h = do
     P.Store'putBytesStreaming'results{stream, ref} <-
         Rpc.wait =<< P.store'putBytesStreaming store ? def
