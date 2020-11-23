@@ -4,7 +4,9 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 module Client
-    ( storeFile
+    ( storeFileRef
+    , StoreResult
+    , FileStoreError(..)
     ) where
 
 import Zhp
@@ -57,16 +59,8 @@ storeValue store value = do
     pure (hash, ref)
 
 storeFileRef :: FilePath -> P.Store Files.File -> IO (StoreResult (P.Hash, P.Ref Files.File))
-storeFileRef path store = do
-    status <- Posix.getSymbolicLinkStatus path
-    let CTime modTime = Posix.modificationTime status
-    result <- storeFileUnion status path store
-    for result $ \union' -> storeValue store Files.File
-        { Files.name = fromString $ takeFileName path
-        , Files.modTime = modTime
-        , Files.permissions = fromIntegral (Posix.fileMode status) .&. 0o777
-        , Files.union' = union'
-        }
+storeFileRef path store =
+    storeFile path store >>= traverse (storeValue store)
 
 castStore :: P.Store a -> P.Store b
 castStore = Rpc.fromClient . Rpc.toClient
