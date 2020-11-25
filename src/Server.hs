@@ -6,12 +6,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 module Server
-    ( StoreServer(..)
+    ( exportBlobStore
     ) where
 
 import Zhp
 
-import BlobStore
+import           BlobStore
+import qualified PutBytesStreaming
 
 import Capnp.Gen.Protocol.Pure
 import Capnp.Gen.Storage.Pure
@@ -29,9 +30,33 @@ import           Control.Monad.Writer.Strict (MonadWriter, runWriterT, tell)
 import           Data.Typeable               (Typeable, cast)
 import qualified Data.Vector                 as V
 
+-- | Export a BlobStore as a capnp client.
+exportBlobStore :: Supervisor -> BlobStore IO -> IO (Store (Maybe U.Ptr))
+exportBlobStore sup store =
+    withSelf $ \self ->
+        export_Store sup StoreServer { store, sup, self }
+
+-- | Utility function to define a client in terms of itself;
+-- the function is passed a promise client for its own return value.
+--
+-- This is useful as it gives a server a way to create objects that
+-- have capabilities to itself.
+--
+-- TODO: move this somewhere that makes more sense (probably in haskell-capnp)
+withSelf :: Rpc.IsClient c => (c -> IO c) -> IO c
+withSelf make = do
+    (p, f) <- Rpc.newPromiseClient
+    client <- make p
+    Rpc.fulfill f client
+    pure client
+
 data StoreServer = StoreServer
     { store :: BlobStore IO
     , sup   :: Supervisor
+
+    -- | A Client reference to this store. Useful when we want to
+    -- construct objects which contain capabilities to oursevles.
+    , self  :: Store (Maybe U.Ptr)
     }
 
 data RefServer = RefServer
@@ -61,8 +86,16 @@ instance Store'server_ IO StoreServer (Maybe (U.Ptr)) where
             ref <- export_Ref sup RefServer{hash, store, sup}
             pure Store'findByHash'results{ref}
 
-    store'putBytesStreaming _ = Rpc.methodUnimplemented
+    store'putBytesStreaming = Rpc.pureHandler $
+        \StoreServer{self, sup} _ -> do
+            (stream, ref) <- PutBytesStreaming.makeStream sup (castClient self)
+            pure Store'putBytesStreaming'results {stream, ref}
+
     store'subStore _ = Rpc.methodUnimplemented
+
+-- TODO: put this somewhere more sensible.
+castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
+castClient = Rpc.fromClient . Rpc.toClient
 
 instance Rpc.Server IO RefServer where
     unwrap = cast

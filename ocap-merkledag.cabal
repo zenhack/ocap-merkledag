@@ -89,6 +89,7 @@ library
     , BlobStore.Files
     , Server
     , Client
+    , PutBytesStreaming
 
 executable omd
   import: shared-opts

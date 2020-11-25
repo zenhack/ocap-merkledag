@@ -9,7 +9,7 @@ import Network.Simple.TCP (HostPreference(Host), ServiceName, connect, serve)
 import BlobStore       (fromRaw)
 import BlobStore.Files (open)
 import Client          (storeFileRef)
-import Server          (StoreServer (..))
+import Server          (exportBlobStore)
 
 import Capnp.Gen.Protocol.Pure
 
@@ -34,7 +34,7 @@ server :: FilePath -> HostPreference -> ServiceName -> IO ()
 server path host port = do
     store <- fromRaw <$> open path
     withSupervisor $ \sup -> do
-        client <- toClient <$> export_Store sup StoreServer { store, sup }
+        client <- toClient <$> exportBlobStore sup store
         serve host port $ \(sock, _addr) ->
             handleConn (socketTransport sock defaultLimit) def
                 { getBootstrap = \_ -> pure $ Just client
