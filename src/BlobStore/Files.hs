@@ -56,7 +56,7 @@ initStore FilesBlobStore{storePath} = do
     mkdirP $ storePath <> "/tmp"
     for_ [0..0xff] $ \(a :: Word8) ->
         for_ [0..0xff] $ \(b :: Word8) ->
-            mkdirP $ printf "%s/sha256/%02x/%02x" storePath a b
+            mkdirP $ printf "%s/blobs/sha256/%02x/%02x" storePath a b
 
 -- | Get a blob from the store.
 filesGetRaw :: FilesBlobStore -> KnownHash -> IO BS.ByteString
