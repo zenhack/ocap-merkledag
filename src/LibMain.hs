@@ -18,16 +18,27 @@ import Capnp.Rpc
     (ConnConfig (..), fromClient, handleConn, socketTransport, toClient)
 import Supervisors (withSupervisor)
 
+usageStr :: String
+usageStr = mconcat
+    [ "Usage:\n"
+    , "\n"
+    , "    omd serve <path-to-store> <host> <port>\n"
+    , "    omd put <host> <port> <file-to-upload>\n"
+    , "    omd help\n"
+    ]
+
 main :: IO ()
 main = do
     args <- getArgs
     case args of
+        ["help"] ->
+            putStrLn usageStr
         ["serve", path, host, port] ->
             server path (fromString host) (fromString port)
         ["put", host, port, path] ->
             putFile host (fromString port) path
         _                  -> do
-            hPutStrLn stderr "Usage: omd serve <path> <host> <port>"
+            hPutStrLn stderr usageStr
             exitFailure
 
 server :: FilePath -> HostPreference -> ServiceName -> IO ()
