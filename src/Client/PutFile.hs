@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
-module Client
+module Client.PutFile
     ( storeFileRef
     , StoreResult
     , FileStoreError(..)

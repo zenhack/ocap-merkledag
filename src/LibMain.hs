@@ -8,7 +8,7 @@ import Network.Simple.TCP (HostPreference(Host), ServiceName, connect, serve)
 
 import BlobStore       (fromRaw)
 import BlobStore.Files (open)
-import Client          (storeFileRef)
+import Client.PutFile  (storeFileRef)
 import Server          (exportBlobStore)
 
 import Capnp.Gen.Protocol.Pure
