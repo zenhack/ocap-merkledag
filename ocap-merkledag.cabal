@@ -28,6 +28,7 @@ common shared-opts
   build-depends:
       base >=4.12 && <5
     , bytestring ^>=0.10.10
+    , text ^>=1.2.3
     , capnp ^>=0.8
     , supervisors ^>=0.2
     , cryptonite ^>=0.27
@@ -89,6 +90,7 @@ library
     , BlobStore.Files
     , Server
     , Client.PutFile
+    , Client.GetFile
     , PutBytesStreaming
 
 executable omd
