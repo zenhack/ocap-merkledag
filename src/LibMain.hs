@@ -29,6 +29,7 @@ usageStr = mconcat
     , "\n"
     , "    omd serve <path-to-store> <host> <port>\n"
     , "    omd put <host> <port> <file-to-upload>\n"
+    , "    omd get <host> <port> <hash>\n"
     , "    omd help\n"
     ]
 
