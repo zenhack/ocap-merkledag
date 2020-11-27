@@ -6,15 +6,17 @@ module Client.GetFile
 
 import Zhp
 
-import           Capnp            (def)
-import           Capnp.Rpc        ((?))
-import qualified Capnp.Rpc        as Rpc
-import qualified Data.ByteString  as BS
-import qualified Data.Text        as T
-import qualified Data.Vector      as V
+import           Capnp              (def)
+import           Capnp.Rpc          ((?))
+import qualified Capnp.Rpc          as Rpc
+import qualified Data.ByteString    as BS
+import qualified Data.Text          as T
+import qualified Data.Vector        as V
 import           System.Directory
     (createDirectory, createFileLink, doesPathExist, pathIsSymbolicLink)
-import           System.FilePath  ((</>))
+import           System.FilePath    ((</>))
+import qualified System.Posix.Files as Posix
+import qualified System.Posix.Types as Posix
 
 import Capnp.Gen.Files.Pure
 import Capnp.Gen.Protocol.Pure
@@ -87,7 +89,10 @@ putBlobTree putBytes ref = do
                 putBlobTree putBytes ref
 
 updateMetadata :: Metadata -> IO ()
-updateMetadata Metadata{} = pure () -- TODO
+updateMetadata Metadata{path, permissions, modTime} = do
+    Posix.setFileMode path (Posix.CMode permissions)
+    status <- Posix.getFileStatus path
+    Posix.setFileTimes path (Posix.accessTime status) (fromIntegral modTime)
 
 saveDirectory :: Metadata -> Ref (V.Vector File) -> IO ()
 saveDirectory meta@Metadata{path} ref = do
