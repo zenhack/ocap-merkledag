@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module Client.GetFile
     ( saveFileRef
     , downloadTree
@@ -7,17 +8,17 @@ module Client.GetFile
 
 import Zhp
 
-import           Capnp              (def)
-import           Capnp.Rpc          ((?))
-import qualified Capnp.Rpc          as Rpc
-import qualified Data.ByteString    as BS
-import qualified Data.Text          as T
-import qualified Data.Vector        as V
-import           System.Directory
-    (createDirectory, createFileLink, doesPathExist, pathIsSymbolicLink)
-import           System.FilePath    ((</>))
-import qualified System.Posix.Files as Posix
-import qualified System.Posix.Types as Posix
+import           Capnp                  (def)
+import           Capnp.Rpc              ((?))
+import qualified Capnp.Rpc              as Rpc
+import           Control.Exception.Safe (SomeException, try)
+import qualified Data.ByteString        as BS
+import qualified Data.Text              as T
+import qualified Data.Vector            as V
+import           System.Directory       (createDirectory, createFileLink)
+import           System.FilePath        ((</>))
+import qualified System.Posix.Files     as Posix
+import qualified System.Posix.Types     as Posix
 
 import Capnp.Gen.Files.Pure
 import Capnp.Gen.Protocol.Pure
@@ -69,12 +70,8 @@ saveFile path file@File{modTime, union'} = do
                     , permissions = getPermissions file
                     , modTime
                     }
-            -- I'm not 100% sure what doesPathExist does if the path
-            -- is a symlink to something that doesn't exist... so we
-            -- check for symlinks separately.
-            existsSymlink <- pathIsSymbolicLink path'
-            existsPath <- doesPathExist path'
-            if existsSymlink || existsPath then
+            exists <- pathExists path'
+            if exists then
                 pure $ Left $ AlreadyExists path'
             else
                 case union' of
@@ -86,6 +83,16 @@ saveFile path file@File{modTime, union'} = do
                         Right <$> makeSymlink meta target
                     File'unknown' tag ->
                         pure $ Left $ UnknownFileType tag
+
+-- | Checks if a file exists at the given path. Unlike everything I can
+-- find in libraries, this returns True even if the file at the path is
+-- a dead symlink.
+pathExists :: FilePath -> IO Bool
+pathExists path = do
+    res <- try (Posix.getSymbolicLinkStatus path)
+    pure $ case res of
+        Left (_ :: SomeException) -> False
+        Right _                   -> True
 
 saveRegularFile :: Metadata -> Ref BlobTree -> IO ()
 saveRegularFile meta@Metadata{path} contents = do
