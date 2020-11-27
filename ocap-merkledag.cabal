@@ -10,7 +10,6 @@ author:              Ian Denhardt
 maintainer:          ian@zenhack.net
 copyright:           2020 Ian Denhardt
 category:            Database
-build-type:          Custom
 extra-source-files:
     CHANGELOG.md
   , README.md
@@ -48,26 +47,8 @@ common shared-opts
 library
   import: shared-opts
   hs-source-dirs:      src, gen
-  build-tool-depends:
-      capnp:capnpc-haskell ^>=0.8
   exposed-modules:
       LibMain
-  autogen-modules:
-      Capnp.Gen.Storage
-    , Capnp.Gen.Storage.Pure
-    , Capnp.Gen.Protocol
-    , Capnp.Gen.Protocol.Pure
-    , Capnp.Gen.Util
-    , Capnp.Gen.Util.Pure
-    , Capnp.Gen.ById.Xb4284328a4e09e0a
-    , Capnp.Gen.ById.Xb4284328a4e09e0a.Pure
-    , Capnp.Gen.ById.Xdcd5a61cb18421e5
-    , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
-    , Capnp.Gen.ById.Xecd50d792c3d9992
-    , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
-    , Capnp.Gen.ById.Xae1c58020a8c26ad
-    , Capnp.Gen.Files
-    , Capnp.Gen.Files.Pure
 
   other-modules:
       Capnp.Gen.Storage
@@ -104,10 +85,3 @@ test-suite tests
   type: exitcode-stdio-1.0
   hs-source-dirs: tests
   main-is: Main.hs
-
-custom-setup
-  setup-depends:
-      base
-    , Cabal ^>=3.2.0
-    , process ^>=1.6.8
-    , directory ^>=1.3.6

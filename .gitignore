@@ -15,3 +15,6 @@ cabal.project.local
 # Code coverage:
 .hpc
 *.tix
+
+# Generated schema files:
+gen/
