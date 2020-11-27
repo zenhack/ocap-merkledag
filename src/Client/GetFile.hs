@@ -1,7 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 module Client.GetFile
-    ( saveFile
+    ( saveFileRef
+    , downloadTree
     ) where
 
 import Zhp
@@ -20,6 +21,8 @@ import qualified System.Posix.Types as Posix
 
 import Capnp.Gen.Files.Pure
 import Capnp.Gen.Protocol.Pure
+
+import BlobStore (KnownHash (..), encodeHash)
 
 data SaveError
     = IllegalFileName T.Text
@@ -42,6 +45,18 @@ getFileName File{name}
 
 getPermissions :: File -> Word32
 getPermissions File{permissions} = permissions .&. 0o777
+
+downloadTree :: FilePath -> Store File -> KnownHash -> IO (Either SaveError ())
+downloadTree path store hash = do
+    Store'findByHash'results{ref} <- Rpc.wait =<<
+        store'findByHash store ? Store'findByHash'params { hash = encodeHash hash }
+    saveFileRef path ref
+
+saveFileRef :: FilePath -> Ref File -> IO (Either SaveError ())
+saveFileRef path ref = do
+    Ref'get'results{value} <- Rpc.wait =<< ref'get ref ? def
+    print ("saving file: ", value)
+    saveFile path value
 
 saveFile :: FilePath -> File -> IO (Either SaveError ())
 saveFile path file@File{modTime, union'} = do

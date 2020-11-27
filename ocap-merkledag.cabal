@@ -42,6 +42,7 @@ common shared-opts
     , zenhack-prelude ^>=0.1
     , filepath ^>=1.4.2
     , unix ^>=2.7.2
+    , base16-bytestring ^>=1.0.1
   default-language:    Haskell2010
 
 library
