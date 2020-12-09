@@ -19,9 +19,12 @@ import Capnp.Gen.Storage.Pure
 
 import Supervisors (Supervisor)
 
+import qualified Capnp
 import qualified Capnp.Rpc          as Rpc
 import qualified Capnp.Rpc.Untyped  as RU
 import qualified Capnp.Untyped.Pure as U
+
+import Capnp.Classes (ToPtr(toPtr))
 
 import           Control.Concurrent.STM      (atomically)
 import           Control.Monad.STM.Class     (MonadSTM)
@@ -33,30 +36,11 @@ import qualified Data.Vector                 as V
 -- | Export a BlobStore as a capnp client.
 exportBlobStore :: Supervisor -> BlobStore IO -> IO (Store (Maybe U.Ptr))
 exportBlobStore sup store =
-    withSelf $ \self ->
-        export_Store sup StoreServer { store, sup, self }
-
--- | Utility function to define a client in terms of itself;
--- the function is passed a promise client for its own return value.
---
--- This is useful as it gives a server a way to create objects that
--- have capabilities to itself.
---
--- TODO: move this somewhere that makes more sense (probably in haskell-capnp)
-withSelf :: Rpc.IsClient c => (c -> IO c) -> IO c
-withSelf make = do
-    (p, f) <- Rpc.newPromiseClient
-    client <- make p
-    Rpc.fulfill f client
-    pure client
+    export_Store sup StoreServer { store, sup }
 
 data StoreServer = StoreServer
     { store :: BlobStore IO
     , sup   :: Supervisor
-
-    -- | A Client reference to this store. Useful when we want to
-    -- construct objects which contain capabilities to oursevles.
-    , self  :: Store (Maybe U.Ptr)
     }
 
 data RefServer = RefServer
@@ -71,8 +55,7 @@ instance Rpc.Server IO StoreServer
 instance Store'server_ IO StoreServer (Maybe (U.Ptr)) where
     store'put = Rpc.pureHandler $
         \StoreServer{store, sup} Store'put'params{value} -> do
-            (data_, ptrs) <- atomically $ runWriterT $ resolveCaps value
-            hash <- putBlob store StoredBlob { data_, ptrs = V.fromList ptrs }
+            hash <- putPtr store value
             ref <- export_Ref sup RefServer{hash, store, sup}
             pure Store'put'results{hash, ref}
 
@@ -87,15 +70,30 @@ instance Store'server_ IO StoreServer (Maybe (U.Ptr)) where
             pure Store'findByHash'results{ref}
 
     store'putBytesStreaming = Rpc.pureHandler $
-        \StoreServer{self, sup} _ -> do
-            (stream, ref) <- PutBytesStreaming.makeStream sup (castClient self)
+        \srv@StoreServer{sup} _ -> do
+            (stream, ref) <- PutBytesStreaming.makeStream sup (putBlobTree srv)
             pure Store'putBytesStreaming'results {stream, ref}
 
     store'subStore _ = Rpc.methodUnimplemented
 
+putBlobTree :: StoreServer -> BlobTree -> IO (Ref BlobTree)
+putBlobTree StoreServer{sup, store} bt = do
+    rawPtr <- Capnp.createPure maxBound $ do
+        msg <- Capnp.newMessage Nothing
+        rawBt <- Capnp.cerialize msg bt
+        toPtr msg rawBt
+    ptr <- Capnp.evalLimitT maxBound $ Capnp.decerialize rawPtr
+    hash <- putPtr store ptr
+    castClient <$> export_Ref sup RefServer{hash, store, sup}
+
 -- TODO: put this somewhere more sensible.
 castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
 castClient = Rpc.fromClient . Rpc.toClient
+
+putPtr :: BlobStore IO -> Maybe U.Ptr -> IO Hash
+putPtr store value = do
+    (data_, ptrs) <- atomically $ runWriterT $ resolveCaps value
+    putBlob store StoredBlob { data_, ptrs = V.fromList ptrs }
 
 instance Rpc.Server IO RefServer where
     unwrap = cast

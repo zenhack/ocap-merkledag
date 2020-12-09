@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 -- | This module implements the core logic for Protocol.putBytesStreaming.
@@ -27,16 +28,17 @@ import qualified Data.Vector         as V
 
 -- | Create a stream client in which to write a large binary blob.
 --
--- This does essentially the same thing as calling putBytesStreaming on the store,
--- but it does so only using the other methods on that interface. This can
--- either be used to do the chunking client-side, or as part of the server
--- implementation itself.
-makeStream :: MonadSTM m => Supervisor -> Store BlobTree -> m (Util.ByteStream, Ref BlobTree)
-makeStream sup store = liftSTM $ do
+-- The returned 'Ref BlobTree' is a promise that will be resolved when done()
+-- is called on the stream.
+--
+-- The 'BlobTree' will be split as described in the documentation for
+-- Store.putBytesStreaming.
+makeStream :: Supervisor -> (BlobTree -> IO (Ref BlobTree)) -> IO (Util.ByteStream, Ref BlobTree)
+makeStream sup putBlobTree = liftSTM $ do
     (p, f) <- Rpc.newPromiseClient
     state <- newTVar []
     stream <- Util.export_ByteStream sup Stream
-        { store
+        { putBlobTree
         , state
         , result = f
         }
@@ -45,9 +47,9 @@ makeStream sup store = liftSTM $ do
 type State = [BlobTree'Branch]
 
 data Stream = Stream
-    { store  :: Store BlobTree
-    , result :: Rpc.Fulfiller (Ref BlobTree)
-    , state  :: TVar State
+    { putBlobTree :: BlobTree -> IO (Ref BlobTree)
+    , result      :: Rpc.Fulfiller (Ref BlobTree)
+    , state       :: TVar State
     }
 
 instance Rpc.Server IO Stream
@@ -57,21 +59,16 @@ instance Util.ByteStream'server_ IO Stream where
         \_ _ -> pure def
 
     byteStream'write = Rpc.pureHandler $
-        \Stream{state, store} Util.ByteStream'write'params{data_} -> do
-            Store'put'results{ref, hash = _} <- Rpc.wait =<<
-                store'put store ? Store'put'params
-                    { value = BlobTree'leaf data_
-                    }
+        \Stream{state, putBlobTree} Util.ByteStream'write'params{data_} -> do
+            ref <- putBlobTree $ BlobTree'leaf data_
             let branch = BlobTree'Branch { ref, size = fromIntegral $ BS.length data_ }
             atomically $ modifyTVar' state (branch:)
             pure def
 
     byteStream'done = Rpc.pureHandler $
-        \Stream{store, state, result} _ -> do
+        \Stream{putBlobTree, state, result} _ -> do
             parts <- atomically $ readTVar state
-            let blobTree = BlobTree'branch $ V.fromList $ reverse parts
-            Store'put'results{ref, hash = _} <- Rpc.wait =<<
-                store'put store ? Store'put'params { value = blobTree }
+            ref <- putBlobTree $ BlobTree'branch $ V.fromList $ reverse parts
             Rpc.fulfill result ref
             pure def
 
