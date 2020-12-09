@@ -12,6 +12,7 @@ module BlobStore
     , fromRaw
     , getBlob
     , putBlob
+    , hasBlob
     ) where
 
 import Zhp
@@ -60,6 +61,7 @@ instance Exception CorruptedBlob
 data RawBlobStore m = RawBlobStore
     { getBlobRaw :: KnownHash -> m BS.ByteString
     , putBlobRaw :: KnownHash -> LBS.ByteString -> m ()
+    , hasBlobRaw :: KnownHash -> m Bool
     }
 
 -- | A blob store which validates its contents.
@@ -95,6 +97,11 @@ putBlob bs blob = do
     let digest = computeHash bytes
     putBlobRaw (rawStore bs) digest bytes
     pure $ encodeHash digest
+
+hasBlob :: MonadThrow m => BlobStore m -> Hash -> m Bool
+hasBlob store hash = do
+    wantHash <- require $ decodeHash hash
+    hasBlobRaw (rawStore store) wantHash
 
 -- | Misc. helper function: unwrap an 'Either' and throw an exception on 'Left'.
 require :: (MonadThrow m, Exception e) => Either e a -> m a

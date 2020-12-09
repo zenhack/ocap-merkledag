@@ -30,7 +30,8 @@ import           Control.Exception.Safe
 import qualified Data.ByteArray         as BA
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as LBS
-import           System.Directory       (createDirectoryIfMissing)
+import           System.Directory
+    (createDirectoryIfMissing, doesPathExist)
 
 import           Crypto.Hash (Digest, SHA256, digestFromByteString)
 import qualified Crypto.Hash as CH
@@ -46,6 +47,7 @@ open storePath = do
     pure RawBlobStore
         { getBlobRaw = filesGetRaw fbs
         , putBlobRaw = filesPutRaw fbs
+        , hasBlobRaw = filesHasRaw fbs
         }
 
 -- | Initialize the store (creating the directory structure
@@ -68,6 +70,9 @@ filesPutRaw :: FilesBlobStore -> KnownHash -> LBS.ByteString -> IO ()
 filesPutRaw fbs hash bytes =
     -- FIXME: do this atomically:
     LBS.writeFile (hashPath fbs hash) bytes
+
+filesHasRaw :: FilesBlobStore -> KnownHash -> IO Bool
+filesHasRaw fbs hash = doesPathExist (hashPath fbs hash)
 
 -- | Compute the path in which to store a blob with the given digest.
 hashPath :: FilesBlobStore -> KnownHash -> FilePath

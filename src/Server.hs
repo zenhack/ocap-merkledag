@@ -17,14 +17,16 @@ import qualified PutBytesStreaming
 import Capnp.Gen.Protocol.Pure
 import Capnp.Gen.Storage.Pure
 
-import Supervisors (Supervisor)
+import Control.Exception.Safe (throwIO)
+import Supervisors            (Supervisor)
 
 import qualified Capnp
 import qualified Capnp.Rpc          as Rpc
 import qualified Capnp.Rpc.Untyped  as RU
 import qualified Capnp.Untyped.Pure as U
 
-import Capnp.Classes (ToPtr(toPtr))
+import Capnp.Classes    (ToPtr(toPtr))
+import Capnp.Rpc.Errors (eFailed)
 
 import           Control.Concurrent.STM      (atomically)
 import           Control.Monad.STM.Class     (MonadSTM)
@@ -61,11 +63,10 @@ instance Store'server_ IO StoreServer (Maybe (U.Ptr)) where
 
     store'findByHash = Rpc.pureHandler $
         \StoreServer{store, sup} Store'findByHash'params{hash} -> do
-            -- Make sure the blob is present. TODO: maybe add a helper
-            -- for the store that checks for existence without actually
-            -- loading it, which is wasteful here.
-            StoredBlob{} <- getBlob store hash
-
+            -- Make sure the blob is present.
+            found <- hasBlob store hash
+            unless found $
+                throwIO $ eFailed "Not found"
             ref <- export_Ref sup RefServer{hash, store, sup}
             pure Store'findByHash'results{ref}
 
