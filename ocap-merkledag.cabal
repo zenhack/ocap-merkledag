@@ -26,6 +26,7 @@ common shared-opts
     , OverloadedStrings
   build-depends:
       base >=4.12 && <5
+    , async ^>=2.2.2
     , bytestring ^>=0.10.10
     , text ^>=1.2.3
     , capnp ^>=0.8

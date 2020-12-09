@@ -11,11 +11,12 @@ module Client.PutFile
 
 import Zhp
 
-import Control.Monad.ST (RealWorld)
-import Data.Maybe       (mapMaybe)
-import System.Directory (listDirectory)
-import System.FilePath  (takeFileName, (</>))
-import System.IO        (withFile)
+import Control.Concurrent.Async (forConcurrently)
+import Control.Monad.ST         (RealWorld)
+import Data.Maybe               (mapMaybe)
+import System.Directory         (listDirectory)
+import System.FilePath          (takeFileName, (</>))
+import System.IO                (withFile)
 
 import Foreign.C.Types (CTime (..))
 
@@ -82,7 +83,7 @@ storeFileUnion status path store =
         pure $ Right $ Files.File'symlink (fromString target)
     else if Posix.isDirectory status then do
         files <- listDirectory path
-        results <- for files $ \file ->
+        results <- forConcurrently files $ \file ->
             storeFile (path </> file) store
         let refs = flip mapMaybe results $ \case
                 Left _  -> Nothing
