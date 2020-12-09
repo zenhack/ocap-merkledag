@@ -86,7 +86,6 @@ getBlob bs hash = do
 -- | Add a blob to the store, canonicalizing it and returning the resulting hash.
 putBlob :: MonadThrow m => BlobStore m -> StoredBlob (Maybe U.Ptr) -> m Hash
 putBlob bs blob = do
-    -- TODO: canonicalize (needs support in haskell-capnp)
     seg :: Capnp.Segment Capnp.ConstMsg <- Capnp.createPure maxBound $ do
         msg <- Capnp.newMessage Nothing
         rawBlob <- Capnp.cerialize msg blob
