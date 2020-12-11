@@ -76,10 +76,16 @@ library
     , Client.GetFile
     , PutBytesStreaming
 
+executable omd-server
+  import: shared-opts
+  build-depends: ocap-merkledag
+  hs-source-dirs: exe/server
+  main-is: Main.hs
+
 executable omd
   import: shared-opts
   build-depends: ocap-merkledag
-  hs-source-dirs: exe
+  hs-source-dirs: exe/client
   main-is: Main.hs
 
 test-suite tests
