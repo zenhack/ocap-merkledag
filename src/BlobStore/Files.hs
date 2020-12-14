@@ -10,12 +10,13 @@ module BlobStore.Files
 -- * `tmp/` - empty at rest but used for temporary scratch space.
 -- * `blobs/` - stores the actual on-disk blobs
 --   * `sha256/` - blobs stored with a sha256 digest (currently the only
---     supported hash). Within this there are 256 directores named `00`
---     to `ff`, where each corresponds to the first byte of the hash.
---     each of those has another 256 directories with the same name
+--     supported hash). Within this there are up to 256 directores named
+--     `00` to `ff`, where each corresponds to the first byte of the hash.
+--     each of those has another up to 256 directories with the same name
 --     corresponding to the second byte of the hash, and each of those
 --     contains regular files with the actual contents of the blobs,
---     named with the remainder of the hash in hexidecimal.
+--     named with the remainder of the hash in hexidecimal. The directories
+--     are created on demand, the first time a blob would go in them.
 
 import Zhp
 
@@ -32,6 +33,8 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as LBS
 import           System.Directory
     (createDirectoryIfMissing, doesPathExist)
+import           System.FilePath        (takeDirectory)
+import           System.IO.Error        (isDoesNotExistError)
 
 import           Crypto.Hash (Digest, SHA256, digestFromByteString)
 import qualified Crypto.Hash as CH
@@ -54,11 +57,10 @@ open storePath = do
 -- described above).
 initStore :: FilesBlobStore -> IO ()
 initStore FilesBlobStore{storePath} = do
-    let mkdirP = createDirectoryIfMissing True
     mkdirP $ storePath <> "/tmp"
-    for_ [0..0xff] $ \(a :: Word8) ->
-        for_ [0..0xff] $ \(b :: Word8) ->
-            mkdirP $ printf "%s/blobs/sha256/%02x/%02x" storePath a b
+    mkdirP $ storePath <> "/blobs/sha256"
+
+mkdirP = createDirectoryIfMissing True
 
 -- | Get a blob from the store.
 filesGetRaw :: FilesBlobStore -> KnownHash -> IO BS.ByteString
@@ -67,9 +69,21 @@ filesGetRaw fbs hash =
 
 -- | Put a blob into the store.
 filesPutRaw :: FilesBlobStore -> KnownHash -> LBS.ByteString -> IO ()
-filesPutRaw fbs hash bytes =
+filesPutRaw fbs hash bytes = do
     -- FIXME: do this atomically:
-    LBS.writeFile (hashPath fbs hash) bytes
+    let path = hashPath fbs hash
+        writeFile = LBS.writeFile (hashPath fbs hash) bytes
+    res <- try writeFile
+    case res of
+        Right () -> pure ()
+        Left e
+            | isDoesNotExistError e -> do
+                -- lazily create parent directories as needed:
+                mkdirP (takeDirectory path)
+                writeFile
+            | otherwise ->
+                throwIO e
+
 
 filesHasRaw :: FilesBlobStore -> KnownHash -> IO Bool
 filesHasRaw fbs hash = doesPathExist (hashPath fbs hash)
