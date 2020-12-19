@@ -83,7 +83,7 @@ storeFileUnion status path store =
         pure $ Right $ Files.File'symlink (fromString target)
     else if Posix.isDirectory status then do
         files <- listDirectory path
-        results <- forConcurrently files $ \file ->
+        results <- for files $ \file ->
             storeFile (path </> file) store
         let refs = flip mapMaybe results $ \case
                 Left _  -> Nothing
