@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -82,18 +83,18 @@ getBlob bs hash = do
             { expectedHash = wantHash
             , actualHash = gotHash
             }
-    msg <- singleSegment <$> Capnp.fromByteString bytes
+    let msg = singleSegment $ Capnp.fromByteString bytes
     Capnp.msgToValue msg
 
 -- | Add a blob to the store, canonicalizing it and returning the resulting hash.
 putBlob :: MonadThrow m => BlobStore m -> StoredBlob (Maybe U.Ptr) -> m Hash
 putBlob bs blob = do
-    seg :: Capnp.Segment Capnp.ConstMsg <- Capnp.createPure maxBound $ do
+    seg :: Capnp.Segment 'Capnp.Const <- Capnp.createPure maxBound $ do
         msg <- Capnp.newMessage Nothing
         rawBlob <- Capnp.cerialize msg blob
         (_, seg) <- Capnp.canonicalize (toStruct rawBlob)
         pure seg
-    bytes <- LBS.fromStrict <$> Capnp.toByteString seg
+    let bytes = LBS.fromStrict $ Capnp.toByteString seg
     let digest = computeHash bytes
     putBlobRaw (rawStore bs) digest bytes
     pure $ encodeHash digest
