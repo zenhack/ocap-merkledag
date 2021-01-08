@@ -9,26 +9,28 @@ using Path = List(Text);
 
 
 struct StoreInfo {
-  blobFile :group {
-    path @2 :Path;
-    # Path to the file containing all of the blobs, relative to the root directory.
+  blobFile @0 :Arena;
+
+  mapFile :group {
+    arena @2 :Arena;
+
+    rootAddr @1 :Addr(TriePtr(StoredBlob(AnyPointer)));
+    # The location of the root of the blob map.
+  }
+}
+
+struct Arena {
+    # An on-disk arena in which to allocate storage.
+
+    path @1 :Path;
+    # Path to the file, relative to the root directory.
 
     size @0 :UInt64;
     # The last known size of the file. If, on startup, the file is longer than
     # this, it means there were in-progress writes that were not committed;
     # in this case the file should just be truncated to discard the incomplete
     # work.
-  }
 
-  mapFile :group {
-    path @3 :Path;
-    size @4 :UInt64;
-    # Analagous to the same fields in `blobFile`, but this file contains
-    # interior nodes of a Trie mapping hashes to locations in `blobFile`.
-
-    rootAddr @1 :Addr(TriePtr(StoredBlob(AnyPointer)));
-    # The location of the root of the blob map.
-  }
 }
 
 struct Addr(T) {

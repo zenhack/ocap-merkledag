@@ -3,6 +3,7 @@
 module BlobStore.BigFile.FileArena
     ( FileArena
     , fromFd
+    , open
     , readMsg
     , writeMsg
     ) where
@@ -13,12 +14,15 @@ import Capnp.Bits                 (ByteCount)
 import Capnp.Gen.DiskBigfile.Pure
 import Control.Concurrent.STM
 import Control.Exception.Safe     (throwIO)
+import Data.Acquire               (Acquire)
 import System.Posix.Types         (Fd, FileOffset)
 
 import qualified Capnp
 import qualified Capnp.Message        as M
+import qualified Data.Acquire         as Acquire
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as LBS
+import qualified System.Posix.IO      as PIO
 import qualified Unix
 
 
@@ -30,8 +34,19 @@ data FileArena = FileArena
     , nextAlloc :: TVar FileOffset
     }
 
+acquireFd path omode fmode flags =
+    Acquire.mkAcquire
+        (PIO.openFd path omode fmode flags)
+        PIO.closeFd
+
+open :: FilePath -> FileOffset -> Acquire FileArena
+open path off = do
+    fd <- acquireFd path PIO.ReadWrite (Just 0o700) PIO.defaultFileFlags
+    liftIO $ fromFd fd off
+
 fromFd :: Fd -> FileOffset -> IO FileArena
 fromFd fd off = do
+    Unix.ftruncateExn fd off
     nextAlloc <- newTVarIO off
     pure FileArena { fd, nextAlloc }
 
