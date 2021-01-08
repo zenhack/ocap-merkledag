@@ -27,8 +27,8 @@ common shared-opts
   build-depends:
       base >=4.12 && <5
     , async ^>=2.2.2
-    , bytestring ^>=0.10.10
-    , text ^>=1.2.3
+    , bytestring >=0.10 && <0.12
+    , text >=1.2 && <2.0
     , capnp ^>=0.10
     , supervisors ^>=0.2
     , cryptonite ^>=0.27
@@ -44,6 +44,7 @@ common shared-opts
     , filepath ^>=1.4.2
     , unix ^>=2.7.2
     , base16-bytestring ^>=1.0.1
+    , unix-simple ^>=0.1
   default-language:    Haskell2010
 
 library
@@ -53,21 +54,25 @@ library
       LibMain
 
   other-modules:
-      Capnp.Gen.Storage
-    , Capnp.Gen.Storage.Pure
-    , Capnp.Gen.Protocol
-    , Capnp.Gen.Protocol.Pure
-    , Capnp.Gen.Util
-    , Capnp.Gen.Util.Pure
+      Capnp.Gen.ById.X96e412eec2bcb356
+    , Capnp.Gen.ById.Xae1c58020a8c26ad
     , Capnp.Gen.ById.Xb4284328a4e09e0a
     , Capnp.Gen.ById.Xb4284328a4e09e0a.Pure
     , Capnp.Gen.ById.Xdcd5a61cb18421e5
     , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
     , Capnp.Gen.ById.Xecd50d792c3d9992
     , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
-    , Capnp.Gen.ById.Xae1c58020a8c26ad
+    , Capnp.Gen.DiskBigfile
+    , Capnp.Gen.DiskBigfile.Pure
     , Capnp.Gen.Files
     , Capnp.Gen.Files.Pure
+    , Capnp.Gen.Protocol
+    , Capnp.Gen.Protocol.Pure
+    , Capnp.Gen.Storage
+    , Capnp.Gen.Storage.Pure
+    , Capnp.Gen.Util
+    , Capnp.Gen.Util.Pure
+
 
     , BlobStore
     , BlobStore.BigFile
