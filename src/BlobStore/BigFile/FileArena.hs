@@ -1,14 +1,20 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module BlobStore.BigFile.FileArena
     ( FileArena
     , fromFd
     ) where
 
+import Zhp hiding (length)
+
 import Capnp.Bits                 (ByteCount)
 import Capnp.Gen.DiskBigfile.Pure
 import Capnp.Message              (singleSegment)
+import Control.Concurrent.STM     (STM, TVar)
+import System.Posix.Types         (Fd, FileOffset)
 
 import qualified Capnp
 import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Lazy       as LBS
 import qualified System.Posix.IO.ByteString as BIO
 
 
@@ -31,13 +37,13 @@ alloc count FileArena{nextAlloc} = do
     writeTVar nextAlloc $! nextAlloc + count
     pure offset
 
-writeBS :: BS.ByteString -> FileArena -> IO Offset
+writeBS :: BS.ByteString -> FileArena -> IO FileOffset
 writeBS bs = writeLBS (LBS.fromStrict bs)
 
-writeLBS :: LBS.ByteString -> FileArena -> IO Offset
+writeLBS :: LBS.ByteString -> FileArena -> IO FileOffset
 writeLBS lbs arena = do
     offset <- atomically $ alloc $ ByteCount $ LBS.length lbs
-    fdPwritev fd (LBS.chunks lbs) offset
+    fdPwritev fd (LBS.toChunks lbs) offset
     pure offset
 
 -- TODO: replace this with a wrapper for the pwritev() syscall, maybe pushing one

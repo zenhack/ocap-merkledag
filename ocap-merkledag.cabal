@@ -70,6 +70,8 @@ library
     , Capnp.Gen.Files.Pure
 
     , BlobStore
+    , BlobStore.BigFile
+    , BlobStore.BigFile.FileArena
     , BlobStore.Files
     , Server
     , Client.PutFile
