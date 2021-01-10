@@ -78,6 +78,7 @@ library
     , BlobStore
     , BlobStore.BigFile
     , BlobStore.BigFile.FileArena
+    , BlobStore.BigFile.MemTrie
     , BlobStore.Files
     , Server
     , Client.PutFile
