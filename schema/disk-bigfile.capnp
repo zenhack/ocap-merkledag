@@ -14,8 +14,8 @@ struct StoreInfo {
   mapFile :group {
     arena @2 :Arena;
 
-    rootAddr @1 :Addr(TriePtr(StoredBlob(AnyPointer)));
-    # The location of the root of the blob map.
+    mapRoot @1 :TriePtr(StoredBlob(AnyPointer));
+    # The the root of the blob map.
   }
 }
 
@@ -47,6 +47,10 @@ struct Addr(T) {
   # If true, this message is "flat," i.e. there is no segment header.
 }
 
+struct TrieBranch(T) {
+  kids @0 :List(TriePtr(T));
+}
+
 struct TriePtr(T) {
   # A reference to a node in a trie, with byte sequences as keys, and values
   # of type `T`.
@@ -61,8 +65,9 @@ struct TriePtr(T) {
       # The remainder of the key, beyond what was needed to find this node.
     }
     branch :group {
-      # This points to a list of children,
-      addr @2 :Addr(List(TriePtr(T)));
+      # An interior node; contains a list of pointers to this node's
+      # children.
+      addr @2 :Addr(TrieBranch(T));
     }
     empty @3 :Void;
     # This is an empty trie

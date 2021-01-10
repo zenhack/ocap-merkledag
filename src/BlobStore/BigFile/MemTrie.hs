@@ -1,20 +1,27 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 module BlobStore.BigFile.MemTrie
     ( MemTrie
     , Key
     , makeKey
     , focus
+    , lookup
     , insert
-    , update
     , remove
+    , mergeToDisk
     ) where
 
+import qualified BlobStore.BigFile.FileArena as FA
+import qualified Capnp
+import           Capnp.Gen.DiskBigfile.Pure
 import           Control.Concurrent.STM
-import qualified Data.ByteString        as BS
-import qualified Data.Vector            as V
+import           Control.Monad.ST            (RealWorld)
+import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Lazy        as LBS
+import qualified Data.Vector                 as V
 import           Zhp
-
-import qualified Capnp.Gen.DiskBigfile.Pure as DBF
 
 newtype Key a = Key BS.ByteString
     deriving(Eq)
@@ -22,23 +29,23 @@ newtype Key a = Key BS.ByteString
 expectedLength :: Int
 expectedLength = 256 `div` 8
 
-uncons :: Key -> (Int, Key)
+uncons :: Key a -> (Int, Key a)
 uncons (Key bytes) =
     case BS.uncons bytes of
-        Just (b, bs) -> Just (fromIntegral b, Key bs)
+        Just (b, bs) -> (fromIntegral b, Key bs)
         Nothing      -> error "BUG: uncons on empty key."
 
-makeKey :: BS.ByteString -> Maybe Key
+makeKey :: BS.ByteString -> Maybe (Key a)
 makeKey bytes
     | BS.length bytes == expectedLength = Just (Key bytes)
     | otherwise = Nothing
 
 data MemTrie a
-    = Leaf BS.ByteString a
+    = Leaf (Key a) a
     | Branch (V.Vector (MemTrie a))
     | Empty
 
-focus :: BS.ByteString -> MemTrie a -> (Maybe a, Maybe a -> MemTrie a)
+focus :: Key a -> MemTrie a -> (Maybe a, Maybe a -> MemTrie a)
 focus key Empty =
     ( Nothing
     , \case
@@ -55,7 +62,7 @@ focus key (Leaf key' v')
     | otherwise =
         ( Nothing
         , \case
-            Nothing -> Leaf key' value
+            Nothing -> Leaf key' v'
             Just v ->
                 let (k, ks) = uncons key
                     (k', ks') = uncons key'
@@ -73,86 +80,72 @@ focus key (Branch kids) =
         (value, mkKid) = focus bs (kids V.! b)
     in
     ( value
-    , \v -> kids V.// [(fromIntegral b, mkKid v)]
+    , \v -> Branch $ kids V.// [(fromIntegral b, mkKid v)]
     )
 
-lookup :: Key -> MemTrie a -> Maybe a
+lookup :: Key a -> MemTrie a -> Maybe a
 lookup key trie =
     fst (focus key trie)
 
-insert :: Key -> a -> MemTrie a -> MemTrie a
+insert :: Key a -> a -> MemTrie a -> MemTrie a
 insert key value trie =
     snd (focus key trie) (Just value)
 
-remove :: Key -> a -> MemTrie a -> MemTrie a
+remove :: Key a -> MemTrie a -> MemTrie a
 remove key trie =
     snd (focus key trie) Nothing
 
-flush :: MemTrie (Addr a) -> DBF.TriePtr a -> FA.FileArena (DBF.TriePtr a) -> IO (DBF.TriePtr a)
-flush mem disk arena =
+mergeToDisk ::
+    ( Capnp.ReadParam a
+    , Capnp.WriteParam RealWorld a
+    ) => MemTrie (Addr a) -> TriePtr a -> FA.FileArena (TrieBranch a) -> IO (TriePtr a)
+mergeToDisk mem disk arena =
     fst <$> go mem disk
   where
-    go Empty disk = pure (disk, False)
-    go mem DBF.TriePtr'empty ->
-        writeTo mem arena
-    go mem
-        -- Optimization: for an empty MemTrie, we don't need to load the disk trie at all.
+    go Empty disk =
         pure (disk, False)
-    go mem diskAddr = do
-        disk <- FA.readValue diskAddr arena
-        case (mem, disk) of
-            (Empty, _) -> pure (diskAddr, False)
-            (_, DBF.TriePtr'empty) -> do
-                -- TODO(perf): specialize (empty, empty)
-                writeTo mem arena
-    Empty disk = pure (disk, False)
+    go mem TriePtr'empty = do
+        ret <- writeTo mem arena
+        pure (ret, ret /= TriePtr'empty)
+    go mem@(Leaf (Key k) v) (TriePtr'leaf TriePtr'leaf'{addr, keySuffix})
+        | k == keySuffix = do
+            ret <- writeTo mem arena
+            pure (ret, True)
+        | otherwise = do
+            ret <- writeTo (insert (Key keySuffix) addr mem) arena
+            pure (ret, True)
+    go (Branch memKids) disk@(TriePtr'branch (TriePtr'branch' branchAddr)) = do
+        TrieBranch diskKids <- FA.readValue branchAddr arena
+        results <- sequence $ V.zipWith go memKids diskKids
+        let changed = any snd results
+        if changed
+            then (do
+                let diskKids' = V.map fst results
+                lbs <- Capnp.evalLimitT Capnp.defaultLimit $ Capnp.valueToLBS $ TrieBranch diskKids'
+                off <- FA.writeLBS lbs arena
+                pure
+                    ( TriePtr'branch $ TriePtr'branch' Addr
+                        { offset = fromIntegral off
+                        , length = fromIntegral $ LBS.length lbs
+                        , flatMessage = False
+                        }
+                    , True
+                    )
+                )
+            else
+                pure (disk, False)
 
-{-
-flush :: TVar (MemTrie (Addr a)) -> Addr (DBF.TriePtr a) -> FA.FileArena (DBF.TriePtr a) -> IO (Addr (DBF.TriePtr a))
-flush memVar diskAddr fa = do
-    mem <- readTVar memVar
-    disk <- FA.readValue diskAddr fa
-    case (mem, disk) of
-        (Empty, _) -> pure disk
-        (Leaf keySuffix addr, TriePtr'empty) -> do
-            msg <- Capnp.createPure maxBound $ do
-                Capnp.valueToMsg TriePtr'leaf{leaf, keySuffix}
-            FA.writeMsg msg fa
-        (Branch kids, TriePtr'empty) -> do
-            error "TODO"
-
-lookup :: BS.ByteString -> MemTrie a -> STM (Maybe a)
-lookup seek (Leaf k v)
-    | seek == k = pure $ Just v
-    | otherwise = pure Nothing
-lookup seek (Branch kids) = do
-    let (b, bs) = uncons seek
-    kid <- readTVar $ kids V.! fromIntegral b
-    lookup bs kid
-lookup _ Empty = pure Nothing
-
-uncons k = case BS.uncons k of
-    Just v  -> v
-    Nothing -> error "Key is the wrong length" -- TODO: find a way to rule this out
-
-insert :: BS.ByteString -> a -> TVar (MemTrie a) -> STM ()
-insert key value var = do
-    trie <- readTVar var
-    case trie of
-        Empty ->
-            writeTVar var $! Leaf key value
-
-        Leaf key' _ | key == key' ->
-            writeTVar var $! Leaf key value
-
-        Leaf key' value' -> do
-            kids <- V.generateM 256 $ \_ -> newTVar Empty
-            let (b, bs) = uncons key'
-            writeTVar (kids V.! fromIntegral b) $ Leaf bs value'
-            writeTVar var (Branch kids)
-            insert key value var
-
-        Branch kids ->
-            let (b, bs) = uncons key in
-            insert bs value (kids V.! fromIntegral b)
--}
+writeTo :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a)
+    => MemTrie (Addr a) -> FA.FileArena (TrieBranch a) -> IO (TriePtr a)
+writeTo Empty _ = pure TriePtr'empty
+writeTo (Leaf (Key keySuffix) addr) _ =
+    pure $ TriePtr'leaf TriePtr'leaf'{keySuffix, addr}
+writeTo (Branch kids) arena = do
+    kids' <- traverse (`writeTo` arena) kids
+    lbs <- Capnp.evalLimitT Capnp.defaultLimit $ Capnp.valueToLBS (TrieBranch kids')
+    off <- FA.writeLBS lbs arena
+    pure $ TriePtr'branch $ TriePtr'branch' Addr
+        { offset = fromIntegral off
+        , length = fromIntegral $ LBS.length lbs
+        , flatMessage = False
+        }

@@ -1,4 +1,5 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 module BlobStore.BigFile
     (
     ) where
@@ -20,12 +21,10 @@ import qualified StmContainers.Map           as M
 import           Zhp                         hiding (length)
 
 open :: FilePath -> StoreInfo -> Acquire Store
-open path StoreInfo{blobFile, mapFile=StoreInfo'mapFile'{arena, rootAddr}} = do
+open path StoreInfo{blobFile, mapFile=StoreInfo'mapFile'{arena, mapRoot}} = do
     blobArena <- openArena path blobFile
     spineArena <- openArena path arena
     liftIO $ do
-        rootMsg <- FA.readMsg rootAddr spineArena
-        mapRoot <- evalLimitT defaultLimit $ msgToValue rootMsg
         addrCache <- atomically M.new
         pure Store
             { blobArena
