@@ -34,7 +34,7 @@ open path StoreInfo{blobFile, mapFile=StoreInfo'mapFile'{arena, rootAddr}} = do
             , addrCache
             }
 
-openArena :: FilePath -> Arena -> Acquire FA.FileArena
+openArena :: FilePath -> Arena -> Acquire (FA.FileArena a)
 openArena rootPath Arena{path, size} =
     FA.open
         (rootPath <> "/" <> (T.unpack $ T.intercalate "/" $ V.toList path))
@@ -44,8 +44,8 @@ type Leaf = StoredBlob (Maybe (U.Ptr))
 type Branch = TriePtr Leaf
 
 data Store = Store
-    { blobArena  :: FA.FileArena
-    , spineArena :: FA.FileArena
+    { blobArena  :: FA.FileArena Leaf
+    , spineArena :: FA.FileArena Branch
     , mapRoot    :: Branch
     , addrCache  :: M.Map KnownHash (Addr (Maybe U.Ptr))
     }

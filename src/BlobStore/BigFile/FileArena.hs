@@ -1,10 +1,12 @@
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DataKinds        #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns   #-}
 module BlobStore.BigFile.FileArena
     ( FileArena
     , fromFd
     , open
     , readMsg
+    , readValue
     , writeMsg
     , writeBS
     ) where
@@ -12,7 +14,9 @@ module BlobStore.BigFile.FileArena
 import Zhp hiding (length)
 
 import Capnp.Bits                 (ByteCount)
+import Capnp.Classes              (FromStruct(..))
 import Capnp.Gen.DiskBigfile.Pure
+import Capnp.Untyped              (rootPtr)
 import Control.Concurrent.STM
 import Control.Exception.Safe     (throwIO)
 import Data.Acquire               (Acquire)
@@ -30,7 +34,7 @@ import qualified Unix
 byteCountToOffset :: ByteCount -> FileOffset
 byteCountToOffset = fromIntegral
 
-data FileArena = FileArena
+data FileArena a = FileArena
     { fd        :: Fd
     , nextAlloc :: TVar FileOffset
     }
@@ -40,27 +44,27 @@ acquireFd path omode fmode flags =
         (PIO.openFd path omode fmode flags)
         PIO.closeFd
 
-open :: FilePath -> FileOffset -> Acquire FileArena
+open :: FilePath -> FileOffset -> Acquire (FileArena a)
 open path off = do
     fd <- acquireFd path PIO.ReadWrite (Just 0o700) PIO.defaultFileFlags
     liftIO $ fromFd fd off
 
-fromFd :: Fd -> FileOffset -> IO FileArena
+fromFd :: Fd -> FileOffset -> IO (FileArena a)
 fromFd fd off = do
     Unix.ftruncateExn fd off
     nextAlloc <- newTVarIO off
     pure FileArena { fd, nextAlloc }
 
-alloc :: ByteCount -> FileArena -> STM FileOffset
+alloc :: ByteCount -> FileArena a -> STM FileOffset
 alloc count FileArena{nextAlloc} = do
     offset <- readTVar nextAlloc
     writeTVar nextAlloc $! offset + fromIntegral count
     pure offset
 
-writeBS :: BS.ByteString -> FileArena -> IO FileOffset
+writeBS :: BS.ByteString -> FileArena a -> IO FileOffset
 writeBS bs = writeLBS (LBS.fromStrict bs)
 
-writeLBS :: LBS.ByteString -> FileArena -> IO FileOffset
+writeLBS :: LBS.ByteString -> FileArena a -> IO FileOffset
 writeLBS lbs arena@FileArena{fd} = do
     offset <- atomically $ alloc (fromIntegral $ LBS.length lbs) arena
     pwritev fd (LBS.toChunks lbs) offset
@@ -80,14 +84,14 @@ pwritev fd chunks offset = case chunks of
 
 ----
 
-readMsg :: Addr a -> FileArena -> IO (Capnp.Message 'Capnp.Const)
+readMsg :: Addr a -> FileArena a -> IO (Capnp.Message 'Capnp.Const)
 readMsg Addr{offset, length, flatMessage} FileArena{fd} = do
     bytes <- Unix.preadExn fd (fromIntegral length) (fromIntegral offset)
     if flatMessage
         then pure $ M.singleSegment $ Capnp.fromByteString bytes
         else Capnp.bsToMsg bytes
 
-writeMsg :: Capnp.Message 'Capnp.Const -> FileArena -> IO (Addr a)
+writeMsg :: Capnp.Message 'Capnp.Const -> FileArena a -> IO (Addr a)
 writeMsg msg arena = do
     nsegs <- Capnp.numSegs msg
     if nsegs == 1
@@ -97,7 +101,7 @@ writeMsg msg arena = do
         else
             writeMultiSegment msg arena
 
-writeSingleSegment :: Capnp.Segment 'Capnp.Const -> FileArena -> IO (Addr a)
+writeSingleSegment :: Capnp.Segment 'Capnp.Const -> FileArena a -> IO (Addr a)
 writeSingleSegment seg arena = do
     let bs = Capnp.toByteString seg
     offset <- writeBS bs arena
@@ -107,7 +111,7 @@ writeSingleSegment seg arena = do
         , flatMessage = True
         }
 
-writeMultiSegment :: Capnp.Message 'Capnp.Const -> FileArena -> IO (Addr a)
+writeMultiSegment :: Capnp.Message 'Capnp.Const -> FileArena a -> IO (Addr a)
 writeMultiSegment msg arena = do
     let lbs = Capnp.msgToLBS msg
     offset <- writeLBS lbs arena
@@ -116,3 +120,8 @@ writeMultiSegment msg arena = do
         , length = fromIntegral $ LBS.length lbs
         , flatMessage = False
         }
+
+readValue :: FromStruct 'Capnp.Const a => Addr a -> FileArena a -> IO a
+readValue addr fa = do
+    msg <- readMsg addr fa
+    Capnp.evalLimitT Capnp.defaultLimit $ rootPtr msg >>= fromStruct
