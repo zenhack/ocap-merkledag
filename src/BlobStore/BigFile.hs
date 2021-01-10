@@ -6,7 +6,7 @@ module BlobStore.BigFile
 import qualified BlobStore.BigFile.FileArena as FA
 import           Capnp
     (defaultLimit, evalLimitT, msgToValue)
-import           Capnp.Bits                  (ByteCount (..))
+import           Capnp.Bits                  (ByteCount(..))
 import           Capnp.Gen.DiskBigfile.Pure
 import           Capnp.Gen.Storage.Pure
 import qualified Capnp.Untyped.Pure          as U
