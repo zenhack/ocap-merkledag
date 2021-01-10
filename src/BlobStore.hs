@@ -61,7 +61,7 @@ instance Exception CorruptedBlob
 -- this in a 'BlobStore' via 'fromRaw' before using it.
 data RawBlobStore m = RawBlobStore
     { getBlobRaw :: KnownHash -> m BS.ByteString
-    , putBlobRaw :: KnownHash -> LBS.ByteString -> m ()
+    , putBlobRaw :: KnownHash -> BS.ByteString -> m ()
     , hasBlobRaw :: KnownHash -> m Bool
     }
 
@@ -77,7 +77,7 @@ getBlob :: MonadThrow m => BlobStore m -> Hash -> m (StoredBlob (Maybe U.Ptr))
 getBlob bs hash = do
     wantHash <- require $ decodeHash hash
     bytes <- getBlobRaw (rawStore bs) wantHash
-    let gotHash = computeHash (LBS.fromStrict bytes)
+    let gotHash = computeHash bytes
     when (wantHash /= gotHash) $
         throwM CorruptedBlob
             { expectedHash = wantHash
@@ -94,7 +94,7 @@ putBlob bs blob = do
         rawBlob <- Capnp.cerialize msg blob
         (_, seg) <- Capnp.canonicalize (toStruct rawBlob)
         pure seg
-    let bytes = LBS.fromStrict $ Capnp.toByteString seg
+    let bytes = Capnp.toByteString seg
     let digest = computeHash bytes
     putBlobRaw (rawStore bs) digest bytes
     pure $ encodeHash digest
@@ -125,5 +125,5 @@ encodeHash (Sha256 digest) = Hash
     }
 
 -- | Compute the hash of a lazy bytestring.
-computeHash :: LBS.ByteString -> KnownHash
-computeHash bytes = Sha256 $ CH.hashlazy bytes
+computeHash :: BS.ByteString -> KnownHash
+computeHash bytes = Sha256 $ CH.hash bytes

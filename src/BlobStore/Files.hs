@@ -68,11 +68,11 @@ filesGetRaw fbs hash =
     BS.readFile (hashPath fbs hash)
 
 -- | Put a blob into the store.
-filesPutRaw :: FilesBlobStore -> KnownHash -> LBS.ByteString -> IO ()
+filesPutRaw :: FilesBlobStore -> KnownHash -> BS.ByteString -> IO ()
 filesPutRaw fbs hash bytes = do
     -- FIXME: do this atomically:
     let path = hashPath fbs hash
-        writeFile = LBS.writeFile (hashPath fbs hash) bytes
+        writeFile = BS.writeFile (hashPath fbs hash) bytes
     res <- try writeFile
     case res of
         Right () -> pure ()
