@@ -6,6 +6,7 @@ module BlobStore.BigFile
 
 import           BlobStore
 import qualified BlobStore.BigFile.FileArena as FA
+import qualified BlobStore.BigFile.MemTrie   as MemTrie
 import           Capnp
     (defaultLimit, evalLimitT, msgToValue)
 import           Capnp.Bits                  (ByteCount(..))
@@ -17,7 +18,6 @@ import           Data.Acquire                (Acquire)
 import qualified Data.ByteString             as BS
 import qualified Data.Text                   as T
 import qualified Data.Vector                 as V
-import qualified StmContainers.Map           as M
 import           Zhp                         hiding (length)
 
 open :: FilePath -> StoreInfo -> Acquire Store
@@ -25,12 +25,13 @@ open path StoreInfo{blobFile, mapFile=StoreInfo'mapFile'{arena, mapRoot}} = do
     blobArena <- openArena path blobFile
     spineArena <- openArena path arena
     liftIO $ do
-        addrCache <- atomically M.new
         pure Store
             { blobArena
             , spineArena
-            , mapRoot
-            , addrCache
+            , blobMap = BlobMap
+                { mem = MemTrie.empty
+                , disk = mapRoot
+                }
             }
 
 openArena :: FilePath -> Arena -> Acquire (FA.FileArena a)
@@ -45,8 +46,12 @@ type Branch = TriePtr Leaf
 data Store = Store
     { blobArena  :: FA.FileArena Leaf
     , spineArena :: FA.FileArena Branch
-    , mapRoot    :: Branch
-    , addrCache  :: M.Map KnownHash (Addr (Maybe U.Ptr))
+    , blobMap    :: BlobMap
+    }
+
+data BlobMap = BlobMap
+    { mem  :: MemTrie.MemTrie (Addr (Maybe U.Ptr))
+    , disk :: TriePtr (StoredBlob (Maybe U.Ptr))
     }
 {-
 

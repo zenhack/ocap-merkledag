@@ -6,6 +6,7 @@ module BlobStore.BigFile.MemTrie
     ( MemTrie
     , Key
     , makeKey
+    , empty
     , focus
     , lookup
     , insert
@@ -21,7 +22,7 @@ import           Control.Monad.ST            (RealWorld)
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as LBS
 import qualified Data.Vector                 as V
-import           Zhp
+import           Zhp                         hiding (empty)
 
 newtype Key a = Key BS.ByteString
     deriving(Eq)
@@ -44,6 +45,9 @@ data MemTrie a
     = Leaf (Key a) a
     | Branch (V.Vector (MemTrie a))
     | Empty
+
+empty :: MemTrie a
+empty = Empty
 
 focus :: Key a -> MemTrie a -> (Maybe a, Maybe a -> MemTrie a)
 focus key Empty =
