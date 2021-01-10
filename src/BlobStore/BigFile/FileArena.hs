@@ -6,6 +6,7 @@ module BlobStore.BigFile.FileArena
     , open
     , readMsg
     , writeMsg
+    , writeBS
     ) where
 
 import Zhp hiding (length)
