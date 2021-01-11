@@ -56,6 +56,8 @@ library
 
   other-modules:
       Capnp.Gen.ById.X96e412eec2bcb356
+    , Capnp.Gen.ById.X96e412eec2bcb356.Pure
+    , Capnp.Gen.ById.Xa2d9c03c65e784f5
     , Capnp.Gen.ById.Xae1c58020a8c26ad
     , Capnp.Gen.ById.Xb4284328a4e09e0a
     , Capnp.Gen.ById.Xb4284328a4e09e0a.Pure
@@ -63,8 +65,10 @@ library
     , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
     , Capnp.Gen.ById.Xecd50d792c3d9992
     , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
+    , Capnp.Gen.Disk
     , Capnp.Gen.DiskBigfile
     , Capnp.Gen.DiskBigfile.Pure
+    , Capnp.Gen.Disk.Pure
     , Capnp.Gen.Files
     , Capnp.Gen.Files.Pure
     , Capnp.Gen.Protocol

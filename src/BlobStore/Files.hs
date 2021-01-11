@@ -24,6 +24,7 @@ import BlobStore
 
 import qualified Capnp
 
+import Capnp.Gen.Disk.Pure
 import Capnp.Gen.Protocol.Pure
 import Capnp.Gen.Storage.Pure
 
@@ -51,6 +52,7 @@ open storePath = do
         { getBlobRaw = filesGetRaw fbs
         , putBlobRaw = filesPutRaw fbs
         , hasBlobRaw = filesHasRaw fbs
+        , syncRaw = pure $ StoreInfo'loose LooseStoreInfo
         }
 
 -- | Initialize the store (creating the directory structure

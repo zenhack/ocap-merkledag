@@ -14,12 +14,14 @@ module BlobStore
     , getBlob
     , putBlob
     , hasBlob
+    , syncFile
     ) where
 
 import Zhp
 
-import Capnp.Gen.Protocol.Pure
-import Capnp.Gen.Storage.Pure
+import qualified Capnp.Gen.Disk.Pure     as Disk
+import           Capnp.Gen.Protocol.Pure
+import           Capnp.Gen.Storage.Pure
 
 import qualified Capnp.Gen.Storage as Storage
 
@@ -63,6 +65,7 @@ data RawBlobStore m = RawBlobStore
     { getBlobRaw :: KnownHash -> m BS.ByteString
     , putBlobRaw :: KnownHash -> BS.ByteString -> m ()
     , hasBlobRaw :: KnownHash -> m Bool
+    , syncRaw    :: m Disk.StoreInfo
     }
 
 -- | A blob store which validates its contents.
@@ -127,3 +130,14 @@ encodeHash (Sha256 digest) = Hash
 -- | Compute the hash of a lazy bytestring.
 computeHash :: BS.ByteString -> KnownHash
 computeHash bytes = Sha256 $ CH.hash bytes
+
+syncFile :: BlobStore IO -> FilePath -> IO ()
+syncFile bs path = do
+    info <- syncRaw (rawStore bs)
+    bytes <- Capnp.evalLimitT Capnp.defaultLimit $ Capnp.valueToLBS info
+    atomicWriteFile (path <> "/StoreInfo") bytes
+
+atomicWriteFile :: FilePath -> LBS.ByteString -> IO ()
+atomicWriteFile path bytes = do
+    LBS.writeFile (path <> ".new") bytes
+    -- TODO/FIXME: sync, rename
