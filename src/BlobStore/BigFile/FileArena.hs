@@ -77,8 +77,7 @@ pwritev :: Fd -> [BS.ByteString] -> FileOffset -> IO ()
 pwritev fd chunks offset = case chunks of
     [] -> pure ()
     (c:cs) -> do
-        -- FIXME: somewhere we need to deal with short writes
-        Unix.pwrite fd c offset
+        Unix.pwriteFullExn fd c offset
         pwritev fd cs (offset + fromIntegral (BS.length c))
 
 
