@@ -24,15 +24,14 @@ open :: FilePath -> StoreInfo -> Acquire Store
 open path StoreInfo{blobFile, mapFile=StoreInfo'mapFile'{arena, mapRoot}} = do
     blobArena <- openArena path blobFile
     spineArena <- openArena path arena
-    liftIO $ do
-        pure Store
-            { blobArena
-            , spineArena
-            , blobMap = BlobMap
-                { mem = MemTrie.empty
-                , disk = mapRoot
-                }
+    pure Store
+        { blobArena
+        , spineArena
+        , blobMap = BlobMap
+            { mem = MemTrie.empty
+            , disk = mapRoot
             }
+        }
 
 openArena :: FilePath -> Arena -> Acquire (FA.FileArena a)
 openArena rootPath Arena{path, size} =
