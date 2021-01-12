@@ -83,6 +83,8 @@ library
     , BlobStore.BigFile
     , BlobStore.BigFile.FileArena
     , BlobStore.BigFile.MemTrie
+    , BlobStore.BigFile.TrieKey
+    , BlobStore.BigFile.DiskTrie
     , BlobStore.Files
     , Server
     , Client.PutFile

@@ -15,6 +15,8 @@ module BlobStore.BigFile.MemTrie
     ) where
 
 import qualified BlobStore.BigFile.FileArena as FA
+import           BlobStore.BigFile.TrieKey   (Key)
+import qualified BlobStore.BigFile.TrieKey   as Key
 import qualified Capnp
 import           Capnp.Gen.DiskBigfile.Pure
 import           Control.Concurrent.STM
@@ -23,23 +25,6 @@ import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as LBS
 import qualified Data.Vector                 as V
 import           Zhp                         hiding (empty)
-
-newtype Key a = Key BS.ByteString
-    deriving(Eq)
-
-expectedLength :: Int
-expectedLength = 256 `div` 8
-
-uncons :: Key a -> (Int, Key a)
-uncons (Key bytes) =
-    case BS.uncons bytes of
-        Just (b, bs) -> (fromIntegral b, Key bs)
-        Nothing      -> error "BUG: uncons on empty key."
-
-makeKey :: BS.ByteString -> Maybe (Key a)
-makeKey bytes
-    | BS.length bytes == expectedLength = Just (Key bytes)
-    | otherwise = Nothing
 
 data MemTrie a
     = Leaf (Key a) a
@@ -68,8 +53,8 @@ focus key (Leaf key' v')
         , \case
             Nothing -> Leaf key' v'
             Just v ->
-                let (k, ks) = uncons key
-                    (k', ks') = uncons key'
+                let (k, ks) = Key.uncons key
+                    (k', ks') = Key.uncons key'
                 in
                 Branch $ V.generate 256 $ \i ->
                     if i == k then
@@ -111,8 +96,8 @@ mergeToDisk mem disk arena =
     go mem TriePtr'empty = do
         ret <- writeTo mem arena
         pure (ret, ret /= TriePtr'empty)
-    go mem@(Leaf (Key k) v) (TriePtr'leaf TriePtr'leaf'{addr, keySuffix})
-        | k == keySuffix = do
+    go mem@(Leaf k v) (TriePtr'leaf TriePtr'leaf'{addr, keySuffix})
+        | Key.bytes k == keySuffix = do
             ret <- writeTo mem arena
             pure (ret, True)
         | otherwise = do
