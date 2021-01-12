@@ -28,7 +28,6 @@ import qualified Capnp.Message        as M
 import qualified Data.Acquire         as Acquire
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as LBS
-import qualified System.Posix.IO      as PIO
 import qualified Unix
 
 
@@ -40,14 +39,12 @@ data FileArena a = FileArena
     , nextAlloc :: TVar FileOffset
     }
 
-acquireFd path omode fmode flags =
-    Acquire.mkAcquire
-        (PIO.openFd path omode fmode flags)
-        PIO.closeFd
+acquireFd :: IO Fd -> Acquire Fd
+acquireFd io = Acquire.mkAcquire io Unix.closeExn
 
 open :: FilePath -> FileOffset -> Acquire (FileArena a)
 open path off = do
-    fd <- acquireFd path PIO.ReadWrite (Just 0o700) PIO.defaultFileFlags
+    fd <- acquireFd $ Unix.openExn (fromString path) Unix.o_RDWR 0o700
     liftIO $ fromFd fd off
 
 fromFd :: Fd -> FileOffset -> IO (FileArena a)
