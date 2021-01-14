@@ -1,5 +1,23 @@
+-- | This module needs reworking.
+--
+-- The our Trie data types logcally expect fixed-length keys, and this module
+-- was intended to proide an abstraction boundary that enforced that keys were
+-- the correct size.
+--
+-- This gets messy though, since we have two trie implementations (on-disk and
+-- in-memory), which both need to import this and, as part of their implementation,
+-- temporarily use keys of shorter lengths internally. So this module is not
+-- really doing its job and the whole situation is a bit awkward.
+--
+-- We should rethink how all this fits together. Possible directions:
+--
+-- * Rework the Trie data structures so they can in principle have variable length
+--   keys; this would make invalid tries unrepresentable, which is especially nice
+--   for the on-disk data structures, beyond the usual benefits. But it's a bit sad
+--   that it would require some extra space for a field that is not used.
+-- * ???
 module BlobStore.BigFile.TrieKey
-    ( Key
+    ( Key(..)
     , uncons
     , makeKey
     , bytes

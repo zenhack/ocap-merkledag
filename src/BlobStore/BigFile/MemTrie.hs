@@ -4,8 +4,6 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 module BlobStore.BigFile.MemTrie
     ( MemTrie
-    , Key
-    , makeKey
     , empty
     , focus
     , lookup
@@ -15,7 +13,7 @@ module BlobStore.BigFile.MemTrie
     ) where
 
 import qualified BlobStore.BigFile.FileArena as FA
-import           BlobStore.BigFile.TrieKey   (Key)
+import           BlobStore.BigFile.TrieKey   (Key(..))
 import qualified BlobStore.BigFile.TrieKey   as Key
 import qualified Capnp
 import           Capnp.Gen.DiskBigfile.Pure
@@ -65,7 +63,7 @@ focus key (Leaf key' v')
                         Empty
         )
 focus key (Branch kids) =
-    let (b, bs) = uncons key
+    let (b, bs) = Key.uncons key
         (value, mkKid) = focus bs (kids V.! b)
     in
     ( value
@@ -127,7 +125,8 @@ mergeToDisk mem disk arena =
 writeTo :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a)
     => MemTrie (Addr a) -> FA.FileArena (TrieBranch a) -> IO (TriePtr a)
 writeTo Empty _ = pure TriePtr'empty
-writeTo (Leaf (Key keySuffix) addr) _ =
+writeTo (Leaf k addr) _ =
+    let keySuffix = Key.bytes k in
     pure $ TriePtr'leaf TriePtr'leaf'{keySuffix, addr}
 writeTo (Branch kids) arena = do
     kids' <- traverse (`writeTo` arena) kids
