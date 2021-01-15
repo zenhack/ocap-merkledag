@@ -20,17 +20,16 @@ struct StoreInfo {
 }
 
 struct Arena {
-    # An on-disk arena in which to allocate storage.
+  # An on-disk arena in which to allocate storage.
 
-    path @1 :Path;
-    # Path to the file, relative to the root directory.
+  path @1 :Path;
+  # Path to the file, relative to the root directory.
 
-    size @0 :UInt64;
-    # The last known size of the file. If, on startup, the file is longer than
-    # this, it means there were in-progress writes that were not committed;
-    # in this case the file should just be truncated to discard the incomplete
-    # work.
-
+  size @0 :UInt64;
+  # The last known size of the file. If, on startup, the file is longer than
+  # this, it means there were in-progress writes that were not committed;
+  # in this case the file should just be truncated to discard the incomplete
+  # work.
 }
 
 struct Addr(T) {
