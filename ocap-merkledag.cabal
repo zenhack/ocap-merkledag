@@ -78,6 +78,7 @@ library
     , Capnp.Gen.Util
     , Capnp.Gen.Util.Pure
 
+    , Util
 
     , BlobStore
     , BlobStore.BigFile
