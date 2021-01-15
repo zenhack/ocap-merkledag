@@ -24,12 +24,12 @@ import qualified Data.Vector                 as V
 import           Zhp                         hiding (length)
 
 open :: FilePath -> StoreInfo -> Acquire Store
-open path StoreInfo{blobFile, mapFile=StoreInfo'mapFile'{arena, mapRoot}} = do
+open path StoreInfo{blobFile, bookKeepingFile=StoreInfo'bookKeepingFile'{arena}, blobs} = do
     blobArena <- openArena path blobFile
     spineArena <- openArena path arena
     blobMap <- liftIO $ newTVarIO BlobMap
         { mem = MemTrie.empty
-        , disk = mapRoot
+        , disk = blobs
         }
     pure Store { blobArena, spineArena, blobMap }
 
@@ -40,7 +40,7 @@ openArena rootPath Arena{path, size} =
         (fromIntegral size)
 
 type Leaf = StoredBlob (Maybe (U.Ptr))
-type Branch = TrieBranch Leaf
+type Branch = TrieMap'Branch BlobInfo
 
 data Store = Store
     { blobArena  :: FA.FileArena Leaf
@@ -49,18 +49,18 @@ data Store = Store
     }
 
 data BlobMap = BlobMap
-    { mem  :: MemTrie.MemTrie (Addr Leaf)
-    , disk :: TriePtr Leaf
+    { mem  :: MemTrie.MemTrie BlobInfo
+    , disk :: TrieMap BlobInfo
     }
 
-findBlob :: Store -> KnownHash -> IO (Maybe (Addr Leaf))
+findBlob :: Store -> KnownHash -> IO (Maybe BlobInfo)
 findBlob Store{spineArena, blobMap} (Sha256 h) = do
     BlobMap{mem, disk} <- atomically $ readTVar blobMap
     let key = case Key.makeKey (BA.convert h) of
             Nothing -> error "impossible"
             Just k  -> k
     case MemTrie.lookup key mem of
-        Just addr -> pure $ Just addr
+        Just info -> pure $ Just info
         Nothing   -> DiskTrie.lookup key disk spineArena
 
 bigFilePutBlob :: Store -> KnownHash -> BS.ByteString -> IO ()

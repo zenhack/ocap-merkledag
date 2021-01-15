@@ -85,33 +85,38 @@ remove key trie =
 mergeToDisk ::
     ( Capnp.ReadParam a
     , Capnp.WriteParam RealWorld a
-    ) => MemTrie (Addr a) -> TriePtr a -> FA.FileArena (TrieBranch a) -> IO (TriePtr a)
+    ) => MemTrie a -> TrieMap a -> FA.FileArena (TrieMap'Branch a) -> IO (TrieMap a)
 mergeToDisk mem disk arena =
     fst <$> go mem disk
   where
     go Empty disk =
         pure (disk, False)
-    go mem TriePtr'empty = do
+    go mem TrieMap'empty = do
         ret <- writeTo mem arena
-        pure (ret, ret /= TriePtr'empty)
-    go mem@(Leaf k v) (TriePtr'leaf TriePtr'leaf'{addr, keySuffix})
+        pure
+            ( ret
+            , case ret of
+                TrieMap'empty -> False
+                _             -> True
+            )
+    go mem@(Leaf k v) (TrieMap'leaf TrieMap'leaf'{value, keySuffix})
         | Key.bytes k == keySuffix = do
             ret <- writeTo mem arena
             pure (ret, True)
         | otherwise = do
-            ret <- writeTo (insert (Key keySuffix) addr mem) arena
+            ret <- writeTo (insert (Key keySuffix) value mem) arena
             pure (ret, True)
-    go (Branch memKids) disk@(TriePtr'branch (TriePtr'branch' branchAddr)) = do
-        TrieBranch diskKids <- FA.readValue branchAddr arena
+    go (Branch memKids) disk@(TrieMap'branch branchAddr) = do
+        TrieMap'Branch diskKids <- FA.readValue branchAddr arena
         results <- sequence $ V.zipWith go memKids diskKids
         let changed = any snd results
         if changed
             then (do
                 let diskKids' = V.map fst results
-                lbs <- Capnp.evalLimitT Capnp.defaultLimit $ Capnp.valueToLBS $ TrieBranch diskKids'
+                lbs <- Capnp.evalLimitT Capnp.defaultLimit $ Capnp.valueToLBS $ TrieMap'Branch diskKids'
                 off <- FA.writeLBS lbs arena
                 pure
-                    ( TriePtr'branch $ TriePtr'branch' Addr
+                    ( TrieMap'branch Addr
                         { offset = fromIntegral off
                         , length = fromIntegral $ LBS.length lbs
                         , flatMessage = False
@@ -123,16 +128,16 @@ mergeToDisk mem disk arena =
                 pure (disk, False)
 
 writeTo :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a)
-    => MemTrie (Addr a) -> FA.FileArena (TrieBranch a) -> IO (TriePtr a)
-writeTo Empty _ = pure TriePtr'empty
-writeTo (Leaf k addr) _ =
+    => MemTrie a -> FA.FileArena (TrieMap'Branch a) -> IO (TrieMap a)
+writeTo Empty _ = pure TrieMap'empty
+writeTo (Leaf k value) _ =
     let keySuffix = Key.bytes k in
-    pure $ TriePtr'leaf TriePtr'leaf'{keySuffix, addr}
+    pure $ TrieMap'leaf TrieMap'leaf'{keySuffix, value}
 writeTo (Branch kids) arena = do
     kids' <- traverse (`writeTo` arena) kids
-    lbs <- Capnp.evalLimitT Capnp.defaultLimit $ Capnp.valueToLBS (TrieBranch kids')
+    lbs <- Capnp.evalLimitT Capnp.defaultLimit $ Capnp.valueToLBS (TrieMap'Branch kids')
     off <- FA.writeLBS lbs arena
-    pure $ TriePtr'branch $ TriePtr'branch' Addr
+    pure $ TrieMap'branch Addr
         { offset = fromIntegral off
         , length = fromIntegral $ LBS.length lbs
         , flatMessage = False

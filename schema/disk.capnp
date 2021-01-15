@@ -11,6 +11,7 @@
 # The contents of that message describe the layout of the rest of the store.
 
 using BigFile = import "disk-bigfile.capnp";
+using Protocol = import "protocol.capnp";
 
 struct StoreInfo {
   # Describes the contents of the repository.
@@ -21,6 +22,10 @@ struct StoreInfo {
     bigFile @1 :BigFile.StoreInfo;
     # This is a big-file store.
   }
+
+  # root @2 :Protocol.Hash
+  # The root object in the store. TODO: rework the code so we
+  # can uncomment this.
 }
 
 struct LooseStoreInfo {

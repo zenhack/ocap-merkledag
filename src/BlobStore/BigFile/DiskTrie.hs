@@ -14,14 +14,14 @@ import           Capnp.Gen.DiskBigfile.Pure
 import qualified Data.Vector                 as V
 import           Zhp
 
-lookup :: Capnp.ReadParam a => Key a -> TriePtr a -> FA.FileArena (TrieBranch a) -> IO (Maybe (Addr a))
+lookup :: Capnp.ReadParam a => Key a -> TrieMap a -> FA.FileArena (TrieMap'Branch a) -> IO (Maybe a)
 lookup key trie fa = go key trie where
     go key = \case
-        TriePtr'empty -> pure Nothing
-        TriePtr'leaf TriePtr'leaf'{addr, keySuffix}
-            | keySuffix == Key.bytes key -> pure $ Just addr
+        TrieMap'empty -> pure Nothing
+        TrieMap'leaf TrieMap'leaf'{value, keySuffix}
+            | keySuffix == Key.bytes key -> pure $ Just value
             | otherwise -> pure $ Nothing
-        TriePtr'branch (TriePtr'branch' branchAddr) -> do
-            TrieBranch kids <- FA.readValue branchAddr fa
+        TrieMap'branch branchAddr -> do
+            TrieMap'Branch kids <- FA.readValue branchAddr fa
             let (k, ks) = Key.uncons key
             go ks (kids V.! k)
