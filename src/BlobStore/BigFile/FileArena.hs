@@ -20,14 +20,14 @@ import Capnp.Gen.DiskBigfile.Pure
 import Capnp.Untyped              (rootPtr)
 import Control.Concurrent.STM
 import Control.Exception.Safe     (throwIO)
-import Data.Acquire               (Acquire)
+import Lifetimes                  (Acquire)
 import System.Posix.Types         (Fd, FileOffset)
 
 import qualified Capnp
 import qualified Capnp.Message        as M
-import qualified Data.Acquire         as Acquire
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as LBS
+import qualified Lifetimes
 import qualified Unix
 
 
@@ -40,7 +40,7 @@ data FileArena a = FileArena
     }
 
 acquireFd :: IO Fd -> Acquire Fd
-acquireFd io = Acquire.mkAcquire io Unix.closeExn
+acquireFd io = Lifetimes.mkAcquire io Unix.closeExn
 
 open :: FilePath -> FileOffset -> Acquire (FileArena a)
 open path off = do

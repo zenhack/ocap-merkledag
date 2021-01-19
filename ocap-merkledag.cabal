@@ -45,7 +45,7 @@ common shared-opts
     , unix ^>=2.7.2
     , base16-bytestring ^>=1.0.1
     , unix-simple ^>=0.1
-    , resourcet ^>=1.2.4
+    , lifetimes ^>=0.1
   default-language:    Haskell2010
 
 library

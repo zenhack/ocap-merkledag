@@ -3,7 +3,7 @@ module Util
     ) where
 
 import Control.Concurrent.Async
-import Data.Acquire
+import Lifetimes
 import Zhp
 
 acquireAsync :: IO a -> Acquire (Async a)

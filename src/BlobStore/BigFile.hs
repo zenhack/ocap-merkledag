@@ -16,11 +16,11 @@ import           Capnp.Gen.DiskBigfile.Pure
 import           Capnp.Gen.Storage.Pure
 import qualified Capnp.Untyped.Pure          as U
 import           Control.Concurrent.STM
-import           Data.Acquire                (Acquire)
 import qualified Data.ByteArray              as BA
 import qualified Data.ByteString             as BS
 import qualified Data.Text                   as T
 import qualified Data.Vector                 as V
+import           Lifetimes                   (Acquire)
 import           Zhp                         hiding (length)
 
 open :: FilePath -> StoreInfo -> Acquire Store
