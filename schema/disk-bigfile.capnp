@@ -25,8 +25,8 @@ struct StoreInfo {
     # but the `StoreInfo` and the blobs themselves.
 
     garbage @4 :List(Addr(AnyPointer));
-    # Unused address ranges in the bookkeeping file, which should be
-    # reclaimed for space.
+    # Queue of unused address ranges in the bookkeeping file, which need
+    # be reclaimed for space by punching holes in the file.
   }
 
   blobs @1 :TrieMap(BlobInfo);
@@ -35,7 +35,8 @@ struct StoreInfo {
   volatileRoots @3 :TrieSet;
   # A set of digests of blobs to which there were live references at the last
   # checkpoint. On startup, each of these should have their refcounts
-  # decremented by 1, as those references have been dropped.
+  # decremented by 1, as those references must have been dropped on shutdown,
+  # if not sooner.
 
   gc :group {
     # Garbage blobs which are in the process of being reclaimed.
