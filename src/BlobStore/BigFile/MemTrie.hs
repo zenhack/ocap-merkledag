@@ -13,11 +13,12 @@ module BlobStore.BigFile.MemTrie
     ) where
 
 import qualified BlobStore.BigFile.FileArena as FA
+import           BlobStore.BigFile.TrieError
 import           BlobStore.BigFile.TrieKey   (Key(..))
 import qualified BlobStore.BigFile.TrieKey   as Key
 import qualified Capnp
 import           Capnp.Gen.DiskBigfile.Pure
-import           Control.Exception.Safe      (Exception, throwIO)
+import           Control.Exception.Safe      (throwIO)
 import           Control.Monad.ST            (RealWorld)
 import qualified Data.ByteString.Lazy        as LBS
 import qualified Data.Vector                 as V
@@ -27,10 +28,6 @@ data MemTrie a
     = Leaf (Key a) a
     | Branch (V.Vector (MemTrie a))
     | Empty
-
-data UnknownDiskTrieVariantError = ErrUnknownDiskTrieVariant Word16
-    deriving(Show)
-instance Exception UnknownDiskTrieVariantError
 
 empty :: MemTrie a
 empty = Empty
@@ -111,6 +108,7 @@ mergeToDisk mem disk arena =
         | otherwise = do
             ret <- writeTo (insert (Key keySuffix) value mem) arena
             pure (ret, True)
+    go (Leaf _ _) _ = throwIO ErrExpectedLeaf
     go (Branch memKids) disk@(TrieMap'branch branchAddr) = do
         TrieMap'Branch diskKids <- FA.readValue branchAddr arena
         results <- sequence $ V.zipWith go memKids diskKids
@@ -131,6 +129,7 @@ mergeToDisk mem disk arena =
                 )
             else
                 pure (disk, False)
+    go (Branch _) _ = throwIO ErrExpectedBranch
 
 writeTo :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a)
     => MemTrie a -> FA.FileArena (TrieMap'Branch a) -> IO (TrieMap a)

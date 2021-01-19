@@ -7,10 +7,12 @@ module BlobStore.BigFile.DiskTrie
     ) where
 
 import qualified BlobStore.BigFile.FileArena as FA
+import           BlobStore.BigFile.TrieError
 import           BlobStore.BigFile.TrieKey   (Key)
 import qualified BlobStore.BigFile.TrieKey   as Key
 import qualified Capnp
 import           Capnp.Gen.DiskBigfile.Pure
+import           Control.Exception.Safe      (throwIO)
 import qualified Data.Vector                 as V
 import           Zhp
 
@@ -25,3 +27,5 @@ lookup key trie fa = go key trie where
             TrieMap'Branch kids <- FA.readValue branchAddr fa
             let (k, ks) = Key.uncons key
             go ks (kids V.! k)
+        TrieMap'unknown' n ->
+            throwIO $ ErrUnknownDiskTrieVariant n
