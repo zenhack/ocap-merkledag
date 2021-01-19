@@ -17,9 +17,7 @@ import           BlobStore.BigFile.TrieKey   (Key(..))
 import qualified BlobStore.BigFile.TrieKey   as Key
 import qualified Capnp
 import           Capnp.Gen.DiskBigfile.Pure
-import           Control.Concurrent.STM
 import           Control.Monad.ST            (RealWorld)
-import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as LBS
 import qualified Data.Vector                 as V
 import           Zhp                         hiding (empty)
@@ -99,7 +97,7 @@ mergeToDisk mem disk arena =
                 TrieMap'empty -> False
                 _             -> True
             )
-    go mem@(Leaf k v) (TrieMap'leaf TrieMap'leaf'{value, keySuffix})
+    go mem@(Leaf k _v) (TrieMap'leaf TrieMap'leaf'{value, keySuffix})
         | Key.bytes k == keySuffix = do
             ret <- writeTo mem arena
             pure (ret, True)

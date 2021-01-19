@@ -19,7 +19,6 @@ import Capnp.Classes              (FromStruct(..))
 import Capnp.Gen.DiskBigfile.Pure
 import Capnp.Untyped              (rootPtr)
 import Control.Concurrent.STM
-import Control.Exception.Safe     (throwIO)
 import Lifetimes                  (Acquire)
 import System.Posix.Types         (Fd, FileOffset)
 
@@ -29,10 +28,6 @@ import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Lifetimes
 import qualified Unix
-
-
-byteCountToOffset :: ByteCount -> FileOffset
-byteCountToOffset = fromIntegral
 
 data FileArena a = FileArena
     { fd        :: Fd
