@@ -22,23 +22,17 @@ import Zhp
 
 import BlobStore
 
-import qualified Capnp
-
 import Capnp.Gen.Disk.Pure
-import Capnp.Gen.Protocol.Pure
-import Capnp.Gen.Storage.Pure
 
 import           Control.Exception.Safe
 import qualified Data.ByteArray         as BA
 import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as LBS
 import           System.Directory
     (createDirectoryIfMissing, doesPathExist)
 import           System.FilePath        (takeDirectory)
 import           System.IO.Error        (isDoesNotExistError)
 
-import           Crypto.Hash (Digest, SHA256, digestFromByteString)
-import qualified Crypto.Hash as CH
+import Crypto.Hash (Digest, SHA256)
 
 newtype FilesBlobStore = FilesBlobStore { storePath :: FilePath }
 
@@ -62,6 +56,7 @@ initStore FilesBlobStore{storePath} = do
     mkdirP $ storePath <> "/tmp"
     mkdirP $ storePath <> "/blobs/sha256"
 
+mkdirP :: FilePath -> IO ()
 mkdirP = createDirectoryIfMissing True
 
 -- | Get a blob from the store.
@@ -74,15 +69,15 @@ filesPutRaw :: FilesBlobStore -> KnownHash -> BS.ByteString -> IO ()
 filesPutRaw fbs hash bytes = do
     -- FIXME: do this atomically:
     let path = hashPath fbs hash
-        writeFile = BS.writeFile (hashPath fbs hash) bytes
-    res <- try writeFile
+        writeFileBytes = BS.writeFile (hashPath fbs hash) bytes
+    res <- try writeFileBytes
     case res of
         Right () -> pure ()
         Left e
             | isDoesNotExistError e -> do
                 -- lazily create parent directories as needed:
                 mkdirP (takeDirectory path)
-                writeFile
+                writeFileBytes
             | otherwise ->
                 throwIO e
 

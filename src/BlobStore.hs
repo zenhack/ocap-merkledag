@@ -23,8 +23,6 @@ import qualified Capnp.Gen.Disk.Pure     as Disk
 import           Capnp.Gen.Protocol.Pure
 import           Capnp.Gen.Storage.Pure
 
-import qualified Capnp.Gen.Storage as Storage
-
 import Capnp.Classes (toStruct)
 import Capnp.Message (singleSegment)
 
