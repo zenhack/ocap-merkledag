@@ -17,6 +17,7 @@ import           BlobStore.BigFile.TrieKey   (Key(..))
 import qualified BlobStore.BigFile.TrieKey   as Key
 import qualified Capnp
 import           Capnp.Gen.DiskBigfile.Pure
+import           Control.Exception.Safe      (Exception, throwIO)
 import           Control.Monad.ST            (RealWorld)
 import qualified Data.ByteString.Lazy        as LBS
 import qualified Data.Vector                 as V
@@ -26,6 +27,10 @@ data MemTrie a
     = Leaf (Key a) a
     | Branch (V.Vector (MemTrie a))
     | Empty
+
+data UnknownDiskTrieVariantError = ErrUnknownDiskTrieVariant Word16
+    deriving(Show)
+instance Exception UnknownDiskTrieVariantError
 
 empty :: MemTrie a
 empty = Empty
@@ -87,6 +92,8 @@ mergeToDisk ::
 mergeToDisk mem disk arena =
     fst <$> go mem disk
   where
+    go _ (TrieMap'unknown' n) =
+        throwIO $ ErrUnknownDiskTrieVariant n
     go Empty disk =
         pure (disk, False)
     go mem TrieMap'empty = do
