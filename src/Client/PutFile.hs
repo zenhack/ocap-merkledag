@@ -11,14 +11,12 @@ module Client.PutFile
 
 import Zhp
 
-import Control.Concurrent.Async (forConcurrently)
-import Control.Monad.ST         (RealWorld)
-import Data.Maybe               (mapMaybe)
-import System.Directory         (listDirectory)
-import System.FilePath          (takeFileName, (</>))
-import System.IO                (withFile)
+import Control.Monad.ST (RealWorld)
+import System.Directory (listDirectory)
+import System.FilePath  (takeFileName, (</>))
+import System.IO        (withFile)
 
-import Foreign.C.Types (CTime (..))
+import Foreign.C.Types (CTime(..))
 
 import qualified System.Posix.Files as Posix
 
@@ -111,7 +109,7 @@ streamHandle h stream = go 0
                 _ <- Rpc.wait =<< Util.byteStream'done stream ? def
                 pure size)
             else (do
-                Rpc.wait =<< Util.byteStream'write stream ? Util.ByteStream'write'params { data_ = bytes }
+                _ <- Rpc.wait =<< Util.byteStream'write stream ? Util.ByteStream'write'params { data_ = bytes }
                 go $ size + fromIntegral (BS.length bytes))
 
 -- | Relatively arbitrary size of a chunk to upload at a time.

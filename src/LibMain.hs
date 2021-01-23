@@ -7,20 +7,19 @@ import Zhp
 import qualified Data.ByteString.Base16 as Base16
 import qualified Data.ByteString.Char8  as BS8
 import           Network.Simple.TCP
-    (HostPreference(Host), ServiceName, connect, serve)
+    (HostPreference, ServiceName, connect, serve)
 
-import BlobStore       (KnownHash (..), decodeHash, fromRaw)
+import BlobStore       (KnownHash(..), decodeHash, fromRaw)
 import BlobStore.Files (open)
 import Client.GetFile  (downloadTree)
 import Client.PutFile  (storeFileRef)
 import Server          (exportBlobStore)
 
-import Capnp.Gen.Protocol.Pure
-import Crypto.Hash             (digestFromByteString)
+import Crypto.Hash (digestFromByteString)
 
 import Capnp       (def, defaultLimit)
 import Capnp.Rpc
-    (ConnConfig (..), fromClient, handleConn, socketTransport, toClient)
+    (ConnConfig(..), fromClient, handleConn, socketTransport, toClient)
 import Supervisors (withSupervisor)
 
 usageStr :: String
@@ -33,6 +32,7 @@ usageStr = mconcat
     , "    omd help\n"
     ]
 
+die :: String -> IO ()
 die str = do
     hPutStrLn stderr str
     exitFailure

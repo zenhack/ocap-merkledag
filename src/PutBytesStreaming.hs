@@ -13,8 +13,7 @@ module PutBytesStreaming
 
 import Zhp
 
-import Capnp     (def)
-import Capnp.Rpc ((?))
+import Capnp (def)
 
 import Capnp.Gen.Protocol.Pure
 import Control.Concurrent.STM

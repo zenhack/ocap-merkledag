@@ -23,7 +23,7 @@ import qualified System.Posix.Types     as Posix
 import Capnp.Gen.Files.Pure
 import Capnp.Gen.Protocol.Pure
 
-import BlobStore (KnownHash (..), encodeHash)
+import BlobStore (KnownHash(..), encodeHash)
 
 data SaveError
     = IllegalFileName T.Text
@@ -109,6 +109,8 @@ putBlobTree putBytes ref = do
         BlobTree'branch branches ->
             for_ branches $ \BlobTree'Branch{ref} ->
                 putBlobTree putBytes ref
+        BlobTree'unknown' n ->
+            error $ "Unknown BlobTree variant: " <> show n
 
 updateMetadata :: Metadata -> IO ()
 updateMetadata Metadata{path, permissions, modTime} = do

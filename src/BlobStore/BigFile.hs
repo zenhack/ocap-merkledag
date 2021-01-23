@@ -1,17 +1,13 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 module BlobStore.BigFile
-    (
-    ) where
+    where
 
 import           BlobStore
 import qualified BlobStore.BigFile.DiskTrie  as DiskTrie
 import qualified BlobStore.BigFile.FileArena as FA
 import qualified BlobStore.BigFile.MemTrie   as MemTrie
 import qualified BlobStore.BigFile.TrieKey   as Key
-import           Capnp
-    (defaultLimit, evalLimitT, msgToValue)
-import           Capnp.Bits                  (ByteCount(..))
 import           Capnp.Gen.DiskBigfile.Pure
 import           Capnp.Gen.Storage.Pure
 import qualified Capnp.Untyped.Pure          as U
