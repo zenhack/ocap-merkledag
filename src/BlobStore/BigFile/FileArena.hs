@@ -10,6 +10,7 @@ module BlobStore.BigFile.FileArena
     , writeMsg
     , writeBS
     , writeLBS
+    , getOffset
     ) where
 
 import Zhp hiding (length)
@@ -47,6 +48,9 @@ fromFd fd off = do
     Unix.ftruncateExn fd off
     nextAlloc <- newTVarIO off
     pure FileArena { fd, nextAlloc }
+
+getOffset :: FileArena a -> STM Word64
+getOffset = fmap fromIntegral . readTVar . nextAlloc
 
 alloc :: ByteCount -> FileArena a -> STM FileOffset
 alloc count FileArena{nextAlloc} = do
