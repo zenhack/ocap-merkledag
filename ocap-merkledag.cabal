@@ -84,6 +84,7 @@ library
     , BlobStore
     , BlobStore.BigFile
     , BlobStore.BigFile.FileArena
+    , BlobStore.BigFile.SELock
     , BlobStore.BigFile.MemTrie
     , BlobStore.BigFile.TrieKey
     , BlobStore.BigFile.TrieError
