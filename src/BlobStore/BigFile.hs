@@ -7,6 +7,8 @@ import           BlobStore
 import qualified BlobStore.BigFile.DiskTrie  as DiskTrie
 import qualified BlobStore.BigFile.FileArena as FA
 import qualified BlobStore.BigFile.MemTrie   as MemTrie
+import           BlobStore.BigFile.SELock    hiding (new)
+import qualified BlobStore.BigFile.SELock    as SELock
 import qualified BlobStore.BigFile.TrieKey   as Key
 import           Capnp.Gen.DiskBigfile.Pure
 import           Capnp.Gen.Storage.Pure
@@ -16,18 +18,25 @@ import qualified Data.ByteArray              as BA
 import qualified Data.ByteString             as BS
 import qualified Data.Text                   as T
 import qualified Data.Vector                 as V
-import           Lifetimes                   (Acquire)
+import           Lifetimes                   (Acquire, withAcquire)
 import           Zhp                         hiding (length)
 
 open :: FilePath -> StoreInfo -> Acquire Store
 open path StoreInfo{blobFile, bookKeepingFile=StoreInfo'bookKeepingFile'{arena}, blobs} = do
     blobArena <- openArena path blobFile
     spineArena <- openArena path arena
-    blobMap <- liftIO $ newTVarIO BlobMap
-        { mem = MemTrie.empty
-        , disk = blobs
-        }
-    pure Store { blobArena, spineArena, blobMap }
+    liftIO $ atomically $ do
+        checkPointLock <- SELock.new
+        blobMap <- newTVar BlobMap
+            { mem = MemTrie.empty
+            , disk = blobs
+            }
+        pure Store
+            { blobArena
+            , spineArena
+            , blobMap
+            , checkPointLock
+            }
 
 openArena :: FilePath -> Arena -> Acquire (FA.FileArena a)
 openArena rootPath Arena{path, size} =
@@ -39,15 +48,47 @@ type Leaf = StoredBlob (Maybe (U.Ptr))
 type Branch = TrieMap'Branch BlobInfo
 
 data Store = Store
-    { blobArena  :: FA.FileArena Leaf
-    , spineArena :: FA.FileArena Branch
-    , blobMap    :: TVar BlobMap
+    { blobArena      :: FA.FileArena Leaf
+    , spineArena     :: FA.FileArena Branch
+    , blobMap        :: TVar BlobMap
+    , checkPointLock :: SELock
     }
 
 data BlobMap = BlobMap
     { mem  :: MemTrie.MemTrie BlobInfo
     , disk :: TrieMap BlobInfo
     }
+
+data CheckPointInfo = CheckPointInfo
+    { blobsOffset :: Word64
+    , spineOffset :: Word64
+    }
+
+atomicallyWrtCheckPoint :: Store -> IO a -> IO a
+atomicallyWrtCheckPoint s io =
+    withAcquire (acquireShared (checkPointLock s)) $ const io
+
+unsafeGetCheckPointInfo :: Store -> IO CheckPointInfo
+unsafeGetCheckPointInfo _s = undefined
+
+checkPoint :: Store -> IO ()
+checkPoint s = do
+    info <- withAcquire (acquireExclusive (checkPointLock s)) $ \_ -> do
+        checkPointBookkeeping s
+    saveCheckPointInfo info
+
+checkPointBookkeeping :: Store -> IO CheckPointInfo
+checkPointBookkeeping s = join $ atomically $ do
+    bm <- readTVar (blobMap s)
+    _blobsOffset <- FA.getOffset (blobArena s)
+    pure $ do
+        (_newRoot, _toFree) <- MemTrie.mergeToDisk (mem bm) (disk bm) (spineArena s)
+        atomically $ do
+            _spineOffset <- FA.getOffset (spineArena s)
+            error "TODO"
+
+saveCheckPointInfo :: CheckPointInfo -> IO ()
+saveCheckPointInfo _ = undefined
 
 findBlob :: Store -> KnownHash -> IO (Maybe BlobInfo)
 findBlob Store{spineArena, blobMap} (Sha256 h) = do
