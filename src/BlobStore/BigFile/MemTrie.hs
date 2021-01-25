@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveTraversable     #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
@@ -25,6 +28,7 @@ import qualified Data.ByteString.Lazy        as LBS
 import           Data.Foldable               (toList)
 import           Data.Sequence               (Seq, (|>))
 import qualified Data.Sequence               as Seq
+import           Data.Traversable            (Traversable)
 import qualified Data.Vector                 as V
 import           Zhp                         hiding (empty)
 
@@ -32,6 +36,7 @@ data MemTrie a
     = Leaf (Key a) a
     | Branch (V.Vector (MemTrie a))
     | Empty
+    deriving(Functor, Foldable, Traversable)
 
 empty :: MemTrie a
 empty = Empty

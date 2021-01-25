@@ -16,6 +16,9 @@
 --   for the on-disk data structures, beyond the usual benefits. But it's a bit sad
 --   that it would require some extra space for a field that is not used.
 -- * ???
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
 module BlobStore.BigFile.TrieKey
     ( Key(..)
     , uncons
@@ -23,11 +26,12 @@ module BlobStore.BigFile.TrieKey
     , bytes
     ) where
 
-import qualified Data.ByteString as BS
+import qualified Data.ByteString  as BS
+import           Data.Traversable (Traversable)
 import           Zhp
 
 newtype Key a = Key BS.ByteString
-    deriving(Eq)
+    deriving(Eq, Functor, Foldable, Traversable)
 
 expectedLength :: Int
 expectedLength = 256 `div` 8
