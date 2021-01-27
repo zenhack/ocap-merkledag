@@ -82,6 +82,8 @@ library
     , Util
 
     , BlobStore
+    , BlobStore.Raw
+    , BlobStore.HighLevel
     , BlobStore.BigFile
     , BlobStore.BigFile.FileArena
     , BlobStore.BigFile.SELock
