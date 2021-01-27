@@ -41,7 +41,7 @@ import qualified Data.ByteString.Lazy   as LBS
 -- * It does not have an unknown variant
 -- * The diges is known to be the correct length for the algorithm.
 data KnownHash = Sha256 (Digest SHA256)
-    deriving(Show, Eq)
+    deriving(Show, Eq, Ord)
 
 -- | An exception indicating that a 'Hash' is not a valid 'KnownHash'.
 data IllegalHash
