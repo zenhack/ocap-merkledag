@@ -53,6 +53,9 @@ handle s@(Store var) req = do
                 modifyTVar var $ \sc -> decRef (root sc) (incRef h sc)
                 fulfill f ()
 
+        Raw.Checkpoint f ->
+            fulfill f ()
+
         _ -> error "TODO"
 
 acquireRef :: KnownHash -> Store -> Acquire KnownHash
