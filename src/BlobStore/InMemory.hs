@@ -8,6 +8,7 @@ import           BlobStore
 import qualified BlobStore.Raw            as Raw
 import qualified Capnp
 import           Capnp.Gen.Storage.Pure
+import           Capnp.Rpc.Promise        (fulfill)
 import qualified Capnp.Untyped.Pure       as U
 import           Control.Concurrent.STM
 import           Control.Exception.Safe   (impureThrow, throwM)
@@ -15,6 +16,7 @@ import           Control.Monad.Catch.Pure (runCatchT)
 import qualified Data.ByteString.Lazy     as LBS
 import           Data.Functor.Identity    (runIdentity)
 import qualified Data.Map.Strict          as M
+import           Lifetimes
 import           Zhp
 
 newtype Store = Store (TVar StoreContents)
@@ -29,11 +31,37 @@ data BlobInfo = BlobInfo
     , bytes    :: LBS.ByteString
     }
 
-handler :: Store -> Raw.Handler
-handler (Store var) req = do
-    _sc <- readTVar var
+handle :: Store -> Raw.Request -> IO ()
+handle s@(Store var) req = do
     case req of
+        Raw.GetRoot lt f -> do
+            StoreContents{root} <- readTVarIO var
+            acquire lt (acquireRef root s) >>= fulfill f
+
+        Raw.GetRef lt h f -> join $ atomically $ do
+            StoreContents{blobs} <- readTVar var
+            case M.lookup h blobs of
+                Nothing -> do
+                    fulfill f Nothing
+                    pure $ pure ()
+                Just _ -> pure $ do
+                    r <- acquire lt (acquireRef h s)
+                    fulfill f (Just r)
+
+        Raw.SetRoot h f ->
+            atomically $ do
+                modifyTVar var $ \sc -> decRef (root sc) (incRef h sc)
+                fulfill f ()
+
         _ -> error "TODO"
+
+acquireRef :: KnownHash -> Store -> Acquire KnownHash
+acquireRef h (Store var) = do
+    mkAcquire
+        (atomically $ modifyTVar var $ incRef h)
+        (const $ atomically $ modifyTVar var $ decRef h)
+    pure h
+
 
 incRef :: KnownHash -> StoreContents -> StoreContents
 incRef h sc@StoreContents{blobs} =

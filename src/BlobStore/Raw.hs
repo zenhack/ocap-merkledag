@@ -7,7 +7,8 @@
 -- for performance reasons. These invariants instead are maintained by
 -- "BlobStore.HighLevel", which is the only code that should be directly talking to
 -- low-level data stores.
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module BlobStore.Raw
     ( Request(..)
     , SubscribeRootRequest(..)
@@ -19,7 +20,7 @@ import           BlobStore
 import qualified Capnp
 import           Capnp.Rpc.Promise      (Fulfiller)
 import           Control.Concurrent.STM
-import           Lifetimes              (Resource)
+import           Lifetimes              (Lifetime, Resource)
 import           Zhp
 
 -- | A 'Handler' submits requests to the data store. It may return
@@ -27,6 +28,9 @@ import           Zhp
 type Handler = Request -> STM ()
 
 -- | A request for some action from the data store.
+--
+-- The request types that take 'Lifetime' parameters and 'Fulfiller's
+-- for 'Resource's create resources bound to the supplied lifetimes.
 data Request
     = Put PutRequest
     -- ^ Insert a blob into the data store, if it does not
@@ -35,11 +39,11 @@ data Request
     -- ^ Ensure changes made to the root object by prior requests are
     -- durable, i.e. they will persist in the event of a power failure
     -- or the like.
-    | GetRoot (Fulfiller (Resource KnownHash))
+    | GetRoot Lifetime (Fulfiller (Resource KnownHash))
     -- ^ Get the curent root object. The while the Resource is alive,
     -- it keeps the object from from being garbage collected, even if
     -- the root is changed to point to something else.
-    | GetRef KnownHash (Fulfiller (Maybe (Resource KnownHash)))
+    | GetRef Lifetime KnownHash (Fulfiller (Maybe (Resource KnownHash)))
     -- ^ Get a reference to the object with the given hash, if it exists
     -- in the store (otherwise the request is fulfilled with 'Nothing').
     | SubscribeRoot SubscribeRootRequest
@@ -59,22 +63,26 @@ data SubscribeRootRequest = SubscribeRootRequest
     , canceler :: Fulfiller (Resource ())
     -- ^ Fulfilled when the request is received. The resource represents the
     -- description; when it is dropped onUpdate will no longer be called.
+    , lifetime :: Lifetime
+    -- ^ Initial lifetime for the canceler & updated resources.
     }
 
 -- | A request to save a value in the store.
 data PutRequest = PutRequest
-    { msg    :: Capnp.Message 'Capnp.Const
+    { msg      :: Capnp.Message 'Capnp.Const
     -- ^ The capnp message to save. This should be an already-canonicalized
     -- (and single segment) message, with a StoredBlob as its root pointer.
-    , hash   :: KnownHash
+    , hash     :: KnownHash
     -- ^ The hash of the canonicalized message (without the message header).
-    , refs   :: [KnownHash]
+    , refs     :: [KnownHash]
     -- ^ The blobs referenced by this message. This should correspond exactly
     -- to the `ptr` field in the StoredBlob.
-    , result :: Fulfiller (Resource ())
+    , result   :: Fulfiller (Resource ())
     -- ^ fulfilled when the request has completed, though not necessarily
     -- durably (it may be rolled back if e.g. a power failure occurs). The
     -- resource represents a live reference to this blob, which will act
     -- as a GC root for the store; dropping the resource will allow the
     -- blob to be reclaimed by store's garbage collector.
+    , lifetime :: Lifetime
+    -- ^ Initial lifetime for the result.
     }
