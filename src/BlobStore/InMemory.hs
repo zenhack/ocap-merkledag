@@ -2,7 +2,8 @@
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module BlobStore.InMemory
-    where
+    ( acquireHandler
+    ) where
 
 import           BlobStore
 import qualified BlobStore.Raw            as Raw
@@ -10,6 +11,7 @@ import qualified Capnp
 import           Capnp.Gen.Storage.Pure
 import           Capnp.Rpc.Promise        (fulfill)
 import qualified Capnp.Untyped.Pure       as U
+import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.STM
 import           Control.Exception.Safe   (impureThrow, throwM)
 import           Control.Monad.Catch.Pure (runCatchT)
@@ -30,6 +32,18 @@ data BlobInfo = BlobInfo
     { refCount :: !Int
     , bytes    :: LBS.ByteString
     }
+
+newStore :: STM Store
+newStore = Store <$> newTVar undefined
+
+acquireHandler :: Acquire Raw.Handler
+acquireHandler = do
+    chan <- liftIO $ atomically newTChan
+    s <- liftIO $ atomically newStore
+    _ <- mkAcquire
+        (Async.async $ forever $ atomically (readTChan chan) >>= handle s)
+        Async.cancel
+    pure (writeTChan chan)
 
 handle :: Store -> Raw.Request -> IO ()
 handle s@(Store var) req = do
