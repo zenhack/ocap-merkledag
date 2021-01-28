@@ -1,6 +1,7 @@
 -- Low level data store that stores things in an in-memory map.
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 module BlobStore.InMemory
     ( acquireHandler
     ) where
@@ -84,14 +85,42 @@ handle s@(Store var) req = do
         Raw.Checkpoint f ->
             fulfill f ()
 
+        Raw.Put putReq ->
+            handlePut s putReq
+
         _ -> error "TODO"
 
+
+handlePut :: Store -> Raw.PutRequest -> IO ()
+handlePut s@(Store var) Raw.PutRequest{hash, result, lifetime, refs, msg} =
+    fulfill result =<< acquire lifetime (mkAcquire add remove)
+  where
+    add = atomically $ do
+        sc <- readTVar var
+        unless (hash `M.member` blobs sc) $ do
+            let init = sc
+                    { blobs = M.insert
+                        hash
+                        BlobInfo { bytes = Capnp.msgToLBS msg, refCount = 0 }
+                        (blobs sc)
+                    }
+            writeTVar var $! foldl' (flip incRef) init refs
+        modifyTVar var $ incRef hash
+        pure hash
+    remove _ =
+        releaseRef hash s
+
+
 acquireRef :: KnownHash -> Store -> Acquire KnownHash
-acquireRef h (Store var) = do
+acquireRef h s@(Store var) = do
     mkAcquire
         (atomically $ modifyTVar var $ incRef h)
-        (const $ atomically $ modifyTVar var $ decRef h)
+        (const $ releaseRef h s)
     pure h
+
+releaseRef :: KnownHash -> Store -> IO ()
+releaseRef h (Store var) =
+    atomically $ modifyTVar var $ decRef h
 
 
 incRef :: KnownHash -> StoreContents -> StoreContents

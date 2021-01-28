@@ -77,7 +77,7 @@ data PutRequest = PutRequest
     , refs     :: [KnownHash]
     -- ^ The blobs referenced by this message. This should correspond exactly
     -- to the `ptr` field in the StoredBlob.
-    , result   :: Fulfiller (Resource ())
+    , result   :: Fulfiller (Resource KnownHash)
     -- ^ fulfilled when the request has completed, though not necessarily
     -- durably (it may be rolled back if e.g. a power failure occurs). The
     -- resource represents a live reference to this blob, which will act
