@@ -88,7 +88,8 @@ handle s@(Store var) req = do
         Raw.Put putReq ->
             handlePut s putReq
 
-        _ -> error "TODO"
+        Raw.SubscribeRoot _ ->
+            error "TODO"
 
 
 handlePut :: Store -> Raw.PutRequest -> IO ()
