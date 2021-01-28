@@ -39,7 +39,7 @@ data Request
     -- ^ Ensure changes made to the root object by prior requests are
     -- durable, i.e. they will persist in the event of a power failure
     -- or the like.
-    | GetRoot Lifetime (Fulfiller (Resource KnownHash))
+    | GetRoot Lifetime (Fulfiller (Resource (Maybe KnownHash)))
     -- ^ Get the curent root object. The while the Resource is alive,
     -- it keeps the object from from being garbage collected, even if
     -- the root is changed to point to something else.
@@ -49,14 +49,14 @@ data Request
     | SubscribeRoot SubscribeRootRequest
     -- ^ Subscribe to changes to the root object; see 'SubscribeRootRequest'
     -- for more details.
-    | SetRoot KnownHash (Fulfiller ())
+    | SetRoot (Maybe KnownHash) (Fulfiller ())
     -- ^ Change the root object to point to the given hash, which the requester
     -- must ensure is already present in the store, and cannot be garbage
     -- collected before this request has completed.
 
 -- | A request to subscribe to changes to the root object.
 data SubscribeRootRequest = SubscribeRootRequest
-    { onUpdate :: Resource KnownHash -> STM ()
+    { onUpdate :: Resource (Maybe KnownHash) -> STM ()
     -- ^ Invoke this once when the request is received, and again whenever the
     -- root object changes. The argument is a reference to the new root object,
     -- which acts as a GC root.

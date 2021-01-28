@@ -15,6 +15,7 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.STM
 import           Control.Exception.Safe   (impureThrow, throwM)
 import           Control.Monad.Catch.Pure (runCatchT)
+import           Control.Monad.State      (execState, modify)
 import qualified Data.ByteString.Lazy     as LBS
 import           Data.Functor.Identity    (runIdentity)
 import qualified Data.Map.Strict          as M
@@ -25,7 +26,7 @@ newtype Store = Store (TVar StoreContents)
 
 data StoreContents = StoreContents
     { blobs :: M.Map KnownHash BlobInfo
-    , root  :: KnownHash
+    , root  :: Maybe KnownHash
     }
 
 data BlobInfo = BlobInfo
@@ -34,7 +35,10 @@ data BlobInfo = BlobInfo
     }
 
 newStore :: STM Store
-newStore = Store <$> newTVar undefined
+newStore = Store <$> newTVar StoreContents
+    { blobs = M.empty
+    , root = Nothing
+    }
 
 acquireHandler :: Acquire Raw.Handler
 acquireHandler = do
@@ -50,7 +54,10 @@ handle s@(Store var) req = do
     case req of
         Raw.GetRoot lt f -> do
             StoreContents{root} <- readTVarIO var
-            acquire lt (acquireRef root s) >>= fulfill f
+            ref <- acquire lt $
+                for root $ \r ->
+                    acquireRef r s
+            fulfill f ref
 
         Raw.GetRef lt h f -> join $ atomically $ do
             StoreContents{blobs} <- readTVar var
@@ -64,7 +71,14 @@ handle s@(Store var) req = do
 
         Raw.SetRoot h f ->
             atomically $ do
-                modifyTVar var $ \sc -> decRef (root sc) (incRef h sc)
+                modifyTVar var $ \sc ->
+                    let newRoot = h
+                        oldRoot = root sc
+                    in
+                    flip execState sc $ do
+                        for_ newRoot $ \r -> modify $ incRef r
+                        for_ oldRoot $ \r -> modify $ decRef r
+                        modify $ \sc' -> sc' { root = newRoot }
                 fulfill f ()
 
         Raw.Checkpoint f ->
