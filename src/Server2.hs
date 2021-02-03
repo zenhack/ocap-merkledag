@@ -146,20 +146,6 @@ instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
                                 findByHash sup lifetime hash rawHandler f
                                 pure $ Rpc.toClient p
                 error "TODO"
-{-
-
-
-    ref'get = Rpc.pureHandler $
-        \RefServer{hash, store, sup} _ -> do
-            StoredBlob{data_, ptrs} <- getBlob store hash
-            value <- flip evalStateT (V.toList ptrs) $ attachCaps data_ $ \ptrHash ->
-                RU.toClient <$> export_Ref sup RefServer
-                    { hash = ptrHash
-                    , store
-                    , sup
-                    }
-            pure Ref'get'results { value }
--}
 
 
 type MonadAttachCaps m = MonadState [Hash] m
