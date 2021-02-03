@@ -35,7 +35,7 @@ import Capnp.Classes    (ToPtr(toPtr))
 import Capnp.Rpc.Errors (eFailed)
 
 import           Control.Concurrent.STM
-import           Control.Monad.STM.Class     (MonadSTM)
+import           Control.Monad.STM.Class
 import           Control.Monad.State         (MonadState, evalStateT, get, put)
 import           Control.Monad.Writer.Strict (MonadWriter, runWriterT, tell)
 import           Data.Typeable               (Typeable, cast)
@@ -132,7 +132,7 @@ instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
         \RefServer{hash, rawHandler, sup, lifetime} _params result ->
             Rpc.supervise sup $ do
                 (p, f) <- Rpc.newPromise
-                atomically $ rawHandler $ Raw.ReadRef (getResource hash) f
+                atomically $ rawHandler $ Raw.ReadRef hash f
                 msg <- Rpc.wait p
                 blob :: RawStorage.StoredBlob (Maybe (U.Ptr 'Capnp.Const)) 'Capnp.Const <- Capnp.msgToValue msg
                 (ptrs :: V.Vector Hash) <- Capnp.evalLimitT maxBound $
@@ -199,5 +199,7 @@ resolveClient :: MonadResolveCaps m => Rpc.Client -> m Rpc.Client
 resolveClient c = do
     c' <- Rpc.waitClient c
     case Rpc.unwrapServer c' of
-        Just RefServer{hash} -> tell [encodeHash $ getResource hash] *> pure c'
+        Just RefServer{hash} -> do
+            res <- liftSTM $ mustGetResource hash
+            tell [encodeHash res] *> pure c'
         Nothing              -> pure RU.nullClient

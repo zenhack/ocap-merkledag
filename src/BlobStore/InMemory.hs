@@ -10,7 +10,8 @@ import           BlobStore
 import qualified BlobStore.Raw            as Raw
 import qualified Capnp
 import           Capnp.Gen.Storage.Pure
-import           Capnp.Rpc.Promise        (fulfill)
+import           Capnp.Rpc.Errors         (eDisconnected)
+import           Capnp.Rpc.Promise        (breakPromise, fulfill)
 import qualified Capnp.Untyped.Pure       as U
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.STM
@@ -91,9 +92,14 @@ handle s@(Store var) req = do
         Raw.ReadRef h f ->
             atomically $ do
                 StoreContents{blobs} <- readTVar var
-                let bs = LBS.toStrict $ bytes (blobs M.! h)
-                msg <- Capnp.bsToMsg bs
-                fulfill f msg
+                res <- getResource h
+                case res of
+                    Nothing ->
+                        breakPromise f eDisconnected
+                    Just v -> do
+                        let bs = LBS.toStrict $ bytes (blobs M.! v)
+                        msg <- Capnp.bsToMsg bs
+                        fulfill f msg
 
         Raw.SubscribeRoot _ ->
             error "TODO"

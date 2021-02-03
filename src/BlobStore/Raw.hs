@@ -46,9 +46,9 @@ data Request
     | GetRef Lifetime KnownHash (Fulfiller (Maybe (Resource KnownHash)))
     -- ^ Get a reference to the object with the given hash, if it exists
     -- in the store (otherwise the request is fulfilled with 'Nothing').
-    | ReadRef KnownHash (Fulfiller (Capnp.Message 'Capnp.Const))
-    -- ^ Read the message with the given hash. there must be an existant
-    -- liveref for the hash.
+    | ReadRef (Resource KnownHash) (Fulfiller (Capnp.Message 'Capnp.Const))
+    -- ^ Read the message with the given hash. resolves to a disconnected
+    -- exception if the resource has been revoked.
     | SubscribeRoot SubscribeRootRequest
     -- ^ Subscribe to changes to the root object; see 'SubscribeRootRequest'
     -- for more details.
