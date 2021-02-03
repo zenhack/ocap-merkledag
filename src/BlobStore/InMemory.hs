@@ -88,6 +88,13 @@ handle s@(Store var) req = do
         Raw.Put putReq ->
             handlePut s putReq
 
+        Raw.ReadRef h f ->
+            atomically $ do
+                StoreContents{blobs} <- readTVar var
+                let bs = LBS.toStrict $ bytes (blobs M.! h)
+                msg <- Capnp.bsToMsg bs
+                fulfill f msg
+
         Raw.SubscribeRoot _ ->
             error "TODO"
 
