@@ -96,6 +96,7 @@ library
     , BlobStore.Files
     , BlobStore.InMemory
     , Server
+    , Server2
     , Client.PutFile
     , Client.GetFile
     , PutBytesStreaming
