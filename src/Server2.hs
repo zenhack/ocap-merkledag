@@ -22,7 +22,7 @@ import           Capnp.Gen.Protocol.Pure
 import           Capnp.Gen.Storage       as RawStorage
 import           Capnp.Gen.Storage.Pure
 
-import Control.Exception.Safe (throwIO, throwM)
+import Control.Exception.Safe (SomeException, throwIO, throwM, try)
 import Lifetimes
 import Supervisors            (Supervisor)
 
@@ -35,7 +35,7 @@ import qualified Capnp.Untyped.Pure as PU
 
 import Capnp.Classes
     (FromStruct(fromStruct), ToPtr(toPtr), ToStruct(toStruct))
-import Capnp.Rpc.Errors (eFailed)
+import Capnp.Rpc.Errors (eFailed, wrapException)
 
 import           Control.Concurrent.STM
 import           Control.Monad.STM.Class
@@ -85,6 +85,12 @@ findByHash sup lt hash handler f = do
                 }
     handler $ Raw.GetRef lt hash hashFulfiller
 
+fulfillWith :: Rpc.Fulfiller a -> IO a -> IO ()
+fulfillWith f io =
+    -- TODO: move this to haskell-capnp
+    try io >>= \case
+        Left (e :: SomeException) -> Rpc.breakPromise f (wrapException False e)
+        Right v                   -> Rpc.fulfill f v
 
 instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
     store'put = Rpc.pureHandler $
@@ -133,7 +139,7 @@ instance Rpc.Server IO RefServer where
 instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
     ref'get = Rpc.rawAsyncHandler $
         \RefServer{hash, rawHandler, sup, lifetime} _params result ->
-            Rpc.supervise sup $ do
+            Rpc.supervise sup $ fulfillWith result $ do
                 (p, f) <- Rpc.newPromise
                 atomically $ rawHandler $ Raw.ReadRef hash f
                 msg <- Rpc.wait p
@@ -148,17 +154,15 @@ instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
                                 (p, f) <- Rpc.newPromiseClient
                                 findByHash sup lifetime hash rawHandler f
                                 pure $ Rpc.toClient p
-                (res :: RawProtocol.Ref'get'results (Maybe (U.Ptr 'Capnp.Const)) 'Capnp.Const) <-
-                    Capnp.evalLimitT maxBound $
-                        -- Attach the cap table and cast from StoredBlob(T) to the results.
-                        -- The latter is to get around the fact that  the haskell-capnp API
-                        -- makes it harder to extend an immutable message than it should be.
-                        -- For now, we hack around this by exploting the fact that
-                        -- `(value :T)` will serendipitously allocate the pointer in the
-                        -- same place as `StoredBlob(T)`
-                        U.tMsg (pure . M.withCapTable clients) (toStruct blob)
-                        >>= fromStruct . toStruct
-                Rpc.fulfill result res
+                Capnp.evalLimitT maxBound $
+                    -- Attach the cap table and cast from StoredBlob(T) to the results.
+                    -- The latter is to get around the fact that  the haskell-capnp API
+                    -- makes it harder to extend an immutable message than it should be.
+                    -- For now, we hack around this by exploting the fact that
+                    -- `(value :T)` will serendipitously allocate the pointer in the
+                    -- same place as `StoredBlob(T)`
+                    U.tMsg (pure . M.withCapTable clients) (toStruct blob)
+                    >>= fromStruct . toStruct
 
 
 type MonadAttachCaps m = MonadState [Hash] m
