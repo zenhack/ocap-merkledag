@@ -123,14 +123,14 @@ instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
     store'subStore _ = Rpc.methodUnimplemented
 
 putBlobTree :: StoreServer -> BlobTree -> IO (Ref BlobTree)
-putBlobTree StoreServer{sup, store} bt = do
+putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
     rawPtr <- Capnp.createPure maxBound $ do
         msg <- Capnp.newMessage Nothing
         rawBt <- Capnp.cerialize msg bt
         toPtr msg rawBt
     ptr <- Capnp.evalLimitT maxBound $ Capnp.decerialize rawPtr
-    hash <- putPtr store ptr
-    castClient <$> export_Ref sup RefServer{hash, store, sup}
+    hash <- putPtr srv ptr
+    castClient <$> export_Ref sup RefServer{hash, rawHandler, lifetime, sup}
 
 -- TODO: put this somewhere more sensible.
 castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
