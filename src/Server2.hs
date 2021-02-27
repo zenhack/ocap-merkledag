@@ -17,9 +17,10 @@ import           BlobStore
 import qualified BlobStore.Raw     as Raw
 import qualified PutBytesStreaming
 
-import Capnp.Gen.Protocol.Pure
-import Capnp.Gen.Storage       as RawStorage
-import Capnp.Gen.Storage.Pure
+import qualified Capnp.Gen.Protocol      as RawProtocol
+import           Capnp.Gen.Protocol.Pure
+import           Capnp.Gen.Storage       as RawStorage
+import           Capnp.Gen.Storage.Pure
 
 import Control.Exception.Safe (throwIO, throwM)
 import Lifetimes
@@ -32,7 +33,8 @@ import qualified Capnp.Rpc.Untyped  as RU
 import qualified Capnp.Untyped      as U
 import qualified Capnp.Untyped.Pure as PU
 
-import Capnp.Classes    (ToPtr(toPtr))
+import Capnp.Classes
+    (FromStruct(fromStruct), ToPtr(toPtr), ToStruct(toStruct))
 import Capnp.Rpc.Errors (eFailed)
 
 import           Control.Concurrent.STM
@@ -146,16 +148,17 @@ instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
                                 (p, f) <- Rpc.newPromiseClient
                                 findByHash sup lifetime hash rawHandler f
                                 pure $ Rpc.toClient p
-                _data <- Capnp.evalLimitT maxBound $
-                    RawStorage.get_StoredBlob'data_ blob
-                    >>= traverse (U.tMsg (pure . M.withCapTable clients))
-                -- TODO: wrap _data in a result and return it. This is actually a bit fiddly,
-                -- because the haskell-capnp API makes it harder to extend an immutable message.
-                -- We should fix that upstream. For now, we could hack around this by exploting
-                -- the fact that `(value :T)` will serendipitously allocate the pointer in the
-                -- same place as `StoredBlob(T)`, or we could eat the perf hit and thaw, modify,
-                -- and freeze.
-                error "TODO"
+                (res :: RawProtocol.Ref'get'results (Maybe (U.Ptr 'Capnp.Const)) 'Capnp.Const) <-
+                    Capnp.evalLimitT maxBound $
+                        -- Attach the cap table and cast from StoredBlob(T) to the results.
+                        -- The latter is to get around the fact that  the haskell-capnp API
+                        -- makes it harder to extend an immutable message than it should be.
+                        -- For now, we hack around this by exploting the fact that
+                        -- `(value :T)` will serendipitously allocate the pointer in the
+                        -- same place as `StoredBlob(T)`
+                        U.tMsg (pure . M.withCapTable clients) (toStruct blob)
+                        >>= fromStruct . toStruct
+                Rpc.fulfill result res
 
 
 type MonadAttachCaps m = MonadState [Hash] m
