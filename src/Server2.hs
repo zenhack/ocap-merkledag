@@ -93,18 +93,27 @@ fulfillWith f io =
         Right v                   -> Rpc.fulfill f v
 
 instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
-    store'put = Rpc.pureHandler $
-        \StoreServer{store, sup} Store'put'params{value} -> do
-            hash <- putPtr store value
-            ref <- export_Ref sup RefServer{hash, store, sup}
-            pure Store'put'results{hash, ref}
+    store'put = Rpc.rawAsyncHandler $
+        \srv@StoreServer{rawHandler, lifetime, sup} params result ->
+            Rpc.supervise sup $ fulfillWith result $ do
+                Store'put'params{value} <-
+                    Capnp.evalLimitT Capnp.defaultLimit $ Capnp.decerialize params
+                hashRes <- putPtr srv value
+                ref <- export_Ref sup RefServer{hash = hashRes, rawHandler, sup, lifetime}
+                hash <- encodeHash <$> mustGetResource hashRes
+                struct <- Capnp.createPure maxBound $ do
+                    msg <- Capnp.newMessage Nothing
+                    toStruct <$> Capnp.cerialize msg Store'put'results { hash, ref }
+                fromStruct struct
 
     store'findByHash = Rpc.pureHandler $
         \StoreServer{rawHandler,sup,lifetime} Store'findByHash'params{hash} ->
-            atomically $ do
-                (p, f) <- Rpc.newPromiseClient
-                findByHash sup lifetime (decodeHash hash) rawHandler f
-                pure Store'findByHash'results{ref = p}
+            atomically $ case decodeHash hash of
+                Left e -> throwM e
+                Right h -> do
+                    (p, f) <- Rpc.newPromiseClient
+                    findByHash sup lifetime h rawHandler f
+                    pure Store'findByHash'results{ref = p}
 
     store'putBytesStreaming = Rpc.pureHandler $
         \srv@StoreServer{sup} _ -> do
@@ -127,7 +136,7 @@ putBlobTree StoreServer{sup, store} bt = do
 castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
 castClient = Rpc.fromClient . Rpc.toClient
 
-putPtr :: BlobStore IO -> Maybe PU.Ptr -> IO Hash
+putPtr :: StoreServer -> Maybe PU.Ptr -> IO (Resource KnownHash)
 putPtr store value = do
     (data_, ptrs) <- atomically $ runWriterT $ resolveCaps value
     putBlob store StoredBlob { data_, ptrs = V.fromList ptrs }
