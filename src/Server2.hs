@@ -8,7 +8,8 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Server2
-    ( acquireStoreServer
+    ( StoreServer
+    , acquireStoreServer
     ) where
 
 import Zhp
