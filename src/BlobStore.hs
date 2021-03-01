@@ -8,6 +8,7 @@ module BlobStore
     , IllegalHash(..)
     , RawBlobStore(..)
     , BlobStore
+    , computeHash
     , encodeHash
     , decodeHash
     , fromRaw

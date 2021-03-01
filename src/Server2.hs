@@ -17,10 +17,9 @@ import           BlobStore
 import qualified BlobStore.Raw     as Raw
 import qualified PutBytesStreaming
 
-import qualified Capnp.Gen.Protocol      as RawProtocol
-import           Capnp.Gen.Protocol.Pure
-import           Capnp.Gen.Storage       as RawStorage
-import           Capnp.Gen.Storage.Pure
+import Capnp.Gen.Protocol.Pure
+import Capnp.Gen.Storage       as RawStorage
+import Capnp.Gen.Storage.Pure
 
 import Control.Exception.Safe (SomeException, throwIO, throwM, try)
 import Lifetimes
@@ -39,7 +38,6 @@ import Capnp.Rpc.Errors (eFailed, wrapException)
 
 import           Control.Concurrent.STM
 import           Control.Monad.STM.Class
-import           Control.Monad.State         (MonadState, evalStateT, get, put)
 import           Control.Monad.Writer.Strict (MonadWriter, runWriterT, tell)
 import           Data.Typeable               (Typeable, cast)
 import qualified Data.Vector                 as V
@@ -104,7 +102,7 @@ instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
                 struct <- Capnp.createPure maxBound $ do
                     msg <- Capnp.newMessage Nothing
                     toStruct <$> Capnp.cerialize msg Store'put'results { hash, ref }
-                fromStruct struct
+                Capnp.evalLimitT maxBound $ fromStruct struct
 
     store'findByHash = Rpc.pureHandler $
         \StoreServer{rawHandler,sup,lifetime} Store'findByHash'params{hash} ->
@@ -137,9 +135,31 @@ castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
 castClient = Rpc.fromClient . Rpc.toClient
 
 putPtr :: StoreServer -> Maybe PU.Ptr -> IO (Resource KnownHash)
-putPtr store value = do
+putPtr StoreServer{lifetime, rawHandler}  value = do
     (data_, ptrs) <- atomically $ runWriterT $ resolveCaps value
-    putBlob store StoredBlob { data_, ptrs = V.fromList ptrs }
+    refs <- case traverse decodeHash ptrs of
+        Left e  -> throwIO e
+        Right v -> pure v
+    seg :: Capnp.Segment 'Capnp.Const <- Capnp.createPure maxBound $ do
+        msg <- Capnp.newMessage Nothing
+        rawBlob <- Capnp.cerialize msg StoredBlob
+            { data_
+            , ptrs = V.fromList ptrs
+            }
+        (_, seg) <- Capnp.canonicalize (toStruct rawBlob)
+        pure seg
+    let bytes = Capnp.toByteString seg
+    let digest = computeHash bytes
+    (p, f) <- Rpc.newPromise
+    let req = Raw.PutRequest
+            { msg = M.singleSegment seg
+            , hash = digest
+            , refs
+            , result = f
+            , lifetime
+            }
+    atomically $ rawHandler $ Raw.Put req
+    Rpc.wait p
 
 instance Rpc.Server IO RefServer where
     shutdown RefServer{hash} = releaseEarly hash
@@ -173,18 +193,6 @@ instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
                     U.tMsg (pure . M.withCapTable clients) (toStruct blob)
                     >>= fromStruct . toStruct
 
-
-type MonadAttachCaps m = MonadState [Hash] m
-
-pullCap :: MonadAttachCaps m => m (Maybe Hash)
-pullCap = do
-    s <- get
-    case s of
-        [] -> pure Nothing
-        x:xs -> do
-            put xs
-            pure $ Just x
-
 traverseClientsMaybePtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> Maybe (PU.Ptr) -> f (Maybe PU.Ptr)
 traverseClientsMaybePtr f p = do
     p' <- traverse (traverseClientsPtr f) p
@@ -208,13 +216,6 @@ traverseClientsList f = \case
 traverseClientsStruct :: Monad f => (Rpc.Client -> f Rpc.Client) -> PU.Struct -> f PU.Struct
 traverseClientsStruct f (PU.Struct d (PU.Slice ptrs)) =
     PU.Struct d . PU.Slice <$> traverse (traverseClientsMaybePtr f) ptrs
-
-attachCaps :: MonadAttachCaps m => Maybe PU.Ptr -> (Hash -> m Rpc.Client) -> m (Maybe PU.Ptr)
-attachCaps ptr mkClient = flip traverseClientsMaybePtr ptr $ \_ -> do
-    c <- pullCap
-    case c of
-        Nothing -> pure RU.nullClient
-        Just h  -> mkClient h
 
 type MonadResolveCaps m = (MonadSTM m, MonadWriter [Hash] m)
 
