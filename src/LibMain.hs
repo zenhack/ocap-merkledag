@@ -9,18 +9,23 @@ import qualified Data.ByteString.Char8  as BS8
 import           Network.Simple.TCP
     (HostPreference, ServiceName, connect, serve)
 
-import BlobStore       (KnownHash(..), decodeHash, fromRaw)
-import BlobStore.Files (open)
-import Client.GetFile  (downloadTree)
-import Client.PutFile  (storeFileRef)
-import Server          (exportBlobStore)
+import BlobStore      (KnownHash(..), decodeHash)
+import Client.GetFile (downloadTree)
+import Client.PutFile (storeFileRef)
 
 import Crypto.Hash (digestFromByteString)
 
 import Capnp       (def, defaultLimit)
 import Capnp.Rpc
     (ConnConfig(..), fromClient, handleConn, socketTransport, toClient)
-import Supervisors (withSupervisor)
+import Supervisors (Supervisor, withSupervisor)
+
+import qualified BlobStore.InMemory      as InMemory
+import qualified Capnp.Gen.Protocol.Pure as Protocol
+import qualified Capnp.Untyped.Pure      as PU
+import qualified Server2
+
+import qualified Lifetimes
 
 usageStr :: String
 usageStr = mconcat
@@ -53,14 +58,19 @@ main = do
             die usageStr
 
 server :: FilePath -> HostPreference -> ServiceName -> IO ()
-server path host port = do
-    store <- fromRaw <$> open path
-    withSupervisor $ \sup -> do
-        client <- toClient <$> exportBlobStore sup store
-        serve host port $ \(sock, _addr) ->
-            handleConn (socketTransport sock defaultLimit) def
-                { getBootstrap = \_ -> pure $ Just client
-                }
+server _path host port = do
+    withSupervisor $ \sup ->
+        Lifetimes.withAcquire (acquireServer sup) $ \client -> do
+            serve host port $ \(sock, _addr) ->
+                handleConn (socketTransport sock defaultLimit) def
+                    { getBootstrap = \_ -> pure $ Just (toClient client)
+                    }
+
+acquireServer :: Supervisor -> Lifetimes.Acquire (Protocol.Store (Maybe PU.Ptr))
+acquireServer sup = do
+    h <- InMemory.acquireHandler
+    srv <- Server2.acquireStoreServer sup h
+    liftIO $ Protocol.export_Store sup srv
 
 putFile :: String -> ServiceName -> FilePath -> IO ()
 putFile host port path =
