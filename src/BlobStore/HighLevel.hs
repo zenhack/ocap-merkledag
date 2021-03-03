@@ -1,59 +1,73 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module BlobStore.HighLevel
-    ( StoreAPI
-    , new
-
-    , LiveRef
-    , liveRefHash
-
-    , getRef
-    , put
-
-    , getRoot
-    , setRoot
-    , subscribeRoot
-
-    , checkpoint
+    ( encodeBlob
     ) where
 
 import           BlobStore
-import qualified BlobStore.Raw          as Raw
 import qualified Capnp
-import           Capnp.Rpc              (Client)
-import           Capnp.Rpc.Promise      (Promise)
-import qualified Capnp.Untyped          as U
-import           Control.Concurrent.STM
-import           Lifetimes
+import           Capnp.Classes             (toStruct)
+import           Capnp.Gen.Storage.Pure
+import qualified Capnp.Message             as M
+import qualified Capnp.Rpc                 as Rpc
+import qualified Capnp.Rpc.Untyped         as RU
+import qualified Capnp.Untyped.Pure        as PU
+import           Control.Monad.Catch       (MonadThrow(throwM))
+import           Control.Monad.Trans.Class (lift)
+import           Control.Monad.Writer      (MonadWriter(tell), runWriterT)
+import qualified Data.Vector               as V
 import           Zhp
 
-newtype StoreAPI = StoreAPI Raw.Handler
+encodeBlob
+    :: MonadThrow m
+    => Maybe PU.Ptr
+    -> (Rpc.Client -> m (Maybe (KnownHash, Rpc.Client)))
+    -> m (KnownHash, Capnp.Message 'Capnp.Const, [KnownHash])
+encodeBlob ptr resolveClient = do
+    (data_, ptrs) <- runWriterT $ flip traverseClientsMaybePtr ptr $ \c ->
+        lift (resolveClient c) >>= \case
+            Nothing         -> pure RU.nullClient
+            Just (hash, c') -> tell [encodeHash hash] *> pure c'
+    refs <- case traverse decodeHash ptrs of
+        Left e  -> throwM e
+        Right v -> pure v
+    seg :: Capnp.Segment 'Capnp.Const <- Capnp.createPure maxBound $ do
+        msg <- Capnp.newMessage Nothing
+        rawBlob <- Capnp.cerialize msg StoredBlob
+            { data_
+            , ptrs = V.fromList ptrs
+            }
+        (_, seg) <- Capnp.canonicalize (toStruct rawBlob)
+        pure seg
+    let bytes = Capnp.toByteString seg
+        digest = computeHash bytes
+    pure (digest, M.singleSegment seg, refs)
 
-newtype LiveRef = LiveRef KnownHash
+traverseClientsMaybePtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> Maybe (PU.Ptr) -> f (Maybe PU.Ptr)
+traverseClientsMaybePtr _ Nothing = pure Nothing
+traverseClientsMaybePtr f (Just p) = do
+    p' <- traverseClientsPtr f p
+    case p' of
+        -- Normalize null clients to null pointers.
+        PU.PtrCap c | c == RU.nullClient -> pure Nothing
+        _                                -> pure (Just p')
 
-new :: Raw.Handler -> Acquire StoreAPI
-new h = pure (StoreAPI h)
+traverseClientsPtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> PU.Ptr -> f PU.Ptr
+traverseClientsPtr f = \case
+    PU.PtrList list  -> PU.PtrList <$> traverseClientsList f list
+    PU.PtrStruct s   -> PU.PtrStruct <$> traverseClientsStruct f s
+    PU.PtrCap client -> PU.PtrCap <$> f client
 
-liveRefHash :: LiveRef -> KnownHash
-liveRefHash (LiveRef h) = h
+traverseClientsList :: Monad f => (Rpc.Client -> f Rpc.Client) -> PU.List -> f PU.List
+traverseClientsList f = \case
+    PU.ListPtr list -> PU.ListPtr <$> traverse (traverseClientsMaybePtr f) list
+    PU.ListStruct list -> PU.ListStruct <$> traverse (traverseClientsStruct f) list
+    list -> pure list
 
-getRoot :: StoreAPI -> Acquire (Promise LiveRef)
-getRoot = undefined
-
-getRef :: KnownHash -> StoreAPI -> Acquire (Promise (Maybe LiveRef))
-getRef = undefined
-
-put
-    :: Maybe (U.Ptr 'Capnp.Const)
-    -> (Client -> STM (Maybe KnownHash))
-    -> StoreAPI
-    -> Acquire (Promise LiveRef)
-put = undefined
-
-subscribeRoot :: (KnownHash -> STM ()) -> StoreAPI -> Acquire ()
-subscribeRoot = undefined
-
-setRoot :: Resource LiveRef -> StoreAPI -> STM (Promise ())
-setRoot = undefined
-
-checkpoint :: StoreAPI -> STM (Promise ())
-checkpoint = undefined
+traverseClientsStruct :: Monad f => (Rpc.Client -> f Rpc.Client) -> PU.Struct -> f PU.Struct
+traverseClientsStruct f (PU.Struct d (PU.Slice ptrs)) =
+    PU.Struct d . PU.Slice <$> traverse (traverseClientsMaybePtr f) ptrs

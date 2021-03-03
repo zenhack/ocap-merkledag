@@ -15,15 +15,15 @@ module Server2
 import Zhp
 
 import           BlobStore
-import qualified BlobStore.Raw     as Raw
+import qualified BlobStore.HighLevel as HighLevel
+import qualified BlobStore.Raw       as Raw
 import qualified PutBytesStreaming
 
 import           Capnp.Gen.Protocol.Pure
 import           Capnp.Gen.Storage       as RawStorage
-import           Capnp.Gen.Storage.Pure
 import qualified Capnp.Gen.Util.Pure     as Util
 
-import Control.Exception.Safe (SomeException, throwIO, throwM, try)
+import Control.Exception.Safe (SomeException, throwM, try)
 import Lifetimes
 import Supervisors            (Supervisor)
 
@@ -40,9 +40,8 @@ import Capnp.Rpc.Errors (eFailed, wrapException)
 
 import           Control.Concurrent.STM
 import           Control.Monad.STM.Class
-import           Control.Monad.Writer.Strict (MonadWriter, runWriterT, tell)
-import           Data.Typeable               (Typeable, cast)
-import qualified Data.Vector                 as V
+import           Data.Typeable           (Typeable, cast)
+import qualified Data.Vector             as V
 
 acquireStoreServer :: Supervisor -> Raw.Handler -> Acquire StoreServer
 acquireStoreServer sup h = do
@@ -139,25 +138,12 @@ castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
 castClient = Rpc.fromClient . Rpc.toClient
 
 putPtr :: StoreServer -> Maybe PU.Ptr -> IO (Resource KnownHash)
-putPtr StoreServer{lifetime, rawHandler}  value = do
-    (data_, ptrs) <- atomically $ runWriterT $ resolveCaps value
-    refs <- case traverse decodeHash ptrs of
-        Left e  -> throwIO e
-        Right v -> pure v
-    seg :: Capnp.Segment 'Capnp.Const <- Capnp.createPure maxBound $ do
-        msg <- Capnp.newMessage Nothing
-        rawBlob <- Capnp.cerialize msg StoredBlob
-            { data_
-            , ptrs = V.fromList ptrs
-            }
-        (_, seg) <- Capnp.canonicalize (toStruct rawBlob)
-        pure seg
-    let bytes = Capnp.toByteString seg
-    let digest = computeHash bytes
+putPtr StoreServer{lifetime, rawHandler} ptr = do
+    (hash, msg, refs) <- HighLevel.encodeBlob ptr resolveClient
     (p, f) <- Rpc.newPromise
     let req = Raw.PutRequest
-            { msg = M.singleSegment seg
-            , hash = digest
+            { msg
+            , hash
             , refs
             , result = f
             , lifetime
@@ -197,43 +183,14 @@ instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
                     U.tMsg (pure . M.withCapTable clients) (toStruct blob)
                     >>= fromStruct . toStruct
 
-traverseClientsMaybePtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> Maybe (PU.Ptr) -> f (Maybe PU.Ptr)
-traverseClientsMaybePtr f p = do
-    p' <- traverse (traverseClientsPtr f) p
-    case p' of
-        -- Normalize null clients to null pointers.
-        Just (PU.PtrCap c) | c == RU.nullClient -> pure Nothing
-        _                                       -> pure p'
-
-traverseClientsPtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> PU.Ptr -> f PU.Ptr
-traverseClientsPtr f = \case
-    PU.PtrList list  -> PU.PtrList <$> traverseClientsList f list
-    PU.PtrStruct s   -> PU.PtrStruct <$> traverseClientsStruct f s
-    PU.PtrCap client -> PU.PtrCap <$> f client
-
-traverseClientsList :: Monad f => (Rpc.Client -> f Rpc.Client) -> PU.List -> f PU.List
-traverseClientsList f = \case
-    PU.ListPtr list -> PU.ListPtr <$> traverse (traverseClientsMaybePtr f) list
-    PU.ListStruct list -> PU.ListStruct <$> traverse (traverseClientsStruct f) list
-    list -> pure list
-
-traverseClientsStruct :: Monad f => (Rpc.Client -> f Rpc.Client) -> PU.Struct -> f PU.Struct
-traverseClientsStruct f (PU.Struct d (PU.Slice ptrs)) =
-    PU.Struct d . PU.Slice <$> traverse (traverseClientsMaybePtr f) ptrs
-
-type MonadResolveCaps m = (MonadSTM m, MonadWriter [Hash] m)
-
-resolveCaps :: MonadResolveCaps m => Maybe PU.Ptr -> m (Maybe PU.Ptr)
-resolveCaps = traverseClientsMaybePtr resolveClient
-
-resolveClient :: MonadResolveCaps m => Rpc.Client -> m Rpc.Client
+resolveClient :: (Monad m, MonadSTM m) => Rpc.Client -> m (Maybe (KnownHash, Rpc.Client))
 resolveClient c = do
     c' <- Rpc.waitClient c
     case Rpc.unwrapServer c' of
         Just RefServer{hash} -> do
             res <- liftSTM $ mustGetResource hash
-            tell [encodeHash res] *> pure c'
-        Nothing              -> pure RU.nullClient
+            pure $ Just (res, c')
+        Nothing              -> pure Nothing
 
 newtype RootServer = RootServer
     { storeSrv :: StoreServer

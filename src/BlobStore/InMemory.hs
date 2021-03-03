@@ -7,6 +7,7 @@ module BlobStore.InMemory
     ) where
 
 import           BlobStore
+import qualified BlobStore.HighLevel      as HighLevel
 import qualified BlobStore.Raw            as Raw
 import qualified Capnp
 import           Capnp.Gen.Storage.Pure
@@ -36,16 +37,23 @@ data BlobInfo = BlobInfo
     , bytes    :: LBS.ByteString
     }
 
-newStore :: KnownHash -> LBS.ByteString -> STM Store
-newStore hash bytes = Store <$> newTVar StoreContents
-    { blobs = M.singleton hash BlobInfo { refCount = 1, bytes }
-    , root = hash
-    }
+emptyBlob :: STM (KnownHash, LBS.ByteString)
+emptyBlob = do
+    (hash, msg, _) <- HighLevel.encodeBlob Nothing (const $ pure Nothing)
+    pure (hash, Capnp.msgToLBS msg)
 
-acquireHandler :: KnownHash -> LBS.ByteString -> Acquire Raw.Handler
-acquireHandler hash bytes = do
+newStore :: STM Store
+newStore = do
+    (hash, bytes) <- emptyBlob
+    Store <$> newTVar StoreContents
+        { blobs = M.singleton hash BlobInfo { refCount = 1, bytes }
+        , root = hash
+        }
+
+acquireHandler :: Acquire Raw.Handler
+acquireHandler = do
     chan <- liftIO $ atomically newTChan
-    s <- liftIO $ atomically $ newStore hash bytes
+    s <- liftIO $ atomically newStore
     _ <- mkAcquire
         (Async.async $ forever $ atomically (readTChan chan) >>= handle s)
         Async.cancel
