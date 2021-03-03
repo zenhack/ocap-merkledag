@@ -28,7 +28,7 @@ newtype Store = Store (TVar StoreContents)
 
 data StoreContents = StoreContents
     { blobs :: M.Map KnownHash BlobInfo
-    , root  :: Maybe KnownHash
+    , root  :: KnownHash
     }
 
 data BlobInfo = BlobInfo
@@ -36,16 +36,16 @@ data BlobInfo = BlobInfo
     , bytes    :: LBS.ByteString
     }
 
-newStore :: STM Store
-newStore = Store <$> newTVar StoreContents
-    { blobs = M.empty
-    , root = Nothing
+newStore :: KnownHash -> LBS.ByteString -> STM Store
+newStore hash bytes = Store <$> newTVar StoreContents
+    { blobs = M.singleton hash BlobInfo { refCount = 1, bytes }
+    , root = hash
     }
 
-acquireHandler :: Acquire Raw.Handler
-acquireHandler = do
+acquireHandler :: KnownHash -> LBS.ByteString -> Acquire Raw.Handler
+acquireHandler hash bytes = do
     chan <- liftIO $ atomically newTChan
-    s <- liftIO $ atomically newStore
+    s <- liftIO $ atomically $ newStore hash bytes
     _ <- mkAcquire
         (Async.async $ forever $ atomically (readTChan chan) >>= handle s)
         Async.cancel
@@ -56,9 +56,7 @@ handle s@(Store var) req = do
     case req of
         Raw.GetRoot lt f -> do
             StoreContents{root} <- readTVarIO var
-            ref <- acquire lt $
-                for root $ \r ->
-                    acquireRef r s
+            ref <- acquire lt $ acquireRef root s
             fulfill f ref
 
         Raw.GetRef lt h f -> join $ atomically $ do
@@ -78,8 +76,8 @@ handle s@(Store var) req = do
                         oldRoot = root sc
                     in
                     flip execState sc $ do
-                        for_ newRoot $ \r -> modify $ incRef r
-                        for_ oldRoot $ \r -> modify $ decRef r
+                        modify $ incRef newRoot
+                        modify $ decRef oldRoot
                         modify $ \sc' -> sc' { root = newRoot }
                 fulfill f ()
 

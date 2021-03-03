@@ -18,9 +18,10 @@ import           BlobStore
 import qualified BlobStore.Raw     as Raw
 import qualified PutBytesStreaming
 
-import Capnp.Gen.Protocol.Pure
-import Capnp.Gen.Storage       as RawStorage
-import Capnp.Gen.Storage.Pure
+import           Capnp.Gen.Protocol.Pure
+import           Capnp.Gen.Storage       as RawStorage
+import           Capnp.Gen.Storage.Pure
+import qualified Capnp.Gen.Util.Pure     as Util
 
 import Control.Exception.Safe (SomeException, throwIO, throwM, try)
 import Lifetimes
@@ -120,6 +121,8 @@ instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
             pure Store'putBytesStreaming'results {stream, ref}
 
     store'subStore _ = Rpc.methodUnimplemented
+
+    store'root _ = Rpc.methodUnimplemented
 
 putBlobTree :: StoreServer -> BlobTree -> IO (Ref BlobTree)
 putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
@@ -231,3 +234,53 @@ resolveClient c = do
             res <- liftSTM $ mustGetResource hash
             tell [encodeHash res] *> pure c'
         Nothing              -> pure RU.nullClient
+
+newtype RootServer = RootServer
+    { storeSrv :: StoreServer
+    }
+
+instance Rpc.Server IO RootServer
+
+getRoot :: RootServer -> IO (Ref (Maybe (PU.Ptr)))
+getRoot RootServer{storeSrv=StoreServer{lifetime, sup, rawHandler}} = do
+    (p, f) <- Rpc.newPromise
+    atomically $ rawHandler $ Raw.GetRoot lifetime f
+    hash <- Rpc.wait p
+    export_Ref sup RefServer { hash, rawHandler, sup, lifetime }
+
+instance Util.Assignable'Getter'server_ IO RootServer (Ref (Maybe PU.Ptr)) where
+    assignable'Getter'get = Rpc.pureHandler $ \srv _ -> do
+        value <- getRoot srv
+        pure Util.Assignable'Getter'get'results { value }
+
+    assignable'Getter'subscribe _ = Rpc.methodUnimplemented
+
+instance Util.Assignable'server_ IO RootServer (Ref (Maybe PU.Ptr)) where
+    assignable'get = Rpc.pureHandler $ \srv _ -> do
+        value <- getRoot srv
+        pure Util.Assignable'get'results
+            { value
+            , setter = Rpc.fromClient RU.nullClient
+            }
+
+    assignable'asGetter = Rpc.pureHandler $ \srv@RootServer{storeSrv=StoreServer{sup}} _ -> do
+        getter <- Util.export_Assignable'Getter sup srv
+        pure Util.Assignable'asGetter'results { getter }
+
+    assignable'asSetter = Rpc.pureHandler $
+        \srv@(RootServer StoreServer{sup}) _params -> do
+            setter <- Util.export_Assignable'Setter sup srv
+            pure Util.Assignable'asSetter'results { setter }
+
+instance Util.Assignable'Setter'server_ IO RootServer (Ref (Maybe PU.Ptr)) where
+    assignable'Setter'set = Rpc.pureHandler $
+        \RootServer{storeSrv = StoreServer{rawHandler}} Util.Assignable'Setter'set'params{value} -> do
+            client <- Rpc.waitClient value
+            (p, f) <- Rpc.newPromise
+            case Rpc.unwrapServer client of
+                Nothing -> throwM $ eFailed "Not a ref"
+                Just RefServer{hash} -> atomically $ do
+                    hash' <- mustGetResource hash
+                    rawHandler $ Raw.SetRoot hash' f
+            Rpc.wait p
+            pure Capnp.def

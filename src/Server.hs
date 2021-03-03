@@ -76,6 +76,7 @@ instance Store'server_ IO StoreServer (Maybe (U.Ptr)) where
             pure Store'putBytesStreaming'results {stream, ref}
 
     store'subStore _ = Rpc.methodUnimplemented
+    store'root _ = Rpc.methodUnimplemented
 
 putBlobTree :: StoreServer -> BlobTree -> IO (Ref BlobTree)
 putBlobTree StoreServer{sup, store} bt = do

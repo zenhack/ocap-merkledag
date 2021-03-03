@@ -70,3 +70,36 @@ interface ByteStream {
   # consistent. The caller will ignore any exceptions thrown from this method, therefore it
   # is not necessary for the callee to actually implement it.
 }
+
+interface Assignable(T) {
+  # An "assignable" -- a mutable memory cell. Supports subscribing to updates.
+
+  get @0 () -> (value :T, setter :Setter);
+  # The returned setter functions the same as you'd get from `asSetter()` except that it will
+  # become disconnected the next time the Assignable is set by someone else. Thus, you may use this
+  # to implement optimistic concurrency control.
+
+  asGetter @1 () -> (getter :Getter);
+  # Return a read-only capability for this assignable, co-hosted with the assignable itself for
+  # performance.  If the assignable is persistent, the getter is as well.
+
+  asSetter @2 () -> (setter :Setter);
+  # Return a write-only capability for this assignable, co-hosted with the assignable itself for
+  # performance.  If the assignable is persistent, the setter is as well.
+
+  interface Getter {
+    get @0 () -> (value :T);
+
+    subscribe @1 (setter :Setter) -> (handle :Handle);
+    # Subscribe to updates. Calls the given setter any time the assignable's value changes.  Drop
+    # the returned handle to stop receiving updates. If `setter` is persistent, `handle` will also
+    # be persistent.
+  }
+
+  interface Setter {
+    set @0 (value :T) -> ();
+  }
+}
+
+interface Handle {
+}

@@ -39,6 +39,8 @@ interface Store(T) {
   # same underlying storage, but will be logically empty, i.e. initially
   # findByHash will not find anything, until objects have been inserted into
   # the sub-store via its put() and putBytesStreaming() methods.
+
+  root @4 () -> (root :Util.Assignable(Ref(AnyPointer)));
 }
 
 struct BlobTree {
