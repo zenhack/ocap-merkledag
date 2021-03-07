@@ -121,7 +121,10 @@ instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
 
     store'subStore _ = Rpc.methodUnimplemented
 
-    store'root _ = Rpc.methodUnimplemented
+    store'root = Rpc.pureHandler $
+        \srv@StoreServer{sup} _ -> do
+            root <- Util.export_Assignable sup (RootServer srv)
+            pure Store'root'results{root}
 
 putBlobTree :: StoreServer -> BlobTree -> IO (Ref BlobTree)
 putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
