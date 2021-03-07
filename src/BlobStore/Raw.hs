@@ -40,9 +40,10 @@ data Request
     -- durable, i.e. they will persist in the event of a power failure
     -- or the like.
     | GetRoot Lifetime (Fulfiller (Resource KnownHash))
-    -- ^ Get the curent root object. The while the Resource is alive,
-    -- it keeps the object from from being garbage collected, even if
-    -- the root is changed to point to something else.
+    -- ^ Get the curent root object. Acquiring a reference to it with the
+    -- given lifetime. while the Resource is alive, it keeps the object
+    -- from from being garbage collected, even if the root is changed to
+    -- point to something else.
     | GetRef Lifetime KnownHash (Fulfiller (Maybe (Resource KnownHash)))
     -- ^ Get a reference to the object with the given hash, if it exists
     -- in the store (otherwise the request is fulfilled with 'Nothing').
