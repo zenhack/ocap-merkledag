@@ -5,6 +5,7 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 module Client.PutFile
     ( storeFileRef
+    , setStoreRoot
     , StoreResult
     , FileStoreError(..)
     ) where
@@ -56,6 +57,13 @@ storeValue store value = do
     P.Store'put'results{hash, ref} <-
         Rpc.wait =<< P.store'put store ? P.Store'put'params { value }
     pure (hash, ref)
+
+setStoreRoot :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a) => P.Store a -> P.Ref a -> IO ()
+setStoreRoot store ref = do
+    P.Store'root'results{root} <- Rpc.wait =<< P.store'root store ? def
+    Util.Assignable'asSetter'results{setter} <- Rpc.wait =<< Util.assignable'asSetter root ? def
+    _ <- Rpc.wait =<< Util.assignable'Setter'set setter ? Util.Assignable'Setter'set'params { value = ref }
+    pure ()
 
 storeFileRef :: FilePath -> P.Store Files.File -> IO (StoreResult (P.Hash, P.Ref Files.File))
 storeFileRef path store =

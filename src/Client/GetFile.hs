@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 module Client.GetFile
     ( saveFileRef
+    , saveStoreRoot
     , downloadTree
     ) where
 
@@ -20,8 +21,9 @@ import           System.FilePath        ((</>))
 import qualified System.Posix.Files     as Posix
 import qualified System.Posix.Types     as Posix
 
-import Capnp.Gen.Files.Pure
-import Capnp.Gen.Protocol.Pure
+import           Capnp.Gen.Files.Pure
+import           Capnp.Gen.Protocol.Pure
+import qualified Capnp.Gen.Util.Pure     as Util
 
 import BlobStore (KnownHash(..), encodeHash)
 
@@ -52,6 +54,12 @@ downloadTree path store hash = do
     Store'findByHash'results{ref} <- Rpc.wait =<<
         store'findByHash store ? Store'findByHash'params { hash = encodeHash hash }
     saveFileRef path ref
+
+saveStoreRoot :: FilePath -> Store File -> IO (Either SaveError ())
+saveStoreRoot path store = do
+    Store'root'results{root} <- Rpc.wait =<< store'root store ? def
+    Util.Assignable'get'results{value} <- Rpc.wait =<< Util.assignable'get root ? def
+    saveFileRef path value
 
 saveFileRef :: FilePath -> Ref File -> IO (Either SaveError ())
 saveFileRef path ref = do

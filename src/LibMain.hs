@@ -4,16 +4,11 @@ module LibMain (main) where
 
 import Zhp
 
-import qualified Data.ByteString.Base16 as Base16
-import qualified Data.ByteString.Char8  as BS8
-import           Network.Simple.TCP
-    (HostPreference, ServiceName, connect, serve)
+import Network.Simple.TCP (HostPreference, ServiceName, connect, serve)
 
-import BlobStore      (KnownHash(..), decodeHash)
-import Client.GetFile (downloadTree)
-import Client.PutFile (storeFileRef)
-
-import Crypto.Hash (digestFromByteString)
+import BlobStore      (decodeHash)
+import Client.GetFile (saveStoreRoot)
+import Client.PutFile (setStoreRoot, storeFileRef)
 
 import Capnp       (def, defaultLimit)
 import Capnp.Rpc
@@ -33,7 +28,7 @@ usageStr = mconcat
     , "\n"
     , "    omd serve <path-to-store> <host> <port>\n"
     , "    omd put <host> <port> <file-to-upload>\n"
-    , "    omd get <host> <port> <hash>\n"
+    , "    omd get <host> <port> <save-path>\n"
     , "    omd help\n"
     ]
 
@@ -52,8 +47,8 @@ main = do
             server path (fromString host) (fromString port)
         ["put", host, port, path] ->
             putFile host (fromString port) path
-        ["get", host, port, hash] ->
-            getFile host port hash
+        ["get", host, port, path] ->
+            getFile host port path
         _                  ->
             die usageStr
 
@@ -80,18 +75,15 @@ putFile host port path =
                 res <- storeFileRef path (fromClient store)
                 case res of
                     Left e          -> print e
-                    Right (hash, _) -> print $ decodeHash hash
+                    Right (hash, ref) -> do
+                        print (decodeHash hash)
+                        setStoreRoot (fromClient store) ref
             }
 
 getFile :: String -> ServiceName -> String -> IO ()
-getFile host port hash =
-    case Base16.decode (BS8.pack hash) of
-        Left e -> die e
-        Right v -> case digestFromByteString v of
-            Nothing -> die "Hash is the wrong length"
-            Just digest ->
-                connect host port $ \(sock, _remoteAddr) ->
-                    handleConn (socketTransport sock defaultLimit) def
-                        { withBootstrap = Just $ \_sup store ->
-                            downloadTree "." (fromClient store) (Sha256 digest) >>= print
-                        }
+getFile host port path =
+    connect host port $ \(sock, _remoteAddr) ->
+        handleConn (socketTransport sock defaultLimit) def
+            { withBootstrap = Just $ \_sup store ->
+                saveStoreRoot path (fromClient store) >>= print
+            }
