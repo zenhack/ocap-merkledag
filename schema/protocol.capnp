@@ -40,7 +40,7 @@ interface Store(T) {
   # findByHash will not find anything, until objects have been inserted into
   # the sub-store via its put() and putBytesStreaming() methods.
 
-  root @4 () -> (root :Util.Assignable(Ref(AnyPointer)));
+  root @4 () -> (root :Util.Assignable(Ref(T)));
 }
 
 struct BlobTree {
