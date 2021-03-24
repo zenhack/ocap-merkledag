@@ -28,7 +28,13 @@ prop_canonicalizeBytesEquiv bytes =
                 pure msg')
         fastCanonicalized = CanonicalizeBytes.canonicalizeBytesBlob bytes
     in
-    normalCanonicalized == fastCanonicalized
+    if normalCanonicalized == fastCanonicalized then
+        True
+    else
+        error $ mconcat
+            [ "Normal : ", show normalCanonicalized, "\n"
+            , "Fast   : ", show fastCanonicalized, "\n"
+            ]
 
 
 

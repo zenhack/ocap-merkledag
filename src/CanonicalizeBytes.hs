@@ -15,7 +15,7 @@ canonicalizeBytesBlob bytes =
     let nBytes :: ByteCount = fromIntegral (BS.length bytes)
         nWords = bytesToWordsCeil nBytes
         nPadBytes = wordsToBytes nWords - nBytes
-        segmentTotalWords = nWords + 4
+        segmentTotalWords = nWords + 5
     in
     BB.toLazyByteString $ mconcat
         [ BB.word32LE 0 -- 1 segment
@@ -26,6 +26,7 @@ canonicalizeBytesBlob bytes =
         , ptr $ Just $ P.ListPtr 0 $ P.EltNormal P.Sz8 $ fromIntegral nBytes -- BlobTree.leaf
         , BB.byteString bytes
         , mconcat $ take (fromIntegral nPadBytes) $ repeat (BB.word8 0)
+        , BB.word64LE 0 -- tag word for the cap list; empty.
         ]
   where
     ptr = BB.word64LE . P.serializePtr
