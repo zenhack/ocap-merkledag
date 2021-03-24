@@ -56,9 +56,9 @@ library
   hs-source-dirs:      src, gen
   exposed-modules:
       LibMain
+    , CanonicalizeBytes
 
-  other-modules:
-      Capnp.Gen.ById.X96e412eec2bcb356
+    , Capnp.Gen.ById.X96e412eec2bcb356
     , Capnp.Gen.ById.X96e412eec2bcb356.Pure
     , Capnp.Gen.ById.Xa2d9c03c65e784f5
     , Capnp.Gen.ById.Xae1c58020a8c26ad
@@ -119,3 +119,7 @@ test-suite tests
   type: exitcode-stdio-1.0
   hs-source-dirs: tests
   main-is: Main.hs
+  build-depends:
+      ocap-merkledag
+    , QuickCheck
+    , quickcheck-instances
