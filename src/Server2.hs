@@ -145,7 +145,7 @@ putPtr StoreServer{lifetime, rawHandler} ptr = do
     (hash, msg, refs) <- HighLevel.encodeBlob ptr resolveClient
     (p, f) <- Rpc.newPromise
     let req = Raw.PutRequest
-            { msg
+            { msg = Capnp.msgToLBS msg
             , hash
             , refs
             , result = f

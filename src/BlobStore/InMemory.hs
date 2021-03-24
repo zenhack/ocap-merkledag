@@ -121,7 +121,7 @@ handlePut s@(Store var) Raw.PutRequest{hash, result, lifetime, refs, msg} =
             let init = sc
                     { blobs = M.insert
                         hash
-                        BlobInfo { bytes = Capnp.msgToLBS msg, refCount = 0 }
+                        BlobInfo { bytes = msg, refCount = 0 }
                         (blobs sc)
                     }
             writeTVar var $! foldl' (flip incRef) init refs

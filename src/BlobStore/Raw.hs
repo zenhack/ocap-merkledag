@@ -20,6 +20,7 @@ import           BlobStore
 import qualified Capnp
 import           Capnp.Rpc.Promise      (Fulfiller)
 import           Control.Concurrent.STM
+import qualified Data.ByteString.Lazy   as LBS
 import           Lifetimes              (Lifetime, Resource)
 import           Zhp
 
@@ -73,9 +74,15 @@ data SubscribeRootRequest = SubscribeRootRequest
 
 -- | A request to save a value in the store.
 data PutRequest = PutRequest
-    { msg      :: Capnp.Message 'Capnp.Const
-    -- ^ The capnp message to save. This should be an already-canonicalized
-    -- (and single segment) message, with a StoredBlob as its root pointer.
+    { msg      :: LBS.ByteString
+    -- ^ The capnp message to save. This should be the raw bytes of
+    -- a canonicalized (and therefore single segment) message, with a
+    -- StoredBlob as its root pointer, encoded as described at:
+    --
+    --  https://capnproto.org/encoding.html#serialization-over-a-stream
+    --
+    -- Note that the segment list *is* included, despite the normal
+    -- convention re: canonicalized messages.
     , hash     :: KnownHash
     -- ^ The hash of the canonicalized message (without the message header).
     , refs     :: [KnownHash]
