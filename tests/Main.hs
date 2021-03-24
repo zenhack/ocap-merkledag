@@ -9,7 +9,8 @@ import           Capnp.Gen.Storage.Pure
 import qualified Capnp.Message             as M
 import qualified Data.ByteString           as BS
 import qualified Data.Vector               as V
-import           Test.QuickCheck           (quickCheck)
+import           Test.Hspec
+import           Test.QuickCheck           (property)
 import           Test.QuickCheck.Instances ()
 import           Zhp
 
@@ -32,4 +33,7 @@ prop_canonicalizeBytesEquiv bytes =
 
 
 main :: IO ()
-main = quickCheck prop_canonicalizeBytesEquiv
+main = hspec $ do
+    describe "canonicalizeBytes" $ do
+        it "Should be equivalent to canonicalizing the corresponding BlobTree" $ do
+            property prop_canonicalizeBytesEquiv

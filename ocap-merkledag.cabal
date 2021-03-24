@@ -121,5 +121,6 @@ test-suite tests
   main-is: Main.hs
   build-depends:
       ocap-merkledag
+    , hspec
     , QuickCheck
     , quickcheck-instances
