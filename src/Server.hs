@@ -6,9 +6,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 module Server
-    ( exportBlobStore
+    ( -- exportBlobStore
     ) where
 
+{-
 import Zhp
 
 import           BlobStore
@@ -25,10 +26,12 @@ import qualified Capnp.Rpc          as Rpc
 import qualified Capnp.Rpc.Untyped  as RU
 import qualified Capnp.Untyped.Pure as U
 
+import Capnp            (ReadParam, WriteParam)
 import Capnp.Classes    (ToPtr(toPtr))
 import Capnp.Rpc.Errors (eFailed)
 
 import           Control.Concurrent.STM      (atomically)
+import           Control.Monad.ST            (RealWorld)
 import           Control.Monad.STM.Class     (MonadSTM)
 import           Control.Monad.State         (MonadState, evalStateT, get, put)
 import           Control.Monad.Writer.Strict (MonadWriter, runWriterT, tell)
@@ -78,7 +81,7 @@ instance Store'server_ IO StoreServer (Maybe (U.Ptr)) where
     store'subStore _ = Rpc.methodUnimplemented
     store'root _ = Rpc.methodUnimplemented
 
-putBlobTree :: StoreServer -> BlobTree -> IO (Ref BlobTree)
+putBlobTree :: (ReadParam a, WriteParam RealWorld a) => StoreServer -> a -> IO (Ref a)
 putBlobTree StoreServer{sup, store} bt = do
     rawPtr <- Capnp.createPure maxBound $ do
         msg <- Capnp.newMessage Nothing
@@ -166,3 +169,4 @@ resolveClient c = do
     case Rpc.unwrapServer c' of
         Just RefServer{hash} -> tell [hash] *> pure c'
         Nothing              -> pure RU.nullClient
+-}

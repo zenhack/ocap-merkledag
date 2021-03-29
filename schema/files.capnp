@@ -17,15 +17,8 @@ struct File {
   # Last modification time (unix timestamp).
 
   union {
-    file :group {
-      # A regular file
-
-      contents @6 :Protocol.Ref(Protocol.BlobTree);
-      # The bytes of the file
-
-      size @5 :UInt64;
-      # The total size of the file.
-    }
+    file @5 :Protocol.BlobTree;
+    # A regular file
 
     dir @4 :Protocol.Ref(List(File));
     # A directory; the argument is the contents of the directory.

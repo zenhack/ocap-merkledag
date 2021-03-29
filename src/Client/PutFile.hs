@@ -79,11 +79,8 @@ storeFileUnion
     -> IO (StoreResult Files.File')
 storeFileUnion status path store =
     if Posix.isRegularFile status then do
-        (contentRef, size) <- withFile path ReadMode (storeHandleBlob store)
-        pure $ Right $ Files.File'file Files.File'file'
-                { Files.contents = contentRef
-                , Files.size = size
-                }
+        content <- withFile path ReadMode (storeHandleBlob store)
+        pure $ Right $ Files.File'file content
     else if Posix.isSymbolicLink status then do
         target <- Posix.readSymbolicLink path
         pure $ Right $ Files.File'symlink (fromString target)
@@ -100,12 +97,13 @@ storeFileUnion status path store =
         pure $ Left ErrUnsupportedFileType
 
 
-storeHandleBlob :: P.Store Files.File -> Handle -> IO (P.Ref P.BlobTree, Word64)
+storeHandleBlob :: P.Store Files.File -> Handle -> IO P.BlobTree
 storeHandleBlob store h = do
     P.Store'putBytesStreaming'results{stream, ref} <-
         Rpc.wait =<< P.store'putBytesStreaming store ? def
-    size <- streamHandle h stream
-    pure (ref, size)
+    _size <- streamHandle h stream
+    P.Ref'get'results{value} <- Rpc.wait =<< P.ref'get ref ? def
+    pure value
 
 streamHandle :: Handle -> Util.ByteStream -> IO Word64
 streamHandle h stream = go 0

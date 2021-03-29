@@ -83,8 +83,8 @@ saveFile path file@File{modTime, union'} = do
                 pure $ Left $ AlreadyExists path'
             else
                 case union' of
-                    File'file File'file'{contents} ->
-                        Right <$> saveRegularFile meta contents
+                    File'file blobTree ->
+                        Right <$> saveRegularFile meta blobTree
                     File'dir kids ->
                         Right <$> saveDirectory meta kids
                     File'symlink target ->
@@ -102,23 +102,22 @@ pathExists path = do
         Left (_ :: SomeException) -> False
         Right _                   -> True
 
-saveRegularFile :: Metadata -> Ref BlobTree -> IO ()
+saveRegularFile :: Metadata -> BlobTree -> IO ()
 saveRegularFile meta@Metadata{path} contents = do
     withBinaryFile path WriteMode $ \h ->
         putBlobTree (BS.hPut h) contents
     updateMetadata meta
 
-putBlobTree :: (BS.ByteString -> IO ()) -> Ref BlobTree -> IO ()
-putBlobTree putBytes ref = do
-    Ref'get'results{value} <- Rpc.wait =<< ref'get ref ? def
-    case value of
-        BlobTree'leaf bytes ->
-            putBytes bytes
-        BlobTree'branch branches ->
-            for_ branches $ \BlobTree'Branch{ref} ->
-                putBlobTree putBytes ref
-        BlobTree'unknown' n ->
-            error $ "Unknown BlobTree variant: " <> show n
+putBlobTree :: (BS.ByteString -> IO ()) -> BlobTree -> IO ()
+putBlobTree putBytes BlobTree {union'} = case union' of
+    BlobTree'leaf bytesRef -> do
+        Ref'get'results bytes <- Rpc.wait =<< ref'get bytesRef ? def
+        putBytes bytes
+    BlobTree'branch branchesRef -> do
+        Ref'get'results branches <- Rpc.wait =<< ref'get branchesRef ? def
+        traverse_ (putBlobTree putBytes) branches
+    BlobTree'unknown' n ->
+        error $ "Unknown BlobTree variant: " <> show n
 
 updateMetadata :: Metadata -> IO ()
 updateMetadata Metadata{path, permissions, modTime} = do

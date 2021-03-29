@@ -24,6 +24,7 @@ import           Capnp.Gen.Storage       as RawStorage
 import qualified Capnp.Gen.Util.Pure     as Util
 
 import Control.Exception.Safe (SomeException, throwM, try)
+import Control.Monad.ST       (RealWorld)
 import Lifetimes
 import Supervisors            (Supervisor)
 
@@ -34,6 +35,7 @@ import qualified Capnp.Rpc.Untyped  as RU
 import qualified Capnp.Untyped      as U
 import qualified Capnp.Untyped.Pure as PU
 
+import Capnp            (ReadParam, WriteParam)
 import Capnp.Classes
     (FromStruct(fromStruct), ToPtr(toPtr), ToStruct(toStruct))
 import Capnp.Rpc.Errors (eFailed, wrapException)
@@ -126,12 +128,14 @@ instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
             root <- Util.export_Assignable sup (RootServer srv)
             pure Store'root'results{root}
 
-putBlobTree :: StoreServer -> BlobTree -> IO (Ref BlobTree)
+putBlobTree :: (ReadParam a, WriteParam RealWorld a) => StoreServer -> a -> IO (Ref a)
 putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
-    rawPtr <- Capnp.createPure maxBound $ do
+    rawPtr <- Capnp.evalLimitT maxBound $ do
+        -- XXX: in principle this could use createPure, but because of the 'RealWorld'
+        -- constraint it can't. TODO refactor.
         msg <- Capnp.newMessage Nothing
         rawBt <- Capnp.cerialize msg bt
-        toPtr msg rawBt
+        toPtr msg rawBt >>= Capnp.unsafeFreeze
     ptr <- Capnp.evalLimitT maxBound $ Capnp.decerialize rawPtr
     hash <- putPtr srv ptr
     castClient <$> export_Ref sup RefServer{hash, rawHandler, lifetime, sup}

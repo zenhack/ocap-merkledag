@@ -52,14 +52,11 @@ struct BlobTree {
   # TODO: specify the hashsplit config used.
 
   union {
-    leaf @0 :Data;
-    branch @1 :List(Branch);
+    leaf @0 :Ref(Data);
+    branch @1 :Ref(List(BlobTree));
   }
 
-  struct Branch {
-    size @0 :UInt64;
-    ref @1 :Ref(BlobTree);
-  }
+  size @2 :UInt64;
 }
 
 interface Ref(T) {
