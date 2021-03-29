@@ -19,6 +19,7 @@ import qualified BlobStore.HighLevel as HighLevel
 import qualified BlobStore.Raw       as Raw
 import qualified PutBytesStreaming
 
+import qualified Capnp.Gen.Protocol      as RawProto
 import           Capnp.Gen.Protocol.Pure
 import           Capnp.Gen.Storage       as RawStorage
 import qualified Capnp.Gen.Util.Pure     as Util
@@ -42,6 +43,7 @@ import Capnp.Rpc.Errors (eFailed, wrapException)
 
 import           Control.Concurrent.STM
 import           Control.Monad.STM.Class
+import qualified Data.ByteString         as BS
 import           Data.Typeable           (Typeable, cast)
 import qualified Data.Vector             as V
 
@@ -97,9 +99,15 @@ instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
     store'put = Rpc.rawAsyncHandler $
         \srv@StoreServer{rawHandler, lifetime, sup} params result ->
             Rpc.supervise sup $ fulfillWith result $ do
-                Store'put'params{value} <-
-                    Capnp.evalLimitT Capnp.defaultLimit $ Capnp.decerialize params
-                hashRes <- putPtr srv value
+                hashRes <- Capnp.evalLimitT Capnp.defaultLimit $ do
+                    value <- RawProto.get_Store'put'params'value params
+                    case value of
+                        Just (U.PtrList (U.List8 list)) -> do
+                            bytes <- U.rawBytes list
+                            liftIO $ putBytes srv bytes
+                        _ -> do
+                            pureVal <- Capnp.decerialize value
+                            liftIO $ putPtr srv pureVal
                 ref <- export_Ref sup RefServer{hash = hashRes, rawHandler, sup, lifetime}
                 hash <- encodeHash <$> mustGetResource hashRes
                 struct <- Capnp.createPure maxBound $ do
@@ -143,6 +151,20 @@ putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
 -- TODO: put this somewhere more sensible.
 castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
 castClient = Rpc.fromClient . Rpc.toClient
+
+putBytes :: StoreServer -> BS.ByteString -> IO (Resource KnownHash)
+putBytes StoreServer{lifetime, rawHandler} bytes = do
+    (p, f) <- Rpc.newPromise
+    (hash, msg) <- HighLevel.encodeBytes bytes
+    let req = Raw.PutRequest
+            { msg
+            , hash
+            , refs = []
+            , result = f
+            , lifetime
+            }
+    atomically $ rawHandler $ Raw.Put req
+    Rpc.wait p
 
 putPtr :: StoreServer -> Maybe PU.Ptr -> IO (Resource KnownHash)
 putPtr StoreServer{lifetime, rawHandler} ptr = do

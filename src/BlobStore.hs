@@ -9,6 +9,7 @@ module BlobStore
     , RawBlobStore(..)
     , BlobStore
     , computeHash
+    , computeHashLazy
     , encodeHash
     , decodeHash
     , fromRaw
@@ -126,9 +127,13 @@ encodeHash (Sha256 digest) = Hash
     , digest = BA.convert digest
     }
 
--- | Compute the hash of a lazy bytestring.
+-- | Compute the hash of a bytestring.
 computeHash :: BS.ByteString -> KnownHash
-computeHash bytes = Sha256 $ CH.hash bytes
+computeHash = Sha256 . CH.hash
+
+-- | Compute the hash of a bytestring.
+computeHashLazy :: LBS.ByteString -> KnownHash
+computeHashLazy = Sha256 . CH.hashlazy
 
 syncFile :: BlobStore IO -> FilePath -> IO ()
 syncFile bs path = do

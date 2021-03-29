@@ -6,9 +6,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module BlobStore.HighLevel
     ( encodeBlob
+    , encodeBytes
     ) where
 
 import           BlobStore
+import           CanonicalizeBytes
 import qualified Capnp
 import           Capnp.Classes             (toStruct)
 import           Capnp.Gen.Storage.Pure
@@ -19,6 +21,8 @@ import qualified Capnp.Untyped.Pure        as PU
 import           Control.Monad.Catch       (MonadThrow(throwM))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Writer      (MonadWriter(tell), runWriterT)
+import qualified Data.ByteString           as BS
+import qualified Data.ByteString.Lazy      as LBS
 import qualified Data.Vector               as V
 import           Zhp
 
@@ -46,6 +50,12 @@ encodeBlob ptr resolveClient = do
     let bytes = Capnp.toByteString seg
         digest = computeHash bytes
     pure (digest, M.singleSegment seg, refs)
+
+encodeBytes :: MonadThrow m => BS.ByteString -> m (KnownHash, LBS.ByteString)
+encodeBytes bytes = do
+    let lbs = canonicalizeBytesBlob bytes
+        hash = computeHashLazy $ LBS.drop 8 lbs
+    pure (hash, lbs)
 
 traverseClientsMaybePtr :: Monad f => (Rpc.Client -> f Rpc.Client) -> Maybe (PU.Ptr) -> f (Maybe PU.Ptr)
 traverseClientsMaybePtr _ Nothing = pure Nothing
