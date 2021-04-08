@@ -28,8 +28,8 @@ import           Zhp
 newtype Store = Store (TVar StoreContents)
 
 data StoreContents = StoreContents
-    { blobs :: M.Map KnownHash BlobInfo
-    , root  :: KnownHash
+    { blobs :: !(M.Map KnownHash BlobInfo)
+    , root  :: !KnownHash
     }
 
 data BlobInfo = BlobInfo
