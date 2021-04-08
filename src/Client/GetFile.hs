@@ -102,8 +102,9 @@ pathExists path = do
         Left (_ :: SomeException) -> False
         Right _                   -> True
 
-saveRegularFile :: Metadata -> BlobTree -> IO ()
-saveRegularFile meta@Metadata{path} contents = do
+saveRegularFile :: Metadata -> Ref BlobTree -> IO ()
+saveRegularFile meta@Metadata{path} contentsRef = do
+    Ref'get'results contents <- Rpc.wait =<< ref'get contentsRef ? def
     withBinaryFile path WriteMode $ \h ->
         putBlobTree (BS.hPut h) contents
     updateMetadata meta

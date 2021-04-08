@@ -17,7 +17,7 @@ struct File {
   # Last modification time (unix timestamp).
 
   union {
-    file @5 :Protocol.BlobTree;
+    file @5 :Protocol.Ref(Protocol.BlobTree);
     # A regular file
 
     dir @4 :Protocol.Ref(List(File));

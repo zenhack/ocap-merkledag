@@ -97,13 +97,12 @@ storeFileUnion status path store =
         pure $ Left ErrUnsupportedFileType
 
 
-storeHandleBlob :: P.Store Files.File -> Handle -> IO P.BlobTree
+storeHandleBlob :: P.Store Files.File -> Handle -> IO (P.Ref P.BlobTree)
 storeHandleBlob store h = do
     P.Store'putBytesStreaming'results{stream, ref} <-
         Rpc.wait =<< P.store'putBytesStreaming store ? def
     _size <- streamHandle h stream
-    P.Ref'get'results{value} <- Rpc.wait =<< P.ref'get ref ? def
-    pure value
+    pure ref
 
 streamHandle :: Handle -> Util.ByteStream -> IO Word64
 streamHandle h stream = go 0
