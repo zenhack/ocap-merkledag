@@ -60,26 +60,40 @@ library
 
     , Capnp.Gen.ById.X96e412eec2bcb356
     , Capnp.Gen.ById.X96e412eec2bcb356.Pure
+    , Capnp.Gen.ById.X96e412eec2bcb356.New
     , Capnp.Gen.ById.Xa2d9c03c65e784f5
+    , Capnp.Gen.ById.Xa2d9c03c65e784f5.Pure
+    , Capnp.Gen.ById.Xa2d9c03c65e784f5.New
     , Capnp.Gen.ById.Xae1c58020a8c26ad
+    , Capnp.Gen.ById.Xae1c58020a8c26ad.Pure
+    , Capnp.Gen.ById.Xae1c58020a8c26ad.New
     , Capnp.Gen.ById.Xb4284328a4e09e0a
     , Capnp.Gen.ById.Xb4284328a4e09e0a.Pure
+    , Capnp.Gen.ById.Xb4284328a4e09e0a.New
     , Capnp.Gen.ById.Xdcd5a61cb18421e5
     , Capnp.Gen.ById.Xdcd5a61cb18421e5.Pure
+    , Capnp.Gen.ById.Xdcd5a61cb18421e5.New
     , Capnp.Gen.ById.Xecd50d792c3d9992
     , Capnp.Gen.ById.Xecd50d792c3d9992.Pure
+    , Capnp.Gen.ById.Xecd50d792c3d9992.New
     , Capnp.Gen.Disk
     , Capnp.Gen.DiskBigfile
     , Capnp.Gen.DiskBigfile.Pure
+    , Capnp.Gen.DiskBigfile.New
     , Capnp.Gen.Disk.Pure
+    , Capnp.Gen.Disk.New
     , Capnp.Gen.Files
     , Capnp.Gen.Files.Pure
+    , Capnp.Gen.Files.New
     , Capnp.Gen.Protocol
     , Capnp.Gen.Protocol.Pure
+    , Capnp.Gen.Protocol.New
     , Capnp.Gen.Storage
     , Capnp.Gen.Storage.Pure
+    , Capnp.Gen.Storage.New
     , Capnp.Gen.Util
     , Capnp.Gen.Util.Pure
+    , Capnp.Gen.Util.New
 
     , Util
 
