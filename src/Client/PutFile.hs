@@ -3,6 +3,8 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE OverloadedLabels      #-}
+{-# LANGUAGE TypeApplications      #-}
 module Client.PutFile
     ( storeFileRef
     , setStoreRoot
@@ -21,17 +23,24 @@ import Foreign.C.Types (CTime(..))
 
 import qualified System.Posix.Files as Posix
 
-import           Capnp     (def)
+import           Capnp         (def)
 import qualified Capnp
-import           Capnp.Rpc ((?))
-import qualified Capnp.Rpc as Rpc
+import qualified Capnp.Message as M
+import           Capnp.Rpc     ((?))
+import qualified Capnp.Rpc     as Rpc
 
 import qualified Capnp.Gen.Files.Pure    as Files
+import qualified Capnp.Gen.Protocol.New  as PN
 import qualified Capnp.Gen.Protocol.Pure as P
+import qualified Capnp.Gen.Util.New      as UN
 import qualified Capnp.Gen.Util.Pure     as Util
 
 import qualified Data.ByteString as BS
 import qualified Data.Vector     as V
+
+import qualified Capnp.New          as N
+import qualified Capnp.New.Classes  as NC
+import qualified Capnp.Repr.Methods as RM
 
 data FileStoreError
     = ErrUnsupportedFileType
@@ -99,22 +108,32 @@ storeFileUnion status path store =
 
 storeHandleBlob :: P.Store Files.File -> Handle -> IO (P.Ref P.BlobTree)
 storeHandleBlob store h = do
-    P.Store'putBytesStreaming'results{stream, ref} <-
-        Rpc.wait =<< P.store'putBytesStreaming store ? def
-    _size <- streamHandle h stream
-    pure ref
+    res <- (RM.Client (Rpc.toClient store) :: RM.Client (PN.Store PN.BlobTree))
+        & RM.callR #putBytesStreaming def
+    _size <- res
+        & RM.pipe #stream
+        & RM.asClient
+        >>= streamHandle h
+    res
+        & RM.pipe #ref
+        & RM.asClient
+        >>= pure . Rpc.fromClient . Rpc.toClient
 
-streamHandle :: Handle -> Util.ByteStream -> IO Word64
+streamHandle :: Handle -> RM.Client UN.ByteStream -> IO Word64
 streamHandle h stream = go 0
   where
     go !size = do
         bytes <- BS.hGet h blockSize
         if bytes == BS.empty
             then (do
-                _ <- Rpc.wait =<< Util.byteStream'done stream ? def
+                _ <- stream & RM.callR #done def
                 pure size)
             else (do
-                _ <- Rpc.wait =<< Util.byteStream'write stream ? Util.ByteStream'write'params { data_ = bytes }
+                _ <- stream & RM.callB #write (do
+                    msg <- M.newMessage Nothing
+                    params <- NC.newRoot @UN.ByteStream'write'params () msg
+                    N.encodeField #data_ bytes params
+                    pure params)
                 go $ size + fromIntegral (BS.length bytes))
 
 -- | Relatively arbitrary size of a chunk to upload at a time.
