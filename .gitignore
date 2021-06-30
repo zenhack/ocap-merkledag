@@ -21,3 +21,6 @@ gen/
 
 # Backup files:
 *~
+
+# I(zenhack) sometimes use this file to jot down notes for myself:
+/NOTES
