@@ -5,6 +5,7 @@
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Client.PutFile
     ( storeFileRef
     , setStoreRoot
@@ -14,7 +15,7 @@ module Client.PutFile
 
 import Zhp
 
-import Control.Monad.ST (RealWorld)
+import Data.Functor     ((<&>))
 import System.Directory (listDirectory)
 import System.FilePath  (takeFileName, (</>))
 import System.IO        (withFile)
@@ -24,23 +25,21 @@ import Foreign.C.Types (CTime(..))
 import qualified System.Posix.Files as Posix
 
 import           Capnp         (def)
-import qualified Capnp
 import qualified Capnp.Message as M
-import           Capnp.Rpc     ((?))
 import qualified Capnp.Rpc     as Rpc
 
-import qualified Capnp.Gen.Files.Pure    as Files
-import qualified Capnp.Gen.Protocol.New  as PN
-import qualified Capnp.Gen.Protocol.Pure as P
-import qualified Capnp.Gen.Util.New      as UN
-import qualified Capnp.Gen.Util.Pure     as Util
+import qualified Capnp.Gen.Files.New    as Files
+import qualified Capnp.Gen.Protocol.New as P
+import qualified Capnp.Gen.Util.New     as Util
 
 import qualified Data.ByteString as BS
 import qualified Data.Vector     as V
 
+import           Capnp.Fields       (HasUnion(..))
 import qualified Capnp.New          as N
 import qualified Capnp.New.Classes  as NC
 import qualified Capnp.Repr.Methods as RM
+import qualified Capnp.Repr.Parsed  as RP
 
 data FileStoreError
     = ErrUnsupportedFileType
@@ -48,7 +47,7 @@ data FileStoreError
 
 type StoreResult a = Either FileStoreError a
 
-storeFile :: FilePath -> P.Store Files.File -> IO (StoreResult Files.File)
+storeFile :: FilePath -> RM.Client (P.Store Files.File) -> IO (StoreResult (P.Parsed Files.File))
 storeFile path store = do
     status <- Posix.getSymbolicLinkStatus path
     let CTime modTime = Posix.modificationTime status
@@ -61,31 +60,50 @@ storeFile path store = do
             , Files.union' = union'
             }
 
-storeValue :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a) => P.Store a -> a -> IO (P.Hash, P.Ref a)
+storeValue ::
+    ( NC.Parse a (RP.Parsed a)
+    , N.TypeParam a _pr
+    )
+    => RM.Client (P.Store a)
+    -> RP.Parsed a
+    -> IO (RM.Pipeline P.Hash, RM.Client (P.Ref a))
 storeValue store value = do
-    P.Store'put'results{hash, ref} <-
-        Rpc.wait =<< P.store'put store ? P.Store'put'params { value }
-    pure (hash, ref)
+    res <- RM.callP #put P.Store'put'params { value } store
+    ref <- RM.asClient $ RM.pipe #ref res
+    pure
+        ( RM.pipe #hash res
+        , ref
+        )
 
-setStoreRoot :: (Capnp.ReadParam a, Capnp.WriteParam RealWorld a) => P.Store a -> P.Ref a -> IO ()
+setStoreRoot ::
+    ( NC.Parse a (RP.Parsed a)
+    , N.TypeParam a _pr
+    )
+    => RM.Client (P.Store a) -> RM.Client (P.Ref a) -> IO ()
 setStoreRoot store ref = do
-    P.Store'root'results{root} <- Rpc.wait =<< P.store'root store ? def
-    Util.Assignable'asSetter'results{setter} <- Rpc.wait =<< Util.assignable'asSetter root ? def
-    _ <- Rpc.wait =<< Util.assignable'Setter'set setter ? Util.Assignable'Setter'set'params { value = ref }
-    pure ()
+    void $ store
+        & RM.callR #root def
+        <&> RM.pipe #root
+        >>= RM.callR #asSetter def
+        <&> RM.pipe #setter
+        >>= RM.callP #set Util.Assignable'Setter'set'params { value = ref }
+        >>= RM.waitPipeline
 
-storeFileRef :: FilePath -> P.Store Files.File -> IO (StoreResult (P.Hash, P.Ref Files.File))
+storeFileRef
+    :: FilePath
+    -> RM.Client (P.Store Files.File)
+    -> IO (StoreResult (RM.Pipeline P.Hash, RM.Client (P.Ref Files.File)))
 storeFileRef path store =
     storeFile path store >>= traverse (storeValue store)
 
-castStore :: P.Store a -> P.Store b
+castStore :: RM.Client (P.Store a) -> RM.Client (P.Store b)
 castStore = Rpc.fromClient . Rpc.toClient
 
 storeFileUnion
     :: Posix.FileStatus
     -> FilePath
-    -> P.Store Files.File
-    -> IO (StoreResult Files.File')
+    -> RM.Client (P.Store Files.File)
+    -> IO (StoreResult (P.Parsed (Which Files.File)))
 storeFileUnion status path store =
     if Posix.isRegularFile status then do
         content <- withFile path ReadMode (storeHandleBlob store)
@@ -106,10 +124,9 @@ storeFileUnion status path store =
         pure $ Left ErrUnsupportedFileType
 
 
-storeHandleBlob :: P.Store Files.File -> Handle -> IO (P.Ref P.BlobTree)
+storeHandleBlob :: RM.Client (P.Store Files.File) -> Handle -> IO (RM.Client (P.Ref P.BlobTree))
 storeHandleBlob store h = do
-    res <- (RM.Client (Rpc.toClient store) :: RM.Client (PN.Store PN.BlobTree))
-        & RM.callR #putBytesStreaming def
+    res <- store & RM.callR #putBytesStreaming def
     _size <- res
         & RM.pipe #stream
         & RM.asClient
@@ -117,9 +134,8 @@ storeHandleBlob store h = do
     res
         & RM.pipe #ref
         & RM.asClient
-        >>= pure . Rpc.fromClient . Rpc.toClient
 
-streamHandle :: Handle -> RM.Client UN.ByteStream -> IO Word64
+streamHandle :: Handle -> RM.Client Util.ByteStream -> IO Word64
 streamHandle h stream = go 0
   where
     go !size = do
@@ -131,7 +147,7 @@ streamHandle h stream = go 0
             else (do
                 _ <- stream & RM.callB #write (do
                     msg <- M.newMessage Nothing
-                    params <- NC.newRoot @UN.ByteStream'write'params () msg
+                    params <- NC.newRoot @Util.ByteStream'write'params () msg
                     N.encodeField #data_ bytes params
                     pure params)
                 go $ size + fromIntegral (BS.length bytes))

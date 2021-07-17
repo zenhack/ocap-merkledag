@@ -6,14 +6,16 @@ import Zhp
 
 import Network.Simple.TCP (HostPreference, ServiceName, connect, serve)
 
-import BlobStore      (decodeHash)
+-- import BlobStore      (decodeHash)
 import Client.GetFile (saveStoreRoot)
 import Client.PutFile (setStoreRoot, storeFileRef)
 
-import Capnp       (def, defaultLimit)
-import Capnp.Rpc
+import           Capnp              (def, defaultLimit, evalLimitT)
+import qualified Capnp.New.Classes  as NC
+import           Capnp.Repr.Methods (waitPipeline)
+import           Capnp.Rpc
     (ConnConfig(..), fromClient, handleConn, socketTransport, toClient)
-import Supervisors (Supervisor, withSupervisor)
+import           Supervisors        (Supervisor, withSupervisor)
 
 import qualified BlobStore.InMemory      as InMemory
 import qualified Capnp.Gen.Protocol.Pure as Protocol
@@ -75,8 +77,13 @@ putFile host port path =
                 res <- storeFileRef path (fromClient store)
                 case res of
                     Left e          -> print e
-                    Right (hash, ref) -> do
-                        print (decodeHash hash)
+                    Right (hashPipe, ref) -> do
+                        rawHash <- waitPipeline hashPipe
+                        -- arbitrary limit; hashes aren't huge, so this
+                        -- should always be sufficient.
+                        hash <- evalLimitT 200 $ NC.parse rawHash
+                        -- print (decodeHash hash)
+                        print hash
                         setStoreRoot (fromClient store) ref
             }
 
