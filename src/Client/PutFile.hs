@@ -35,11 +35,7 @@ import qualified Capnp.Gen.Util.New     as Util
 import qualified Data.ByteString as BS
 import qualified Data.Vector     as V
 
-import           Capnp.Fields       (HasUnion(..))
-import qualified Capnp.New          as N
-import qualified Capnp.New.Classes  as NC
-import qualified Capnp.Repr.Methods as RM
-import qualified Capnp.Repr.Parsed  as RP
+import qualified Capnp.New as N
 
 data FileStoreError
     = ErrUnsupportedFileType
@@ -47,8 +43,9 @@ data FileStoreError
 
 type StoreResult a = Either FileStoreError a
 
-storeFile :: FilePath -> RM.Client (P.Store Files.File) -> IO (StoreResult (P.Parsed Files.File))
+storeFile :: FilePath -> N.Client (P.Store Files.File) -> IO (StoreResult (P.Parsed Files.File))
 storeFile path store = do
+    putStrLn $ "storeFile: " <> path
     status <- Posix.getSymbolicLinkStatus path
     let CTime modTime = Posix.modificationTime status
     storeFileUnion status path store >>= \case
@@ -60,50 +57,44 @@ storeFile path store = do
             , Files.union' = union'
             }
 
-storeValue ::
-    ( NC.Parse a (RP.Parsed a)
-    , N.TypeParam a _pr
-    )
-    => RM.Client (P.Store a)
-    -> RP.Parsed a
-    -> IO (RM.Pipeline P.Hash, RM.Client (P.Ref a))
+storeValue
+    :: N.TypeParam a
+    => N.Client (P.Store a)
+    -> N.Parsed a
+    -> IO (N.Pipeline P.Hash, N.Client (P.Ref a))
 storeValue store value = do
-    res <- RM.callP #put P.Store'put'params { value } store
-    ref <- RM.asClient $ RM.pipe #ref res
+    res <- N.callP #put P.Store'put'params { value } store
+    ref <- N.asClient $ N.pipe #ref res
     pure
-        ( RM.pipe #hash res
+        ( N.pipe #hash res
         , ref
         )
 
-setStoreRoot ::
-    ( NC.Parse a (RP.Parsed a)
-    , N.TypeParam a _pr
-    )
-    => RM.Client (P.Store a) -> RM.Client (P.Ref a) -> IO ()
+setStoreRoot :: N.TypeParam a => N.Client (P.Store a) -> N.Client (P.Ref a) -> IO ()
 setStoreRoot store ref = do
     void $ store
-        & RM.callR #root def
-        <&> RM.pipe #root
-        >>= RM.callR #asSetter def
-        <&> RM.pipe #setter
-        >>= RM.callP #set Util.Assignable'Setter'set'params { value = ref }
-        >>= RM.waitPipeline
+        & N.callR #root def
+        <&> N.pipe #root
+        >>= N.callR #asSetter def
+        <&> N.pipe #setter
+        >>= N.callP #set Util.Assignable'Setter'set'params { value = ref }
+        >>= N.waitPipeline
 
 storeFileRef
     :: FilePath
-    -> RM.Client (P.Store Files.File)
-    -> IO (StoreResult (RM.Pipeline P.Hash, RM.Client (P.Ref Files.File)))
+    -> N.Client (P.Store Files.File)
+    -> IO (StoreResult (N.Pipeline P.Hash, N.Client (P.Ref Files.File)))
 storeFileRef path store =
     storeFile path store >>= traverse (storeValue store)
 
-castStore :: RM.Client (P.Store a) -> RM.Client (P.Store b)
+castStore :: N.Client (P.Store a) -> N.Client (P.Store b)
 castStore = Rpc.fromClient . Rpc.toClient
 
 storeFileUnion
     :: Posix.FileStatus
     -> FilePath
-    -> RM.Client (P.Store Files.File)
-    -> IO (StoreResult (P.Parsed (Which Files.File)))
+    -> N.Client (P.Store Files.File)
+    -> IO (StoreResult (P.Parsed (N.Which Files.File)))
 storeFileUnion status path store =
     if Posix.isRegularFile status then do
         content <- withFile path ReadMode (storeHandleBlob store)
@@ -124,30 +115,30 @@ storeFileUnion status path store =
         pure $ Left ErrUnsupportedFileType
 
 
-storeHandleBlob :: RM.Client (P.Store Files.File) -> Handle -> IO (RM.Client (P.Ref P.BlobTree))
+storeHandleBlob :: N.Client (P.Store Files.File) -> Handle -> IO (N.Client (P.Ref P.BlobTree))
 storeHandleBlob store h = do
-    res <- store & RM.callR #putBytesStreaming def
+    res <- store & N.callR #putBytesStreaming def
     _size <- res
-        & RM.pipe #stream
-        & RM.asClient
+        & N.pipe #stream
+        & N.asClient
         >>= streamHandle h
     res
-        & RM.pipe #ref
-        & RM.asClient
+        & N.pipe #ref
+        & N.asClient
 
-streamHandle :: Handle -> RM.Client Util.ByteStream -> IO Word64
+streamHandle :: Handle -> N.Client Util.ByteStream -> IO Word64
 streamHandle h stream = go 0
   where
     go !size = do
         bytes <- BS.hGet h blockSize
         if bytes == BS.empty
             then (do
-                _ <- stream & RM.callR #done def
+                _ <- stream & N.callR #done def
                 pure size)
             else (do
-                _ <- stream & RM.callB #write (do
+                _ <- stream & N.callB #write (do
                     msg <- M.newMessage Nothing
-                    params <- NC.newRoot @Util.ByteStream'write'params () msg
+                    params <- N.newRoot @Util.ByteStream'write'params () msg
                     N.encodeField #data_ bytes params
                     pure params)
                 go $ size + fromIntegral (BS.length bytes))

@@ -14,7 +14,7 @@ import           Capnp              (def, defaultLimit, evalLimitT)
 import qualified Capnp.New.Classes  as NC
 import           Capnp.Repr.Methods (waitPipeline)
 import           Capnp.Rpc
-    (ConnConfig(..), fromClient, handleConn, socketTransport, toClient)
+    (ConnConfig(..), fromClient, handleConn, Transport(..), socketTransport, toClient)
 import           Supervisors        (Supervisor, withSupervisor)
 
 import qualified BlobStore.InMemory      as InMemory
@@ -23,6 +23,17 @@ import qualified Capnp.Untyped.Pure      as PU
 import qualified Server2
 
 import qualified Lifetimes
+
+logTransport :: Transport -> Transport
+logTransport t = Transport
+    { sendMsg = \msg -> do
+        sendMsg t msg
+        putStrLn ">"
+    , recvMsg = do
+        msg <- recvMsg t
+        putStrLn "<"
+        pure msg
+    }
 
 usageStr :: String
 usageStr = mconcat
@@ -59,7 +70,7 @@ server _path host port = do
     withSupervisor $ \sup ->
         Lifetimes.withAcquire (acquireServer sup) $ \client -> do
             serve host port $ \(sock, _addr) ->
-                handleConn (socketTransport sock defaultLimit) def
+                handleConn (logTransport $ socketTransport sock defaultLimit) def
                     { getBootstrap = \_ -> pure $ Just (toClient client)
                     }
 
@@ -72,7 +83,7 @@ acquireServer sup = do
 putFile :: String -> ServiceName -> FilePath -> IO ()
 putFile host port path =
     connect host port $ \(sock, _remoteAddr) ->
-        handleConn (socketTransport sock defaultLimit) def
+        handleConn (logTransport $ socketTransport sock defaultLimit) def
             { withBootstrap = Just $ \_sup store -> do
                 res <- storeFileRef path (fromClient store)
                 case res of
