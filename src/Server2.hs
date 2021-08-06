@@ -10,6 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE UndecidableInstances  #-}
 module Server2
     ( StoreServer
     , acquireStoreServer
@@ -27,27 +28,23 @@ import           Capnp.Gen.Storage.New
 import qualified Capnp.Gen.Util.New     as Util
 
 import Control.Exception.Safe (SomeException, throwM, try)
-import Control.Monad.ST       (RealWorld)
 import Lifetimes
 import Supervisors            (Supervisor)
 
-import qualified Capnp.Message      as M
-import qualified Capnp.New          as Capnp
-import qualified Capnp.Rpc          as Rpc
-import qualified Capnp.Rpc.Untyped  as RU
-import qualified Capnp.Untyped      as U
-import qualified Capnp.Untyped.Pure as PU
+import qualified Capnp.Message     as M
+import qualified Capnp.New         as Capnp
+import qualified Capnp.Rpc         as Rpc
+import qualified Capnp.Rpc.Untyped as RU
+import qualified Capnp.Untyped     as U
 
-import Capnp            (ReadParam, WriteParam)
-import Capnp.Classes    (FromStruct(fromStruct), ToStruct(toStruct))
-import Capnp.Repr       (IsPtrRepr(toPtr))
-import Capnp.Rpc.Errors (eFailed, wrapException)
+import           Capnp.Classes    (FromStruct(fromStruct), ToStruct(toStruct))
+import qualified Capnp.Repr       as R
+import           Capnp.Rpc.Errors (eFailed, wrapException)
 
 import           Control.Concurrent.STM
 import           Control.Monad.STM.Class
 import qualified Data.ByteString         as BS
 import           Data.Typeable           (Typeable, cast)
-import qualified Data.Vector             as V
 
 acquireStoreServer :: Supervisor -> Raw.Handler -> Acquire StoreServer
 acquireStoreServer sup h = do
@@ -137,16 +134,13 @@ instance Store'server_ (Maybe Capnp.AnyPointer) StoreServer where
 
 putBlobTree :: forall a. Capnp.TypeParam a => StoreServer -> Capnp.Parsed a -> IO (Capnp.Client (Ref a))
 putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
-    rawPtr <- Capnp.Raw <$> Capnp.createPure maxBound (do
-        Capnp.Raw s <- Capnp.parsedToRaw bt
-        pure (toPtr s))
-    ptr <- Capnp.evalLimitT maxBound $ Capnp.parse rawPtr
+    rawPtr <- Capnp.createPure maxBound (do
+        msg <- Capnp.newMessage Nothing
+        Capnp.Raw s <- Capnp.encode msg bt
+        pure (R.toPtr @(R.PtrReprFor (R.ReprFor a)) s))
+    ptr <- Capnp.evalLimitT maxBound $ Capnp.parse (Capnp.Raw rawPtr)
     hash <- putPtr srv ptr
     Capnp.export @(Ref a) sup RefServer{hash, rawHandler, lifetime, sup}
-
--- TODO: put this somewhere more sensible.
-castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
-castClient = Rpc.fromClient . Rpc.toClient
 
 putBytes :: StoreServer -> BS.ByteString -> IO (Resource KnownHash)
 putBytes StoreServer{lifetime, rawHandler} bytes = do
@@ -180,13 +174,13 @@ instance Capnp.SomeServer RefServer where
     shutdown RefServer{hash} = releaseEarly hash
     unwrap = cast
 
-instance Ref'server_ (Maybe Capnp.AnyPointer) RefServer where
+instance Capnp.TypeParam a => Ref'server_ a RefServer where
     ref'get RefServer{hash, rawHandler, sup, lifetime} _params result =
         Rpc.supervise sup $ fulfillWith result $ do
             (p, f) <- Rpc.newPromise
             atomically $ rawHandler $ Raw.ReadRef hash f
             msg <- Rpc.wait p
-            blob <- Capnp.msgToRaw @(StoredBlob (Maybe Capnp.AnyPointer)) msg
+            blob <- Capnp.evalLimitT maxBound $ Capnp.msgToRaw @(StoredBlob (Maybe Capnp.AnyPointer)) msg
             ptrs <- Capnp.evalLimitT maxBound $ Capnp.parseField #ptrs blob
             clients <- atomically $
                 for ptrs $ \ptr -> do

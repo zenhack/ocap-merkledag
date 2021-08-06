@@ -1,6 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
 module Client.GetFile
     ( saveFileRef
     , saveStoreRoot
@@ -9,21 +11,19 @@ module Client.GetFile
 
 import Zhp
 
-import           Capnp                  (def)
-import           Capnp.Rpc              ((?))
-import qualified Capnp.Rpc              as Rpc
+import           Capnp.New              (def)
+import qualified Capnp.New              as C
 import           Control.Exception.Safe (SomeException, try)
 import qualified Data.ByteString        as BS
+import           Data.Functor           ((<&>))
 import qualified Data.Text              as T
-import qualified Data.Vector            as V
 import           System.Directory       (createDirectory, createFileLink)
 import           System.FilePath        ((</>))
 import qualified System.Posix.Files     as Posix
 import qualified System.Posix.Types     as Posix
 
-import           Capnp.Gen.Files.Pure
-import           Capnp.Gen.Protocol.Pure
-import qualified Capnp.Gen.Util.Pure     as Util
+import Capnp.Gen.Files.New
+import Capnp.Gen.Protocol.New
 
 import BlobStore (KnownHash(..), encodeHash)
 
@@ -40,34 +40,44 @@ data Metadata = Metadata
     }
 
 
-getFileName :: File -> Either SaveError String
+getFileName :: Parsed File -> Either SaveError String
 getFileName File{name}
     -- TODO: sanitize for windows paths?
     | name `elem` ["", ".", ".."] || '/' `elem` T.unpack name = Left $ IllegalFileName name
     | otherwise = Right (T.unpack name)
 
-getPermissions :: File -> Word32
+getPermissions :: Parsed File -> Word32
 getPermissions File{permissions} = permissions .&. 0o777
 
-downloadTree :: FilePath -> Store File -> KnownHash -> IO (Either SaveError ())
+downloadTree :: FilePath -> C.Client (Store File) -> KnownHash -> IO (Either SaveError ())
 downloadTree path store hash = do
-    Store'findByHash'results{ref} <- Rpc.wait =<<
-        store'findByHash store ? Store'findByHash'params { hash = encodeHash hash }
+    ref <- store
+        & C.callP #findByHash Store'findByHash'params { hash = encodeHash hash }
+        <&> C.pipe #ref
+        >>= C.asClient
     saveFileRef path ref
 
-saveStoreRoot :: FilePath -> Store File -> IO (Either SaveError ())
+saveStoreRoot :: FilePath -> C.Client (Store File) -> IO (Either SaveError ())
 saveStoreRoot path store = do
-    Store'root'results{root} <- Rpc.wait =<< store'root store ? def
-    Util.Assignable'get'results{value} <- Rpc.wait =<< Util.assignable'get root ? def
-    saveFileRef path value
+    ref <- store
+        & C.callR #root def
+        <&> C.pipe #root
+        >>= C.callR #get def
+        <&> C.pipe #value
+        >>= C.asClient
+    saveFileRef path ref
 
-saveFileRef :: FilePath -> Ref File -> IO (Either SaveError ())
+saveFileRef :: FilePath -> C.Client (Ref File) -> IO (Either SaveError ())
 saveFileRef path ref = do
-    Ref'get'results{value} <- Rpc.wait =<< ref'get ref ? def
+    value <- ref
+        & C.callR #get def
+        <&> C.pipe #value
+        >>= C.waitPipeline
+        >>= C.evalLimitT C.defaultLimit . C.parse
     print ("saving file: ", value)
     saveFile path value
 
-saveFile :: FilePath -> File -> IO (Either SaveError ())
+saveFile :: FilePath -> C.Parsed File -> IO (Either SaveError ())
 saveFile path file@File{modTime, union'} = do
     case getFileName file of
         Left e -> pure $ Left e
@@ -102,20 +112,32 @@ pathExists path = do
         Left (_ :: SomeException) -> False
         Right _                   -> True
 
-saveRegularFile :: Metadata -> Ref BlobTree -> IO ()
+saveRegularFile :: Metadata -> C.Client (Ref BlobTree) -> IO ()
 saveRegularFile meta@Metadata{path} contentsRef = do
-    Ref'get'results contents <- Rpc.wait =<< ref'get contentsRef ? def
+    contents <- contentsRef
+        & C.callR #get def
+        <&> C.pipe #value
+        >>= C.waitPipeline
+        >>= C.evalLimitT C.defaultLimit . C.parse
     withBinaryFile path WriteMode $ \h ->
         putBlobTree (BS.hPut h) contents
     updateMetadata meta
 
-putBlobTree :: (BS.ByteString -> IO ()) -> BlobTree -> IO ()
+putBlobTree :: (BS.ByteString -> IO ()) -> Parsed BlobTree -> IO ()
 putBlobTree putBytes BlobTree {union'} = case union' of
     BlobTree'leaf bytesRef -> do
-        Ref'get'results bytes <- Rpc.wait =<< ref'get bytesRef ? def
+        bytes <- bytesRef
+            & C.callR #get def
+            <&> C.pipe #value
+            >>= C.waitPipeline
+            >>= C.evalLimitT C.defaultLimit . C.parse
         putBytes bytes
     BlobTree'branch branchesRef -> do
-        Ref'get'results branches <- Rpc.wait =<< ref'get branchesRef ? def
+        branches <- branchesRef
+            & C.callR #get def
+            <&> C.pipe #value
+            >>= C.waitPipeline
+            >>= C.evalLimitT C.defaultLimit . C.parse
         traverse_ (putBlobTree putBytes) branches
     BlobTree'unknown' n ->
         error $ "Unknown BlobTree variant: " <> show n
@@ -126,10 +148,14 @@ updateMetadata Metadata{path, permissions, modTime} = do
     status <- Posix.getFileStatus path
     Posix.setFileTimes path (Posix.accessTime status) (fromIntegral modTime)
 
-saveDirectory :: Metadata -> Ref (V.Vector File) -> IO ()
+saveDirectory :: Metadata -> C.Client (Ref (C.List File)) -> IO ()
 saveDirectory meta@Metadata{path} ref = do
     createDirectory path
-    Ref'get'results{value=files} <- Rpc.wait =<< ref'get ref ? def
+    files <- ref
+        & C.callR #get def
+        <&> C.pipe #value
+        >>= C.waitPipeline
+        >>= C.evalLimitT C.defaultLimit . C.parse
     traverse_ (saveFile path) files
     updateMetadata meta
 

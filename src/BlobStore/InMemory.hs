@@ -9,11 +9,10 @@ module BlobStore.InMemory
 import           BlobStore
 import qualified BlobStore.HighLevel      as HighLevel
 import qualified BlobStore.Raw            as Raw
-import qualified Capnp
-import           Capnp.Gen.Storage.Pure
+import           Capnp.Gen.Storage.New
+import qualified Capnp.New                as Capnp
 import           Capnp.Rpc.Errors         (eDisconnected)
 import           Capnp.Rpc.Promise        (breakPromise, fulfill)
-import qualified Capnp.Untyped.Pure       as U
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.STM
 import           Control.Exception.Safe   (impureThrow, throwM)
@@ -163,8 +162,10 @@ dropBlob h sc@StoreContents{blobs} =
     let BlobInfo{bytes} = blobs M.! h
         blobs' = M.delete h blobs
     in
-    let result = runIdentity $ runCatchT $ do
-            StoredBlob{ptrs, data_ = _ :: Maybe U.Ptr} <- Capnp.lbsToValue bytes
+    let result = runIdentity $
+                runCatchT $
+                Capnp.evalLimitT Capnp.defaultLimit $ do
+            StoredBlob{ptrs, data_ = _ :: Maybe (Parsed Capnp.AnyPointer)} <- Capnp.lbsToParsed bytes
             hashes <- for ptrs $ \ptr ->
                 case decodeHash ptr of
                     Left e  -> throwM e

@@ -10,16 +10,22 @@ import Network.Simple.TCP (HostPreference, ServiceName, connect, serve)
 import Client.GetFile (saveStoreRoot)
 import Client.PutFile (setStoreRoot, storeFileRef)
 
-import           Capnp              (def, defaultLimit, evalLimitT)
+import           Capnp.New
+    (AnyPointer, Client, def, defaultLimit, evalLimitT, export)
 import qualified Capnp.New.Classes  as NC
 import           Capnp.Repr.Methods (waitPipeline)
 import           Capnp.Rpc
-    (ConnConfig(..), fromClient, handleConn, Transport(..), socketTransport, toClient)
+    ( ConnConfig(..)
+    , Transport(..)
+    , fromClient
+    , handleConn
+    , socketTransport
+    , toClient
+    )
 import           Supervisors        (Supervisor, withSupervisor)
 
-import qualified BlobStore.InMemory      as InMemory
-import qualified Capnp.Gen.Protocol.Pure as Protocol
-import qualified Capnp.Untyped.Pure      as PU
+import qualified BlobStore.InMemory     as InMemory
+import qualified Capnp.Gen.Protocol.New as Protocol
 import qualified Server2
 
 import qualified Lifetimes
@@ -74,11 +80,11 @@ server _path host port = do
                     { getBootstrap = \_ -> pure $ Just (toClient client)
                     }
 
-acquireServer :: Supervisor -> Lifetimes.Acquire (Protocol.Store (Maybe PU.Ptr))
+acquireServer :: Supervisor -> Lifetimes.Acquire (Client (Protocol.Store (Maybe AnyPointer)))
 acquireServer sup = do
     h <- InMemory.acquireHandler
     srv <- Server2.acquireStoreServer sup h
-    liftIO $ Protocol.export_Store sup srv
+    liftIO $ export sup srv
 
 putFile :: String -> ServiceName -> FilePath -> IO ()
 putFile host port path =
