@@ -108,7 +108,7 @@ library
     , BlobStore.BigFile.TrieKey
     , BlobStore.BigFile.TrieError
     , BlobStore.BigFile.DiskTrie
-    , BlobStore.Files
+    -- , BlobStore.Files
     , BlobStore.InMemory
     , Server
     , Server2

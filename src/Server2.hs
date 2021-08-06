@@ -6,7 +6,10 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE OverloadedLabels      #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Server2
     ( StoreServer
     , acquireStoreServer
@@ -19,26 +22,25 @@ import qualified BlobStore.HighLevel as HighLevel
 import qualified BlobStore.Raw       as Raw
 import qualified PutBytesStreaming
 
-import qualified Capnp.Gen.Protocol      as RawProto
-import           Capnp.Gen.Protocol.Pure
-import           Capnp.Gen.Storage       as RawStorage
-import qualified Capnp.Gen.Util.Pure     as Util
+import           Capnp.Gen.Protocol.New
+import           Capnp.Gen.Storage.New
+import qualified Capnp.Gen.Util.New     as Util
 
 import Control.Exception.Safe (SomeException, throwM, try)
 import Control.Monad.ST       (RealWorld)
 import Lifetimes
 import Supervisors            (Supervisor)
 
-import qualified Capnp
 import qualified Capnp.Message      as M
+import qualified Capnp.New          as Capnp
 import qualified Capnp.Rpc          as Rpc
 import qualified Capnp.Rpc.Untyped  as RU
 import qualified Capnp.Untyped      as U
 import qualified Capnp.Untyped.Pure as PU
 
 import Capnp            (ReadParam, WriteParam)
-import Capnp.Classes
-    (FromStruct(fromStruct), ToPtr(toPtr), ToStruct(toStruct))
+import Capnp.Classes    (FromStruct(fromStruct), ToStruct(toStruct))
+import Capnp.Repr       (IsPtrRepr(toPtr))
 import Capnp.Rpc.Errors (eFailed, wrapException)
 
 import           Control.Concurrent.STM
@@ -70,9 +72,9 @@ data RefServer = RefServer
     }
     deriving(Typeable)
 
-instance Rpc.Server IO StoreServer
+instance Capnp.SomeServer StoreServer
 
-findByHash :: Supervisor -> Lifetime -> KnownHash -> Raw.Handler -> Rpc.Fulfiller (Ref (Maybe PU.Ptr)) -> STM ()
+findByHash :: Supervisor -> Lifetime -> KnownHash -> Raw.Handler -> Rpc.Fulfiller (Capnp.Client (Ref (Maybe Capnp.AnyPointer))) -> STM ()
 findByHash sup lt hash handler f = do
     hashFulfiller <- Rpc.newCallback $ \case
         Left e ->
@@ -80,7 +82,7 @@ findByHash sup lt hash handler f = do
         Right Nothing ->
             Rpc.breakPromise f $ eFailed "Not found"
         Right (Just v) ->
-            Rpc.fulfill f =<< export_Ref sup RefServer
+            Rpc.fulfill f =<< Capnp.export sup RefServer
                 { hash = v
                 , rawHandler = handler
                 , sup = sup
@@ -95,28 +97,27 @@ fulfillWith f io =
         Left (e :: SomeException) -> Rpc.breakPromise f (wrapException False e)
         Right v                   -> Rpc.fulfill f v
 
-instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
-    store'put = Rpc.rawAsyncHandler $
-        \srv@StoreServer{rawHandler, lifetime, sup} params result ->
-            Rpc.supervise sup $ fulfillWith result $ do
-                hashRes <- Capnp.evalLimitT Capnp.defaultLimit $ do
-                    value <- RawProto.get_Store'put'params'value params
-                    case value of
-                        Just (U.PtrList (U.List8 list)) -> do
-                            bytes <- U.rawBytes list
-                            liftIO $ putBytes srv bytes
-                        _ -> do
-                            pureVal <- Capnp.decerialize value
-                            liftIO $ putPtr srv pureVal
-                ref <- export_Ref sup RefServer{hash = hashRes, rawHandler, sup, lifetime}
-                hash <- encodeHash <$> mustGetResource hashRes
-                struct <- Capnp.createPure maxBound $ do
-                    msg <- Capnp.newMessage Nothing
-                    toStruct <$> Capnp.cerialize msg Store'put'results { hash, ref }
-                Capnp.evalLimitT maxBound $ fromStruct struct
+instance Store'server_ (Maybe Capnp.AnyPointer) StoreServer where
+    store'put srv@StoreServer{rawHandler, lifetime, sup} params result =
+        Rpc.supervise sup $ fulfillWith result $ do
+            hashRes <- Capnp.evalLimitT Capnp.defaultLimit $ do
+                value <- Capnp.readField #value params
+                case Capnp.fromRaw value of
+                    Just (U.PtrList (U.List8 list)) -> do
+                        bytes <- U.rawBytes list
+                        liftIO $ putBytes srv bytes
+                    _ -> do
+                        pureVal <- Capnp.parse value
+                        liftIO $ putPtr srv pureVal
+            ref <- Capnp.export @(Ref (Maybe Capnp.AnyPointer)) sup RefServer{hash = hashRes, rawHandler, sup, lifetime}
+            hash <- encodeHash <$> mustGetResource hashRes
+            struct <- Capnp.createPure maxBound $ do
+                msg <- Capnp.newMessage Nothing
+                toStruct <$> Capnp.encode msg Store'put'results { hash, ref }
+            Capnp.evalLimitT maxBound $ fromStruct struct
 
-    store'findByHash = Rpc.pureHandler $
-        \StoreServer{rawHandler,sup,lifetime} Store'findByHash'params{hash} ->
+    store'findByHash StoreServer{rawHandler,sup,lifetime} =
+        Capnp.handleParsed $ \Store'findByHash'params{hash} ->
             atomically $ case decodeHash hash of
                 Left e -> throwM e
                 Right h -> do
@@ -124,29 +125,24 @@ instance Store'server_ IO StoreServer (Maybe PU.Ptr) where
                     findByHash sup lifetime h rawHandler f
                     pure Store'findByHash'results{ref = p}
 
-    store'putBytesStreaming = Rpc.pureHandler $
-        \srv@StoreServer{sup} _ -> do
-            (stream, ref) <- PutBytesStreaming.makeStream sup (putBlobTree srv)
-            pure Store'putBytesStreaming'results {stream, ref}
+    store'putBytesStreaming srv@StoreServer{sup} = Capnp.handleParsed $ \_ -> do
+        (stream, ref) <- PutBytesStreaming.makeStream sup (putBlobTree srv)
+        pure Store'putBytesStreaming'results {stream, ref}
 
-    store'subStore _ = Rpc.methodUnimplemented
+    store'subStore _ = Capnp.methodUnimplemented
 
-    store'root = Rpc.pureHandler $
-        \srv@StoreServer{sup} _ -> do
-            root <- Util.export_Assignable sup (RootServer srv)
-            pure Store'root'results{root}
+    store'root srv@StoreServer{sup} = Capnp.handleParsed $ \_ -> do
+        root <- Capnp.export sup (RootServer srv)
+        pure Store'root'results{root}
 
-putBlobTree :: (ReadParam a, WriteParam RealWorld a) => StoreServer -> a -> IO (Ref a)
+putBlobTree :: forall a. Capnp.TypeParam a => StoreServer -> Capnp.Parsed a -> IO (Capnp.Client (Ref a))
 putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
-    rawPtr <- Capnp.evalLimitT maxBound $ do
-        -- XXX: in principle this could use createPure, but because of the 'RealWorld'
-        -- constraint it can't. TODO refactor.
-        msg <- Capnp.newMessage Nothing
-        rawBt <- Capnp.cerialize msg bt
-        toPtr msg rawBt >>= Capnp.unsafeFreeze
-    ptr <- Capnp.evalLimitT maxBound $ Capnp.decerialize rawPtr
+    rawPtr <- Capnp.Raw <$> Capnp.createPure maxBound (do
+        Capnp.Raw s <- Capnp.parsedToRaw bt
+        pure (toPtr s))
+    ptr <- Capnp.evalLimitT maxBound $ Capnp.parse rawPtr
     hash <- putPtr srv ptr
-    castClient <$> export_Ref sup RefServer{hash, rawHandler, lifetime, sup}
+    Capnp.export @(Ref a) sup RefServer{hash, rawHandler, lifetime, sup}
 
 -- TODO: put this somewhere more sensible.
 castClient :: (Rpc.IsClient a, Rpc.IsClient b) => a -> b
@@ -166,7 +162,7 @@ putBytes StoreServer{lifetime, rawHandler} bytes = do
     atomically $ rawHandler $ Raw.Put req
     Rpc.wait p
 
-putPtr :: StoreServer -> Maybe PU.Ptr -> IO (Resource KnownHash)
+putPtr :: StoreServer -> Capnp.Parsed (Maybe Capnp.AnyPointer) -> IO (Resource KnownHash)
 putPtr StoreServer{lifetime, rawHandler} ptr = do
     (hash, msg, refs) <- HighLevel.encodeBlob ptr resolveClient
     (p, f) <- Rpc.newPromise
@@ -180,37 +176,35 @@ putPtr StoreServer{lifetime, rawHandler} ptr = do
     atomically $ rawHandler $ Raw.Put req
     Rpc.wait p
 
-instance Rpc.Server IO RefServer where
+instance Capnp.SomeServer RefServer where
     shutdown RefServer{hash} = releaseEarly hash
     unwrap = cast
 
-instance Ref'server_ IO RefServer (Maybe PU.Ptr) where
-    ref'get = Rpc.rawAsyncHandler $
-        \RefServer{hash, rawHandler, sup, lifetime} _params result ->
-            Rpc.supervise sup $ fulfillWith result $ do
-                (p, f) <- Rpc.newPromise
-                atomically $ rawHandler $ Raw.ReadRef hash f
-                msg <- Rpc.wait p
-                blob :: RawStorage.StoredBlob (Maybe (U.Ptr 'Capnp.Const)) 'Capnp.Const <- Capnp.msgToValue msg
-                (ptrs :: V.Vector Hash) <- Capnp.evalLimitT maxBound $
-                    RawStorage.get_StoredBlob'ptrs blob >>= Capnp.decerialize
-                clients <- atomically $
-                    for ptrs $ \ptr -> do
-                        case decodeHash ptr of
-                            Left e -> throwM e
-                            Right hash -> do
-                                (p, f) <- Rpc.newPromiseClient
-                                findByHash sup lifetime hash rawHandler f
-                                pure $ Rpc.toClient p
-                Capnp.evalLimitT maxBound $
-                    -- Attach the cap table and cast from StoredBlob(T) to the results.
-                    -- The latter is to get around the fact that  the haskell-capnp API
-                    -- makes it harder to extend an immutable message than it should be.
-                    -- For now, we hack around this by exploting the fact that
-                    -- `(value :T)` will serendipitously allocate the pointer in the
-                    -- same place as `StoredBlob(T)`
-                    U.tMsg (pure . M.withCapTable clients) (toStruct blob)
-                    >>= fromStruct . toStruct
+instance Ref'server_ (Maybe Capnp.AnyPointer) RefServer where
+    ref'get RefServer{hash, rawHandler, sup, lifetime} _params result =
+        Rpc.supervise sup $ fulfillWith result $ do
+            (p, f) <- Rpc.newPromise
+            atomically $ rawHandler $ Raw.ReadRef hash f
+            msg <- Rpc.wait p
+            blob <- Capnp.msgToRaw @(StoredBlob (Maybe Capnp.AnyPointer)) msg
+            ptrs <- Capnp.evalLimitT maxBound $ Capnp.parseField #ptrs blob
+            clients <- atomically $
+                for ptrs $ \ptr -> do
+                    case decodeHash ptr of
+                        Left e -> throwM e
+                        Right hash -> do
+                            (p, f) <- Rpc.newPromiseClient
+                            findByHash sup lifetime hash rawHandler f
+                            pure $ Rpc.toClient p
+            Capnp.evalLimitT maxBound $
+                -- Attach the cap table and cast from StoredBlob(T) to the results.
+                -- The latter is to get around the fact that  the haskell-capnp API
+                -- makes it harder to extend an immutable message than it should be.
+                -- For now, we hack around this by exploting the fact that
+                -- `(value :T)` will serendipitously allocate the pointer in the
+                -- same place as `StoredBlob(T)`
+                U.tMsg (pure . M.withCapTable clients) (toStruct blob)
+                >>= fromStruct . toStruct
 
 resolveClient :: (Monad m, MonadSTM m) => Rpc.Client -> m (Maybe (KnownHash, Rpc.Client))
 resolveClient c = do
@@ -225,42 +219,41 @@ newtype RootServer = RootServer
     { storeSrv :: StoreServer
     }
 
-instance Rpc.Server IO RootServer
+instance Capnp.SomeServer RootServer
 
-getRoot :: RootServer -> IO (Ref (Maybe (PU.Ptr)))
+getRoot :: RootServer -> IO (Capnp.Client (Ref (Maybe Capnp.AnyPointer)))
 getRoot RootServer{storeSrv=StoreServer{lifetime, sup, rawHandler}} = do
     (p, f) <- Rpc.newPromise
     atomically $ rawHandler $ Raw.GetRoot lifetime f
     hash <- Rpc.wait p
-    export_Ref sup RefServer { hash, rawHandler, sup, lifetime }
+    Capnp.export sup RefServer { hash, rawHandler, sup, lifetime }
 
-instance Util.Assignable'Getter'server_ IO RootServer (Ref (Maybe PU.Ptr)) where
-    assignable'Getter'get = Rpc.pureHandler $ \srv _ -> do
+instance Util.Assignable'Getter'server_ (Ref (Maybe Capnp.AnyPointer)) RootServer where
+    assignable'Getter'get srv = Capnp.handleParsed $ \_ -> do
         value <- getRoot srv
         pure Util.Assignable'Getter'get'results { value }
 
-    assignable'Getter'subscribe _ = Rpc.methodUnimplemented
+    assignable'Getter'subscribe _ = Capnp.methodUnimplemented
 
-instance Util.Assignable'server_ IO RootServer (Ref (Maybe PU.Ptr)) where
-    assignable'get = Rpc.pureHandler $ \srv _ -> do
+instance Util.Assignable'server_ (Ref (Maybe Capnp.AnyPointer)) RootServer where
+    assignable'get srv = Capnp.handleParsed $ \_ -> do
         value <- getRoot srv
         pure Util.Assignable'get'results
             { value
             , setter = Rpc.fromClient RU.nullClient
             }
 
-    assignable'asGetter = Rpc.pureHandler $ \srv@RootServer{storeSrv=StoreServer{sup}} _ -> do
-        getter <- Util.export_Assignable'Getter sup srv
+    assignable'asGetter srv@RootServer{storeSrv=StoreServer{sup}} = Capnp.handleParsed $ \_ -> do
+        getter <- Capnp.export sup srv
         pure Util.Assignable'asGetter'results { getter }
 
-    assignable'asSetter = Rpc.pureHandler $
-        \srv@(RootServer StoreServer{sup}) _params -> do
-            setter <- Util.export_Assignable'Setter sup srv
-            pure Util.Assignable'asSetter'results { setter }
+    assignable'asSetter srv@(RootServer StoreServer{sup}) = Capnp.handleParsed $ \_ -> do
+        setter <- Capnp.export sup srv
+        pure Util.Assignable'asSetter'results { setter }
 
-instance Util.Assignable'Setter'server_ IO RootServer (Ref (Maybe PU.Ptr)) where
-    assignable'Setter'set = Rpc.pureHandler $
-        \RootServer{storeSrv = StoreServer{rawHandler}} Util.Assignable'Setter'set'params{value} -> do
+instance Util.Assignable'Setter'server_ (Ref (Maybe Capnp.AnyPointer)) RootServer where
+    assignable'Setter'set RootServer{storeSrv = StoreServer{rawHandler}} =
+        Capnp.handleParsed $ \Util.Assignable'Setter'set'params{value} -> do
             client <- Rpc.waitClient value
             (p, f) <- Rpc.newPromise
             case Rpc.unwrapServer client of

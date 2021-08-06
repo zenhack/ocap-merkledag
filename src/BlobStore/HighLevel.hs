@@ -13,7 +13,7 @@ import           BlobStore
 import           CanonicalizeBytes
 import qualified Capnp
 import           Capnp.Classes             (toStruct)
-import           Capnp.Gen.Storage.Pure
+import           Capnp.Gen.Storage.New
 import qualified Capnp.Message             as M
 import qualified Capnp.Rpc                 as Rpc
 import qualified Capnp.Rpc.Untyped         as RU

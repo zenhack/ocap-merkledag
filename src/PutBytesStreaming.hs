@@ -5,6 +5,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeApplications      #-}
 -- | This module implements the core logic for Protocol.putBytesStreaming.
 --
 -- N.B. right now this doesn't actually do hash splitting correctly,
@@ -17,22 +18,21 @@ module PutBytesStreaming
 
 import Zhp
 
-import Capnp            (ReadParam, WriteParam, def)
-import Control.Monad.ST (RealWorld)
+import           Capnp     (def)
+import qualified Capnp.New as Capnp
 
-import Capnp.Gen.Protocol.Pure
+import Capnp.Gen.Protocol.New
 import Control.Concurrent.STM
 import Control.Monad.STM.Class
 import Supervisors
 
-import qualified Capnp.Gen.Util.Pure as Util
-import qualified Capnp.Rpc           as Rpc
-import qualified Data.ByteString     as BS
-import qualified Data.Vector         as V
+import qualified Capnp.Gen.Util.New as Util
+import qualified Capnp.Rpc          as Rpc
+import qualified Data.ByteString    as BS
+import qualified Data.Vector        as V
 
 type BlobPutFn =
-    forall a. (ReadParam a, WriteParam RealWorld a)
-    => a -> IO (Ref a)
+    forall a. Capnp.TypeParam a => Capnp.Parsed a -> IO (Capnp.Client (Ref a))
 
 -- | Create a stream client in which to write a large binary blob.
 --
@@ -41,33 +41,32 @@ type BlobPutFn =
 --
 -- The 'BlobTree' will be split as described in the documentation for
 -- Store.putBytesStreaming.
-makeStream :: Supervisor -> BlobPutFn -> IO (Util.ByteStream, Ref BlobTree)
+makeStream :: Supervisor -> BlobPutFn -> IO (Capnp.Client Util.ByteStream, Capnp.Client (Ref BlobTree))
 makeStream sup putBlob = liftSTM $ do
     (p, f) <- Rpc.newPromiseClient
     state <- newTVar []
-    stream <- Util.export_ByteStream sup Stream
+    stream <- Capnp.export @Util.ByteStream sup Stream
         { putBlob
         , state
         , result = f
         }
     pure (stream, p)
 
-type State = [BlobTree]
+type State = [Capnp.Parsed BlobTree]
 
 data Stream = Stream
     { putBlob :: BlobPutFn
-    , result  :: Rpc.Fulfiller (Ref BlobTree)
+    , result  :: Rpc.Fulfiller (Capnp.Client (Ref BlobTree))
     , state   :: TVar State
     }
 
-instance Rpc.Server IO Stream
+instance Capnp.SomeServer Stream
 
-instance Util.ByteStream'server_ IO Stream where
-    byteStream'expectSize = Rpc.pureHandler $
-        \_ _ -> pure def
+instance Util.ByteStream'server_ Stream where
+    byteStream'expectSize _ = Capnp.handleRaw $ \_ -> pure def
 
-    byteStream'write = Rpc.pureHandler $
-        \Stream{state, putBlob} Util.ByteStream'write'params{data_} -> do
+    byteStream'write Stream{state, putBlob} =
+        Capnp.handleParsed $ \Util.ByteStream'write'params{data_} -> do
             ref <- putBlob data_
             let branch = BlobTree
                     { union' = BlobTree'leaf ref
@@ -76,8 +75,8 @@ instance Util.ByteStream'server_ IO Stream where
             atomically $ modifyTVar' state (branch:)
             pure def
 
-    byteStream'done = Rpc.pureHandler $
-        \Stream{putBlob, state, result} _ -> do
+    byteStream'done Stream{putBlob, state, result} =
+        Capnp.handleParsed $ \_ -> do
             parts <- atomically $ readTVar state
             let totalSize = sum [ size | BlobTree {size} <- parts ]
             -- TODO: if there is only one block, skip the wrapper node.

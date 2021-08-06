@@ -6,30 +6,30 @@
 module BlobStore
     ( KnownHash(..)
     , IllegalHash(..)
-    , RawBlobStore(..)
-    , BlobStore
+    -- , RawBlobStore(..)
+    -- , BlobStore
     , computeHash
     , computeHashLazy
     , encodeHash
     , decodeHash
-    , fromRaw
-    , getBlob
-    , putBlob
-    , hasBlob
-    , syncFile
+    -- , fromRaw
+    -- , getBlob
+    -- , putBlob
+    -- , hasBlob
+    -- , syncFile
     ) where
 
 import Zhp
 
-import qualified Capnp.Gen.Disk.Pure     as Disk
-import           Capnp.Gen.Protocol.Pure
-import           Capnp.Gen.Storage.Pure
+--import qualified Capnp.Gen.Disk.New     as Disk
+import Capnp.Gen.Protocol.New
+--import           Capnp.Gen.Storage.New
 
-import Capnp.Classes (toStruct)
-import Capnp.Message (singleSegment)
+--import Capnp.Classes (toStruct)
+--import Capnp.Message (singleSegment)
 
-import qualified Capnp
-import qualified Capnp.Untyped.Pure     as U
+--import qualified Capnp
+--import qualified Capnp.Untyped.Pure     as U
 import           Control.Exception.Safe
 import           Crypto.Hash            (Digest, SHA256, digestFromByteString)
 import qualified Crypto.Hash            as CH
@@ -58,6 +58,7 @@ data CorruptedBlob = CorruptedBlob
     } deriving(Show)
 instance Exception CorruptedBlob
 
+{-
 -- | A raw store for bytes. Supports setting and getting blob contents by hash,
 -- but does not compute or validate the hashes itself. You will want to wrap
 -- this in a 'BlobStore' via 'fromRaw' before using it.
@@ -112,8 +113,10 @@ require :: (MonadThrow m, Exception e) => Either e a -> m a
 require (Left e)  = throw e
 require (Right v) = pure v
 
+-}
+
 -- | Decode a protocol hash into a guaranteed valid one.
-decodeHash :: Hash -> Either IllegalHash KnownHash
+decodeHash :: Parsed Hash -> Either IllegalHash KnownHash
 decodeHash Hash{digest, algo} = case algo of
     HashAlgo'unknown' _ -> Left $ UnsupportedAlgo algo
     HashAlgo'sha256 -> case digestFromByteString digest of
@@ -121,7 +124,7 @@ decodeHash Hash{digest, algo} = case algo of
         Nothing -> Left WrongDigestLen
 
 -- | Encode a hash for use in the protocol.
-encodeHash :: KnownHash -> Hash
+encodeHash :: KnownHash -> Parsed Hash
 encodeHash (Sha256 digest) = Hash
     { algo = HashAlgo'sha256
     , digest = BA.convert digest
@@ -135,6 +138,7 @@ computeHash = Sha256 . CH.hash
 computeHashLazy :: LBS.ByteString -> KnownHash
 computeHashLazy = Sha256 . CH.hashlazy
 
+{-
 syncFile :: BlobStore IO -> FilePath -> IO ()
 syncFile bs path = do
     info <- syncRaw (rawStore bs)
@@ -145,3 +149,4 @@ atomicWriteFile :: FilePath -> LBS.ByteString -> IO ()
 atomicWriteFile path bytes = do
     LBS.writeFile (path <> ".new") bytes
     -- TODO/FIXME: sync, rename
+-}
