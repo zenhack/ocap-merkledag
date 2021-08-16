@@ -12,7 +12,6 @@ module BlobStore.HighLevel
 
 import           BlobStore
 import           CanonicalizeBytes
-import           Capnp.Classes             (toStruct)
 import           Capnp.Gen.Storage.New
 import qualified Capnp.Message             as M
 import qualified Capnp.New                 as Capnp
@@ -41,11 +40,11 @@ encodeBlob ptr resolveClient = do
         Right v -> pure v
     seg :: Capnp.Segment 'Capnp.Const <- Capnp.createPure maxBound $ do
         msg <- Capnp.newMessage Nothing
-        rawBlob <- Capnp.encode @(StoredBlob (Maybe Capnp.AnyPointer)) msg StoredBlob
+        Capnp.Raw rawBlob <- Capnp.encode @(StoredBlob (Maybe Capnp.AnyPointer)) msg StoredBlob
             { data_
             , ptrs = V.fromList ptrs
             }
-        (_, seg) <- Capnp.canonicalize (toStruct rawBlob)
+        (_, seg) <- Capnp.canonicalize rawBlob
         pure seg
     let bytes = Capnp.toByteString seg
         digest = computeHash bytes

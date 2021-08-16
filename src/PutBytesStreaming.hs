@@ -18,7 +18,7 @@ module PutBytesStreaming
 
 import Zhp
 
-import           Capnp     (def)
+import           Capnp.New (def)
 import qualified Capnp.New as Capnp
 
 import Capnp.Gen.Protocol.New

@@ -28,6 +28,8 @@ import           Capnp.Gen.Storage.New
 import qualified Capnp.Gen.Util.New     as Util
 
 import Control.Exception.Safe (SomeException, throwM, try)
+import Data.Coerce            (coerce)
+import Data.Functor           ((<&>))
 import Lifetimes
 import Supervisors            (Supervisor)
 
@@ -37,7 +39,6 @@ import qualified Capnp.Rpc         as Rpc
 import qualified Capnp.Rpc.Untyped as RU
 import qualified Capnp.Untyped     as U
 
-import           Capnp.Classes    (FromStruct(fromStruct), ToStruct(toStruct))
 import qualified Capnp.Repr       as R
 import           Capnp.Rpc.Errors (eFailed, wrapException)
 
@@ -110,8 +111,8 @@ instance Store'server_ (Maybe Capnp.AnyPointer) StoreServer where
             hash <- encodeHash <$> mustGetResource hashRes
             struct <- Capnp.createPure maxBound $ do
                 msg <- Capnp.newMessage Nothing
-                toStruct <$> Capnp.encode msg Store'put'results { hash, ref }
-            Capnp.evalLimitT maxBound $ fromStruct struct
+                Capnp.encode msg Store'put'results { hash, ref }
+            pure struct
 
     store'findByHash StoreServer{rawHandler,sup,lifetime} =
         Capnp.handleParsed $ \Store'findByHash'params{hash} ->
@@ -137,8 +138,8 @@ putBlobTree srv@StoreServer{rawHandler, lifetime, sup} bt = do
     rawPtr <- Capnp.createPure maxBound (do
         msg <- Capnp.newMessage Nothing
         Capnp.Raw s <- Capnp.encode msg bt
-        pure (R.toPtr @(R.PtrReprFor (R.ReprFor a)) s))
-    ptr <- Capnp.evalLimitT maxBound $ Capnp.parse (Capnp.Raw rawPtr)
+        pure $ U.MaybePtr (R.toPtr @(R.PtrReprFor (R.ReprFor a)) s))
+    ptr <- Capnp.evalLimitT maxBound $ Capnp.parse @(Maybe Capnp.AnyPointer) (coerce rawPtr)
     hash <- putPtr srv ptr
     Capnp.export @(Ref a) sup RefServer{hash, rawHandler, lifetime, sup}
 
@@ -197,8 +198,8 @@ instance Capnp.TypeParam a => Ref'server_ a RefServer where
                 -- For now, we hack around this by exploting the fact that
                 -- `(value :T)` will serendipitously allocate the pointer in the
                 -- same place as `StoredBlob(T)`
-                U.tMsg (pure . M.withCapTable clients) (toStruct blob)
-                >>= fromStruct . toStruct
+                U.tMsg (pure . M.withCapTable clients) (R.fromRaw blob)
+                <&> R.Raw
 
 resolveClient :: (Monad m, MonadSTM m) => Rpc.Client -> m (Maybe (KnownHash, Rpc.Client))
 resolveClient c = do

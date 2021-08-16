@@ -24,8 +24,8 @@ import Foreign.C.Types (CTime(..))
 
 import qualified System.Posix.Files as Posix
 
-import           Capnp         (def)
 import qualified Capnp.Message as M
+import           Capnp.New     (def)
 import qualified Capnp.Rpc     as Rpc
 
 import qualified Capnp.Gen.Files.New    as Files

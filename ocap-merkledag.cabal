@@ -76,14 +76,14 @@ library
     , BlobStore
     , BlobStore.Raw
     , BlobStore.HighLevel
-    , BlobStore.BigFile
-    , BlobStore.BigFile.FileArena
+    -- , BlobStore.BigFile
+    -- , BlobStore.BigFile.FileArena
     , BlobStore.BigFile.SELock
-    , BlobStore.BigFile.BackedTrie
-    , BlobStore.BigFile.MemTrie
+    -- , BlobStore.BigFile.BackedTrie
+    -- , BlobStore.BigFile.MemTrie
     , BlobStore.BigFile.TrieKey
     , BlobStore.BigFile.TrieError
-    , BlobStore.BigFile.DiskTrie
+    -- , BlobStore.BigFile.DiskTrie
     -- , BlobStore.Files
     , BlobStore.InMemory
     , Server

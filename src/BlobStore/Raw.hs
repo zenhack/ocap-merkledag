@@ -17,7 +17,7 @@ module BlobStore.Raw
     ) where
 
 import           BlobStore
-import qualified Capnp
+import qualified Capnp.New              as Capnp
 import           Capnp.Rpc.Promise      (Fulfiller)
 import           Control.Concurrent.STM
 import qualified Data.ByteString.Lazy   as LBS
