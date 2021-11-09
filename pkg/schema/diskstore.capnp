@@ -13,17 +13,30 @@ struct Addr(T) {
 }
 
 struct TrieMap {
-  union {
-    empty @0 :Void;
-    leaf :group {
-      prefix @1 :Data;
-      addr @2 :Addr(AnyPointer);
-    }
-    branches @3 :Addr(Branches);
-  }
+  # A map implemented as a Trie. Keys must be byte arrays of some fixed length.
+  # Values are addresses.
+  #
+  # Each node in the trie is a separate capnproto message; messages are
+  # allocated within an `Arena` and refer to one another with `Addr`s.
+  #
+  # Structure sharing is not allowed; implementations may assume there is
+  # only one reference to a given `TrieMap`. This is important for knowing
+  # when to free the space used by a message.
 
-  struct Branches {
-    branches @0 :List(TrieMap);
+  union {
+    leaf :group {
+      # This subtree which contains exactly one value.
+
+      prefix @0 :Data;
+      # The remaining prefix for the key that this subtree contains.
+
+      addr @1 :Addr(AnyPointer);
+      # The value stored for the key.
+    }
+    branches @2 :List(Addr(AnyPointer));
+    # This subtree may contain more than one value. The `branches` list
+    # always has length 256, where each element is the address of another
+    # `TrieMap`, containing all keys prefixed with its index.
   }
 }
 
