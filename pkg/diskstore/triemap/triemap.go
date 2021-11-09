@@ -22,8 +22,7 @@ type Storage interface {
 }
 
 func Lookup(s Storage, key []byte, m diskstore.TrieMap) (res diskstore.Addr, err error) {
-	which := m.Which()
-	switch which {
+	switch m.Which() {
 	case diskstore.TrieMap_Which_empty:
 		return res, ErrNotFound
 	case diskstore.TrieMap_Which_leaf:
