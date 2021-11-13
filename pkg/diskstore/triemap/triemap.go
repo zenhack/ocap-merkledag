@@ -190,6 +190,9 @@ func savePair(s Storage, k1, k2 []byte, v1, v2 diskstore.Addr) (res InsertResult
 	if k1[0] == k2[0] {
 		res, err = savePair(s, k1[1:], k2[1:], v1, v2)
 		setBranch(branches, k1[0], res.ResAddr)
+	} else if len(k1) == 1 {
+		setBranch(branches, k1[0], types.DecodeAddr(v1))
+		setBranch(branches, k2[0], types.DecodeAddr(v2))
 	} else {
 		res1, err := saveLeaf(s, k1[1:], v1)
 		if err != nil {
