@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"zenhack.net/go/ocap-md/pkg/diskstore/filearena"
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
 )
@@ -33,7 +32,7 @@ func (s *testStorage) Store(data []byte) (types.Addr, error) {
 	// FIXME: validate that data is not to big for uint32 length.
 	addr := types.Addr{
 		Arena: 0,
-		ArenaAddr: filearena.Addr{
+		ArenaAddr: types.ArenaAddr{
 			Offset: s.nextOffset,
 			Size:   uint32(len(data)),
 		},

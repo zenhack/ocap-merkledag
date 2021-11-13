@@ -6,6 +6,8 @@ import (
 	"os"
 	"testing"
 	"testing/quick"
+
+	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 )
 
 // To test:
@@ -13,23 +15,23 @@ import (
 // - Sync()
 // - Clear()
 
-func writeThenRead(t *testing.T, fa *FileArena, data []byte) (Addr, error) {
+func writeThenRead(t *testing.T, fa *FileArena, data []byte) (types.ArenaAddr, error) {
 	addr, err := fa.Put(data)
 	if err != nil {
-		return Addr{}, fmt.Errorf("writeThenRead/Put: %v", err)
+		return types.ArenaAddr{}, fmt.Errorf("writeThenRead/Put: %v", err)
 	}
 	readBack, err := fa.Get(addr)
 	if err != nil {
-		return Addr{}, fmt.Errorf("writeThenRead/Get: %v", err)
+		return types.ArenaAddr{}, fmt.Errorf("writeThenRead/Get: %v", err)
 	}
 	if bytes.Compare(data, readBack) != 0 {
-		return Addr{}, fmt.Errorf("Read back wrong data; expected %v but got %v", data, readBack)
+		return types.ArenaAddr{}, fmt.Errorf("Read back wrong data; expected %v but got %v", data, readBack)
 	}
 	return addr, nil
 }
 
 type addrResult struct {
-	addr Addr
+	addr types.ArenaAddr
 	err  error
 }
 

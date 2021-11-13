@@ -3,13 +3,17 @@ package types
 import (
 	"capnproto.org/go/capnp/v3"
 
-	"zenhack.net/go/ocap-md/pkg/diskstore/filearena"
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
 )
 
 type Addr struct {
 	Arena     uint32
-	ArenaAddr filearena.Addr // TODO: move this out of filearena
+	ArenaAddr ArenaAddr
+}
+
+type ArenaAddr struct {
+	Offset int64
+	Size   uint32
 }
 
 func (a Addr) Encode() diskstore.Addr {
@@ -34,7 +38,7 @@ func (a Addr) EncodeInto(da diskstore.Addr) {
 func DecodeAddr(addr diskstore.Addr) Addr {
 	return Addr{
 		Arena: addr.Arena(),
-		ArenaAddr: filearena.Addr{
+		ArenaAddr: ArenaAddr{
 			Offset: int64(addr.Offset()),
 			Size:   addr.Length(),
 		},

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"sync"
+
+	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 )
 
 // A FileArena represents an on-disk allocation arena.
@@ -35,11 +37,6 @@ type FileArena struct {
 	allocMu *sync.Mutex
 }
 
-type Addr struct {
-	Offset int64
-	Size   uint32
-}
-
 // Construct a FileArnea from an open file and the next allocation offset into
 // that file.
 func New(file *os.File, nextAlloc int64) *FileArena {
@@ -64,11 +61,11 @@ func (fa *FileArena) Sync() (off int64, err error) {
 }
 
 // Write the bytes to the arena, returning its address.
-func (fa *FileArena) Put(data []byte) (addr Addr, err error) {
+func (fa *FileArena) Put(data []byte) (addr types.ArenaAddr, err error) {
 	size := len(data)
 	fa.withAlloc(int64(size), func(off int64) {
 		_, err = fa.file.WriteAt(data, off)
-		addr = Addr{
+		addr = types.ArenaAddr{
 			Offset: off,
 			Size:   uint32(size),
 		}
@@ -77,7 +74,7 @@ func (fa *FileArena) Put(data []byte) (addr Addr, err error) {
 }
 
 // Return the bytes at the specified address.
-func (fa *FileArena) Get(addr Addr) (data []byte, err error) {
+func (fa *FileArena) Get(addr types.ArenaAddr) (data []byte, err error) {
 	// TODO(perf): Maybe mmap if the blob is large enough.
 	data = make([]byte, addr.Size)
 	_, err = fa.ReadAt(data, addr.Offset)
@@ -89,7 +86,7 @@ func (fa *FileArena) Get(addr Addr) (data []byte, err error) {
 // We use spares files for this under the hood, so there appear to be "gaps"
 // in the file that are logically all zeros, but for which no storage is
 // allocated.
-func (fa *FileArena) Clear(addr Addr) error {
+func (fa *FileArena) Clear(addr types.ArenaAddr) error {
 	return fmt.Errorf("TODO")
 }
 
