@@ -87,6 +87,9 @@ type InsertResult struct {
 }
 
 func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (res InsertResult, err error) {
+	if !m.Struct.IsValid() {
+		return saveLeaf(s, key, value)
+	}
 	switch m.Which() {
 	case diskstore.TrieMap_Which_leaf:
 		leaf := m.Leaf()
