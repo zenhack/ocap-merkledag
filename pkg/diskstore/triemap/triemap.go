@@ -107,29 +107,8 @@ func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			return res, ErrShortKey
 		} else if len(prefix) == 0 {
 			return res, ErrMalformed
-		} else if key[0] == prefix[0] {
-			panic("TODO")
 		} else {
-			res1, err := saveLeaf(s, key[1:], value)
-			if err != nil {
-				return res, err
-			}
-			res2, err := saveLeaf(s, prefix[1:], oldAddr)
-			if err != nil {
-				return res, err
-			}
-			_, seg, m := newNode()
-			branches, err := m.NewBranches(256)
-			if err != nil {
-				panic(err)
-			}
-			setBranch(branches, key[0], res1.ResAddr)
-			setBranch(branches, prefix[0], res2.ResAddr)
-			addr, err := s.Store(seg.Data())
-			return InsertResult{
-				ResAddr: addr,
-				ResNode: m,
-			}, err
+			return savePair(s, key, prefix, value, oldAddr)
 		}
 	case diskstore.TrieMap_Which_branches:
 		branches, err := m.Branches()
@@ -188,6 +167,40 @@ func saveLeaf(s Storage, prefix []byte, value diskstore.Addr) (res InsertResult,
 		ResAddr: addr,
 		ResNode: root,
 	}, nil
+}
+
+func savePair(s Storage, k1, k2 []byte, v1, v2 diskstore.Addr) (res InsertResult, err error) {
+	_, seg, m := newNode()
+	branches, err := m.NewBranches(256)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(k1) == 0 || len(k2) == 0 {
+		return res, ErrShortKey
+	}
+
+	if k1[0] == k2[0] {
+		res, err = savePair(s, k1[1:], k2[1:], v1, v2)
+		setBranch(branches, k1[0], res.ResAddr)
+	} else {
+		res1, err := saveLeaf(s, k1[1:], v1)
+		if err != nil {
+			return res, err
+		}
+		res2, err := saveLeaf(s, k2[1:], v2)
+		if err != nil {
+			return res, err
+		}
+		setBranch(branches, k1[0], res1.ResAddr)
+		setBranch(branches, k2[0], res2.ResAddr)
+	}
+
+	addr, err := s.Store(seg.Data())
+	return InsertResult{
+		ResAddr: addr,
+		ResNode: m,
+	}, err
 }
 
 func setBranch(list diskstore.Addr_List, index uint8, addr types.Addr) {
