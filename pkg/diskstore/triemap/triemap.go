@@ -87,10 +87,6 @@ type InsertResult struct {
 }
 
 func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (res InsertResult, err error) {
-	if len(key) == 0 {
-		return saveLeaf(s, key, value)
-	}
-
 	switch m.Which() {
 	case diskstore.TrieMap_Which_leaf:
 		leaf := m.Leaf()
@@ -107,6 +103,8 @@ func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			res.WasOld = true
 			res.OldAddr = types.DecodeAddr(oldAddr)
 			return res, err
+		} else if len(key) == 0 {
+			return res, ErrShortKey
 		} else {
 			res1, err := saveLeaf(s, key[1:], value)
 			if err != nil {
