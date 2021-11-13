@@ -105,6 +105,8 @@ func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			return res, err
 		} else if len(key) == 0 {
 			return res, ErrShortKey
+		} else if len(prefix) == 0 {
+			return res, ErrMalformed
 		} else {
 			res1, err := saveLeaf(s, key[1:], value)
 			if err != nil {
