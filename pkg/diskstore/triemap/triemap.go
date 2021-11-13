@@ -121,6 +121,7 @@ func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			if err != nil {
 				panic(err)
 			}
+			// FIXME: deal with key[0] == prefix[0]
 			setBranch(branches, key[0], res1.ResAddr)
 			setBranch(branches, prefix[0], res2.ResAddr)
 			addr, err := s.Store(seg.Data())
