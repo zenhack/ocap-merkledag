@@ -173,7 +173,7 @@ func saveLeaf(s Storage, prefix []byte, value diskstore.Addr) (res InsertResult,
 	return InsertResult{
 		ResAddr: addr,
 		ResNode: root,
-	}, nil
+	}, err
 }
 
 func savePair(s Storage, k1, k2 []byte, v1, v2 diskstore.Addr) (res InsertResult, err error) {
