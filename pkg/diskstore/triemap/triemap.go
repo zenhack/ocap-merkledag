@@ -86,7 +86,7 @@ type InsertResult struct {
 	WasOld  bool
 }
 
-func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (res InsertResult, err error) {
+func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (res InsertResult, err error) {
 	switch m.Which() {
 	case diskstore.TrieMap_Which_leaf:
 		leaf := m.Leaf()
@@ -128,7 +128,7 @@ func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 		if err != nil {
 			return res, err
 		}
-		res, err = insert(s, key[1:], value, mchild)
+		res, err = Insert(s, key[1:], value, mchild)
 		if err != nil {
 			return res, err
 		}
