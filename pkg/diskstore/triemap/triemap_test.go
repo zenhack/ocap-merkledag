@@ -49,30 +49,62 @@ func (s *testStorage) Clear(addr types.Addr) error {
 }
 
 func TestTrieMap(t *testing.T) {
-	s := makeTestStorage()
-	m := diskstore.TrieMap{}
-	_, err := Lookup(s, []byte{}, m)
-	assertErr(t, err, ErrNotFound)
-	_, err = Lookup(s, []byte("abc"), m)
-	assertErr(t, err, ErrNotFound)
+	e := makeEnv(t)
 
-	v := types.Addr{Arena: 2}
-	res, err := Insert(s, []byte("abc"), v.Encode(), m)
-	chkfatal(err)
-	m = res.ResNode
+	expectAbsent(e, "")
+	expectAbsent(e, "abc")
 
-	vActual, err := Lookup(s, []byte("abc"), m)
-	chkfatal(err)
-	assertEq(t, vActual, v)
+	doInsert(e, "abc", 2)
+	expectFound(e, "abc", 2)
+	expectAbsent(e, "acc")
 
-	v = types.Addr{Arena: 3}
-	res, err = Insert(s, []byte("abc"), v.Encode(), m)
-	chkfatal(err)
-	m = res.ResNode
+	doInsert(e, "abc", 3)
+	expectFound(e, "abc", 3)
 
-	vActual, err = Lookup(s, []byte("abc"), m)
+	doInsert(e, "bcd", 4)
+	expectFound(e, "abc", 3)
+	expectFound(e, "bcd", 4)
+
+	doInsert(e, "acc", 5)
+	expectFound(e, "abc", 3)
+	expectFound(e, "bcd", 4)
+	expectFound(e, "acc", 5)
+
+	doInsert(e, "abf", 6)
+	expectFound(e, "abc", 3)
+	expectFound(e, "bcd", 4)
+	expectFound(e, "acc", 5)
+	expectFound(e, "abf", 6)
+}
+
+func makeEnv(t *testing.T) *env {
+	return &env{
+		t: t,
+		s: makeTestStorage(),
+	}
+}
+
+type env struct {
+	t *testing.T
+	s Storage
+	m diskstore.TrieMap
+}
+
+func doInsert(e *env, key string, value uint32) {
+	res, err := Insert(e.s, []byte(key), types.Addr{Arena: value}.Encode(), e.m)
 	chkfatal(err)
-	assertEq(t, vActual, v)
+	e.m = res.ResNode
+}
+
+func expectAbsent(e *env, key string) {
+	_, err := Lookup(e.s, []byte(key), e.m)
+	assertErr(e.t, err, ErrNotFound)
+}
+
+func expectFound(e *env, key string, want uint32) {
+	have, err := Lookup(e.s, []byte(key), e.m)
+	chkfatal(err)
+	assertEq(e.t, have, types.Addr{Arena: want})
 }
 
 func chkfatal(err error) {
