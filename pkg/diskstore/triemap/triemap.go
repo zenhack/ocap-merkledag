@@ -107,6 +107,8 @@ func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			return res, ErrShortKey
 		} else if len(prefix) == 0 {
 			return res, ErrMalformed
+		} else if key[0] == prefix[0] {
+			panic("TODO")
 		} else {
 			res1, err := saveLeaf(s, key[1:], value)
 			if err != nil {
@@ -121,7 +123,6 @@ func insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			if err != nil {
 				panic(err)
 			}
-			// FIXME: deal with key[0] == prefix[0]
 			setBranch(branches, key[0], res1.ResAddr)
 			setBranch(branches, prefix[0], res2.ResAddr)
 			addr, err := s.Store(seg.Data())
