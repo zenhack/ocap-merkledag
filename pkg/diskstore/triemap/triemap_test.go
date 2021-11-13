@@ -60,19 +60,19 @@ func TestTrieMap(t *testing.T) {
 	doInsert(e, "abc", 3)
 	expectFound(e, "abc", 3)
 
-	doInsert(e, "bcd", 4)
+	doInsert(e, "acc", 4)
 	expectFound(e, "abc", 3)
-	expectFound(e, "bcd", 4)
+	expectFound(e, "acc", 4)
 
-	doInsert(e, "acc", 5)
+	doInsert(e, "bcd", 5)
 	expectFound(e, "abc", 3)
-	expectFound(e, "bcd", 4)
-	expectFound(e, "acc", 5)
+	expectFound(e, "acc", 4)
+	expectFound(e, "bcd", 5)
 
 	doInsert(e, "abf", 6)
 	expectFound(e, "abc", 3)
-	expectFound(e, "bcd", 4)
-	expectFound(e, "acc", 5)
+	expectFound(e, "acc", 4)
+	expectFound(e, "bcd", 5)
 	expectFound(e, "abf", 6)
 }
 
@@ -91,7 +91,7 @@ type env struct {
 
 func doInsert(e *env, key string, value uint32) {
 	res, err := Insert(e.s, []byte(key), types.Addr{Arena: value}.Encode(), e.m)
-	chkfatal(err)
+	chkfatal(e.t, "doInsert", err)
 	e.m = res.ResNode
 }
 
@@ -102,12 +102,13 @@ func expectAbsent(e *env, key string) {
 
 func expectFound(e *env, key string, want uint32) {
 	have, err := Lookup(e.s, []byte(key), e.m)
-	chkfatal(err)
+	chkfatal(e.t, "expectFound", err)
 	assertEq(e.t, have, types.Addr{Arena: want})
 }
 
-func chkfatal(err error) {
+func chkfatal(t *testing.T, prefix string, err error) {
 	if err != nil {
+		t.Errorf("%v: unexpected error: %v", prefix, err)
 		panic(err)
 	}
 }
