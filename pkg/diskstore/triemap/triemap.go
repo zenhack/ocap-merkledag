@@ -130,7 +130,7 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 		if err != nil {
 			return res, err
 		}
-		msg, _, _ := capnp.NewMessage(capnp.SingleSegment(data))
+		msg := &capnp.Message{Arena: capnp.SingleSegment(data)}
 		mchild, err := diskstore.ReadRootTrieMap(msg)
 		if err != nil {
 			return res, err
@@ -150,7 +150,7 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 }
 
 func newNode() (*capnp.Message, *capnp.Segment, diskstore.TrieMap) {
-	msg := &capnp.Message{Arena: capnp.SingleSegment(nil)}
+	msg, _, _ := capnp.NewMessage(capnp.SingleSegment(nil))
 
 	seg, err := msg.Segment(0)
 	if err != nil {
