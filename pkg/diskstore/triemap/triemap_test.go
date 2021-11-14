@@ -55,8 +55,12 @@ func (s *testStorage) Clear(addr types.Addr) error {
 	return nil
 }
 
-func TestTrieMap(t *testing.T) {
-	e := makeEnv(t)
+func TestTrieMapInMemory(t *testing.T) {
+	testTrieMap(t, makeTestStorage())
+}
+
+func testTrieMap(t *testing.T, s Storage) {
+	e := makeEnv(t, s)
 
 	expectAbsent(e, "")
 	expectAbsent(e, "abc")
@@ -108,7 +112,7 @@ func TestTrieMap(t *testing.T) {
 	expectFound(e, "abf", 6)
 }
 
-func makeEnv(t *testing.T) *env {
+func makeEnv(t *testing.T, s Storage) *env {
 	return &env{
 		t: t,
 		s: makeTestStorage(),
