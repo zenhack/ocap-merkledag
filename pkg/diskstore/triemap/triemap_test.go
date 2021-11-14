@@ -2,6 +2,7 @@ package triemap
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
@@ -30,7 +31,7 @@ func cloneBytes(data []byte) []byte {
 func (s *testStorage) Fetch(addr types.Addr) (data []byte, err error) {
 	data, ok := s.blobs[addr]
 	if !ok {
-		return nil, ErrNotFound
+		return nil, fmt.Errorf("No blob at address %v", addr)
 	}
 	return cloneBytes(data), nil
 }
