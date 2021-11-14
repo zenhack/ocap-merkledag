@@ -170,6 +170,64 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 	}
 }
 
+type DeleteResult struct {
+	Deleted types.Addr
+	ResNode diskstore.TrieMap
+	ResAddr types.Addr
+}
+
+func Delete(s Storage, key []byte, m diskstore.TrieMap) (DeleteResult, error) {
+	switch m.Which() {
+	case diskstore.TrieMap_Which_leaf:
+		leaf := m.Leaf()
+		prefix, err := leaf.Prefix()
+		if err != nil {
+			return DeleteResult{}, err
+		}
+		if bytes.Compare(key, prefix) != 0 {
+			// Doesn't match; return unchanged.
+			return DeleteResult{ResNode: m}, nil
+		}
+		return DeleteResult{}, nil
+	case diskstore.TrieMap_Which_branches:
+		if len(key) == 0 {
+			return DeleteResult{}, ErrShortKey
+		}
+		branches, err := m.Branches()
+		if err != nil {
+			return DeleteResult{}, err
+		}
+
+		if branches.Len() != 256 {
+			return DeleteResult{}, ErrMalformed
+		}
+		branchAddr := branches.At(int(key[0]))
+		addr := types.DecodeAddr(branchAddr)
+
+		if addr == (types.Addr{}) {
+			return DeleteResult{ResNode: m}, nil
+		}
+		mchild, err := fetchNode(s, addr)
+		if err != nil {
+			return DeleteResult{}, err
+		}
+		res, err := Delete(s, key[1:], mchild)
+		if err != nil {
+			return DeleteResult{}, err
+		}
+		res.ResAddr.EncodeInto(branchAddr)
+		addr, err = s.Store(m.Struct.Segment().Data())
+		if err != nil {
+			return DeleteResult{}, err
+		}
+		res.ResNode = m
+		res.ResAddr = addr
+		return res, nil
+	default:
+		return DeleteResult{}, ErrMalformed
+	}
+}
+
 func newNode() (*capnp.Message, *capnp.Segment, diskstore.TrieMap) {
 	msg, _, _ := capnp.NewMessage(capnp.SingleSegment(nil))
 
@@ -236,4 +294,13 @@ func savePair(s Storage, k1, k2 []byte, v1, v2 diskstore.Addr) (res InsertResult
 
 func setBranch(list diskstore.Addr_List, index uint8, addr types.Addr) {
 	addr.EncodeInto(list.At(int(index)))
+}
+
+func fetchNode(s Storage, addr types.Addr) (diskstore.TrieMap, error) {
+	data, err := s.Fetch(addr)
+	if err != nil {
+		return diskstore.TrieMap{}, err
+	}
+	msg := &capnp.Message{Arena: capnp.SingleSegment(data)}
+	return diskstore.ReadRootTrieMap(msg)
 }
