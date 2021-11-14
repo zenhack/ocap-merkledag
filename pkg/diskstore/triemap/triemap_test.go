@@ -3,8 +3,11 @@ package triemap
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
+	"zenhack.net/go/ocap-md/pkg/diskstore/filearena"
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
 )
@@ -57,6 +60,18 @@ func (s *testStorage) Clear(addr types.Addr) error {
 
 func TestTrieMapInMemory(t *testing.T) {
 	testTrieMap(t, makeTestStorage())
+}
+
+func TestTrieMapFileArena(t *testing.T) {
+	f, err := ioutil.TempFile("", "*.filearena")
+	if err != nil {
+		t.Fatalf("opening temporary file: %v", err)
+	}
+	defer os.Remove(f.Name())
+	defer f.Close()
+	testTrieMap(t, &FileArenaStorage{
+		FileArena: filearena.New(f, 0),
+	})
 }
 
 func testTrieMap(t *testing.T, s Storage) {

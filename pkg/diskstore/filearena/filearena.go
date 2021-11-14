@@ -46,6 +46,7 @@ func New(file *os.File, nextAlloc int64) *FileArena {
 		file:      file,
 		nextAlloc: nextAlloc,
 	}
+	// TODO: truncate the file to the correct length.
 }
 
 // Make changes to the arena durable. Returns the size of the arena at the time
