@@ -68,12 +68,7 @@ func lookup(s Storage, key []byte, m diskstore.TrieMap) (res diskstore.Addr, err
 			return res, ErrNotFound
 		}
 
-		data, err := s.Fetch(types.DecodeAddr(addr))
-		if err != nil {
-			return res, err
-		}
-		msg := &capnp.Message{Arena: capnp.SingleSegment(data)}
-		m, err := diskstore.ReadRootTrieMap(msg)
+		m, err := fetchNode(s, types.DecodeAddr(addr))
 		if err != nil {
 			return res, err
 		}
@@ -149,13 +144,7 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			err = replaceBranch(&res)
 			return res, err
 		}
-
-		data, err := s.Fetch(addr)
-		if err != nil {
-			return res, err
-		}
-		msg := &capnp.Message{Arena: capnp.SingleSegment(data)}
-		mchild, err := diskstore.ReadRootTrieMap(msg)
+		mchild, err := fetchNode(s, addr)
 		if err != nil {
 			return res, err
 		}
