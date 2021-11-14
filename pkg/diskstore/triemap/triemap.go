@@ -196,6 +196,20 @@ func Delete(s Storage, key []byte, m diskstore.TrieMap) (DeleteResult, error) {
 		if addr == (types.Addr{}) {
 			return DeleteResult{ResNode: m}, nil
 		}
+
+		if len(key) == 1 {
+			// Address points directly to the data; just clear it.
+			(types.Addr{}).EncodeInto(branchAddr)
+			addr, err = s.Store(m.Struct.Segment().Data())
+			if err != nil {
+				return DeleteResult{}, err
+			}
+			return DeleteResult{
+				ResNode: m,
+				ResAddr: addr,
+			}, nil
+		}
+
 		mchild, err := fetchNode(s, addr)
 		if err != nil {
 			return DeleteResult{}, err

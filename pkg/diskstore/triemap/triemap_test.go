@@ -82,6 +82,30 @@ func TestTrieMap(t *testing.T) {
 	expectFound(e, "acc", 4)
 	expectFound(e, "bcd", 5)
 	expectFound(e, "abf", 6)
+
+	doDelete(e, "xyz")
+	expectFound(e, "abc", 3)
+	expectFound(e, "acc", 4)
+	expectFound(e, "bcd", 5)
+	expectFound(e, "abf", 6)
+
+	doDelete(e, "abc")
+	expectAbsent(e, "abc")
+	expectFound(e, "acc", 4)
+	expectFound(e, "bcd", 5)
+	expectFound(e, "abf", 6)
+
+	doDelete(e, "bcd")
+	expectAbsent(e, "abc")
+	expectFound(e, "acc", 4)
+	expectAbsent(e, "bcd")
+	expectFound(e, "abf", 6)
+
+	doInsert(e, "bcd", 7)
+	expectAbsent(e, "abc")
+	expectFound(e, "acc", 4)
+	expectFound(e, "bcd", 7)
+	expectFound(e, "abf", 6)
 }
 
 func makeEnv(t *testing.T) *env {
@@ -95,6 +119,12 @@ type env struct {
 	t *testing.T
 	s Storage
 	m diskstore.TrieMap
+}
+
+func doDelete(e *env, key string) {
+	res, err := Delete(e.s, []byte(key), e.m)
+	chkfatal(e.t, "doDelete", err)
+	e.m = res.ResNode
 }
 
 func doInsert(e *env, key string, value uint32) {
