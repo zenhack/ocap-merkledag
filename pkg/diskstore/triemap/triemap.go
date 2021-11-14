@@ -126,7 +126,31 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 			return res, ErrMalformed
 		}
 		branchAddr := branches.At(int(key[0]))
-		data, err := s.Fetch(types.DecodeAddr(branchAddr))
+		addr := types.DecodeAddr(branchAddr)
+
+		// Swap the result into branchAddr, updating res to point to m.
+		replaceBranch := func(res *InsertResult) error {
+			res.ResAddr.EncodeInto(branchAddr)
+			addr, err := s.Store(m.Struct.Segment().Data())
+			if err != nil {
+				return err
+			}
+			res.ResAddr = addr
+			res.ResNode = m
+			return err
+		}
+
+		if addr == (types.Addr{}) {
+			// Empty branch; create a new leaf and attach it.
+			res, err := saveLeaf(s, key[1:], value)
+			if err != nil {
+				return InsertResult{}, err
+			}
+			err = replaceBranch(&res)
+			return res, err
+		}
+
+		data, err := s.Fetch(addr)
 		if err != nil {
 			return res, err
 		}
@@ -139,10 +163,7 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 		if err != nil {
 			return res, err
 		}
-		res.ResAddr.EncodeInto(branchAddr)
-		addr, err := s.Store(m.Struct.Segment().Data())
-		res.ResNode = m
-		res.ResAddr = addr
+		err = replaceBranch(&res)
 		return res, err
 	default:
 		return res, ErrMalformed
