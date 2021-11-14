@@ -20,12 +20,19 @@ func makeTestStorage() *testStorage {
 	}
 }
 
+// Copy a byte slice.
+func cloneBytes(data []byte) []byte {
+	ret := make([]byte, len(data))
+	copy(ret, data)
+	return ret
+}
+
 func (s *testStorage) Fetch(addr types.Addr) (data []byte, err error) {
 	data, ok := s.blobs[addr]
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return data, nil
+	return cloneBytes(data), nil
 }
 
 func (s *testStorage) Store(data []byte) (types.Addr, error) {
@@ -38,7 +45,7 @@ func (s *testStorage) Store(data []byte) (types.Addr, error) {
 		},
 	}
 	s.nextOffset += int64(len(data))
-	s.blobs[addr] = data
+	s.blobs[addr] = cloneBytes(data)
 	return addr, nil
 }
 
