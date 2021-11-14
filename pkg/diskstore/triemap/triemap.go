@@ -1,3 +1,5 @@
+// package triemap implements an on-disk trie, where keys are byte slices which
+// must all have the same length, and values are addresses.
 package triemap
 
 import (
@@ -16,12 +18,20 @@ var (
 	ErrMalformed = errors.New("Malformed triemap node")
 )
 
+// Abstract interface for the backing store used by the map.
 type Storage interface {
+	// Fetch the block of data at the given address.
 	Fetch(types.Addr) (data []byte, err error)
+
+	// Store the data, returning its address.
 	Store(data []byte) (types.Addr, error)
+
+	// Marks the address range for deletion. Note: the current implementation
+	// does not use this; proper cleanup is still TODO
 	Clear(types.Addr) error
 }
 
+// Look up a key in the map.
 func Lookup(s Storage, key []byte, m diskstore.TrieMap) (types.Addr, error) {
 	addr, err := lookup(s, key, m)
 	zero := types.Addr{}
@@ -78,13 +88,23 @@ func lookup(s Storage, key []byte, m diskstore.TrieMap) (res diskstore.Addr, err
 	}
 }
 
+// Result returned by Insert
 type InsertResult struct {
+	// The address of the new root of the tree.
 	ResAddr types.Addr
+
+	// The new root of the tree.
 	ResNode diskstore.TrieMap
+
+	// Whether there was some old node that was dropped.
+	WasOld bool
+
+	// The add of said node, if any.
 	OldAddr types.Addr
-	WasOld  bool
 }
 
+// Insert the given key, value pair into the map. Replaces the old value if
+// the key is already present.
 func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (res InsertResult, err error) {
 	if !m.Struct.IsValid() {
 		return saveLeaf(s, key, value)
@@ -159,12 +179,23 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 	}
 }
 
+// Result returned by Delete
 type DeleteResult struct {
+	// Address of a deleted node, if any (otherwise Deleted == types.Addr{}).
+	// Note, we don't currently make use of this; this is TODO.
 	Deleted types.Addr
+
+	// The new root of the map.
 	ResNode diskstore.TrieMap
+
+	// The address of the new root of the map. If this is not filled
+	// in, i.e. ResAddr == types.Addr{}, it means the root has not changed,
+	// which can happen if the key to be deleted was already not in the
+	// map.
 	ResAddr types.Addr
 }
 
+// Delete the key from the map.
 func Delete(s Storage, key []byte, m diskstore.TrieMap) (DeleteResult, error) {
 	switch m.Which() {
 	case diskstore.TrieMap_Which_leaf:
@@ -231,13 +262,9 @@ func Delete(s Storage, key []byte, m diskstore.TrieMap) (DeleteResult, error) {
 	}
 }
 
+// Allocate a new capnp message with a map as its root.
 func newNode() (*capnp.Message, *capnp.Segment, diskstore.TrieMap) {
-	msg, _, _ := capnp.NewMessage(capnp.SingleSegment(nil))
-
-	seg, err := msg.Segment(0)
-	if err != nil {
-		panic(err)
-	}
+	msg, seg, _ := capnp.NewMessage(capnp.SingleSegment(nil))
 	m, err := diskstore.NewRootTrieMap(seg)
 	if err != nil {
 		panic(err)
@@ -245,6 +272,7 @@ func newNode() (*capnp.Message, *capnp.Segment, diskstore.TrieMap) {
 	return msg, seg, m
 }
 
+// Save the prefix, value pair as a leaf node.
 func saveLeaf(s Storage, prefix []byte, value diskstore.Addr) (res InsertResult, err error) {
 	_, seg, root := newNode()
 	root.SetLeaf()
@@ -258,6 +286,7 @@ func saveLeaf(s Storage, prefix []byte, value diskstore.Addr) (res InsertResult,
 	}, err
 }
 
+// Save a subtree storing exactly the two (key, value) pairs.
 func savePair(s Storage, k1, k2 []byte, v1, v2 diskstore.Addr) (res InsertResult, err error) {
 	_, seg, m := newNode()
 	branches, err := m.NewBranches(256)
@@ -295,10 +324,12 @@ func savePair(s Storage, k1, k2 []byte, v1, v2 diskstore.Addr) (res InsertResult
 	}, err
 }
 
+// Update the given branch of the list to point to the specifed address.
 func setBranch(list diskstore.Addr_List, index uint8, addr types.Addr) {
 	addr.EncodeInto(list.At(int(index)))
 }
 
+// Fetch a node from the specified address.
 func fetchNode(s Storage, addr types.Addr) (diskstore.TrieMap, error) {
 	data, err := s.Fetch(addr)
 	if err != nil {
