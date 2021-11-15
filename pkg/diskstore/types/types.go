@@ -8,7 +8,7 @@ import (
 
 type Addr struct {
 	Offset int64
-	Size   uint32
+	Length uint32
 }
 
 func (a Addr) Encode() diskstore.Addr {
@@ -26,12 +26,12 @@ func (a Addr) Encode() diskstore.Addr {
 
 func (a Addr) EncodeInto(da diskstore.Addr) {
 	da.SetOffset(uint64(a.Offset))
-	da.SetLength(a.Size)
+	da.SetLength(a.Length)
 }
 
 func DecodeAddr(addr diskstore.Addr) Addr {
 	return Addr{
 		Offset: int64(addr.Offset()),
-		Size:   addr.Length(),
+		Length: addr.Length(),
 	}
 }

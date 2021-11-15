@@ -63,12 +63,12 @@ func (fa *FileArena) Sync() (off int64, err error) {
 
 // Write the bytes to the arena, returning its address.
 func (fa *FileArena) Put(data []byte) (addr types.Addr, err error) {
-	size := len(data)
-	fa.withAlloc(int64(size), func(off int64) {
+	length := len(data)
+	fa.withAlloc(int64(length), func(off int64) {
 		_, err = fa.file.WriteAt(data, off)
 		addr = types.Addr{
 			Offset: off,
-			Size:   uint32(size),
+			Length: uint32(length),
 		}
 	})
 	return
@@ -77,7 +77,7 @@ func (fa *FileArena) Put(data []byte) (addr types.Addr, err error) {
 // Return the bytes at the specified address.
 func (fa *FileArena) Get(addr types.Addr) (data []byte, err error) {
 	// TODO(perf): Maybe mmap if the blob is large enough.
-	data = make([]byte, addr.Size)
+	data = make([]byte, addr.Length)
 	_, err = fa.ReadAt(data, addr.Offset)
 	return
 }

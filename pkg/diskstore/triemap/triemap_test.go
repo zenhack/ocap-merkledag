@@ -43,7 +43,7 @@ func (s *testStorage) Store(data []byte) (types.Addr, error) {
 	// FIXME: validate that data is not to big for uint32 length.
 	addr := types.Addr{
 		Offset: s.nextOffset,
-		Size:   uint32(len(data)),
+		Length: uint32(len(data)),
 	}
 	s.nextOffset += int64(len(data))
 	s.blobs[addr] = cloneBytes(data)
