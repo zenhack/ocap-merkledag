@@ -12,22 +12,40 @@ import (
 )
 
 type DiskStore struct {
-	path                   string
-	manifest               diskstore.Manifest
-	indexArena, blobsArena *filearena.FileArena
-	indexFile, blobsFile   *os.File
-	indexStorage           triemap.Storage
+	path         string
+	manifest     diskstore.Manifest
+	index, blobs *filearena.FileArena
+	indexStorage triemap.Storage
 }
 
 func (s *DiskStore) Close() error {
-	maybeClose(s.indexFile)
-	maybeClose(s.blobsFile)
+	if s.index != nil {
+		s.index.Close()
+	}
+	if s.blobs != nil {
+		s.blobs.Close()
+	}
 	return nil
 }
 
-func maybeClose(f *os.File) {
-	if f != nil {
+func openArena(path string, offset int64, create bool) (*filearena.FileArena, error) {
+	f, err := openArenaFile(path, create)
+	if err != nil {
+		return nil, err
+	}
+	fa, err := filearena.New(f, offset)
+	if err != nil {
 		f.Close()
+		return nil, err
+	}
+	return fa, nil
+}
+
+func openArenaFile(path string, create bool) (*os.File, error) {
+	if create {
+		return os.Create(path)
+	} else {
+		return os.OpenFile(path, os.O_RDWR, 0600)
 	}
 }
 
@@ -45,24 +63,14 @@ func Open(path string) (*DiskStore, error) {
 		path:     path,
 		manifest: root,
 	}
-	defer func() {
-		if err != nil {
-			ret.Close()
-		}
-	}()
-	if ret.indexFile, err = os.OpenFile(path+"/index", os.O_RDWR, 0600); err != nil {
-		return nil, err
-	}
-	if ret.blobsFile, err = os.OpenFile(path+"/blobs", os.O_RDWR, 0600); err != nil {
-		return nil, err
-	}
-	if err = initArenas(ret); err != nil {
+	if err = initArenas(ret, false); err != nil {
+		ret.Close()
 		return nil, err
 	}
 	return ret, nil
 }
 
-func initArenas(s *DiskStore) error {
+func initArenas(s *DiskStore, create bool) error {
 	blobMapAddr, err := s.manifest.BlobMap()
 	if err != nil {
 		return err
@@ -71,15 +79,15 @@ func initArenas(s *DiskStore) error {
 	// Cut the index arena off right after the root node, as that will have been
 	// the last allocation:
 	indexBound := int64(blobMapAddr.Offset()) + int64(blobMapAddr.Length())
-	if s.indexArena, err = filearena.New(s.indexFile, indexBound); err != nil {
+	if s.index, err = openArena(s.path+"/index", indexBound, create); err != nil {
 		return err
 	}
 
-	if s.blobsArena, err = filearena.New(s.blobsFile, int64(s.manifest.BlobArenaSize())); err != nil {
+	if s.blobs, err = openArena(s.path+"/blobs", int64(s.manifest.BlobArenaSize()), create); err != nil {
 		return err
 	}
 	s.indexStorage = &triemap.FileArenaStorage{
-		FileArena: s.indexArena,
+		FileArena: s.index,
 		// TODO: Set ClearFn to something useful.
 	}
 	return nil
@@ -100,19 +108,9 @@ func Create(path string) (*DiskStore, error) {
 	}
 	ret.manifest = manifest
 
-	defer func() {
-		if err != nil {
-			ret.Close()
-			erase(ret)
-		}
-	}()
-	if ret.indexFile, err = os.Create(path + "/index"); err != nil {
-		return nil, err
-	}
-	if ret.blobsFile, err = os.Create(path + "/blobs"); err != nil {
-		return nil, err
-	}
-	if err = initArenas(ret); err != nil {
+	if err = initArenas(ret, true); err != nil {
+		ret.Close()
+		erase(ret)
 		return nil, err
 	}
 	return ret, nil

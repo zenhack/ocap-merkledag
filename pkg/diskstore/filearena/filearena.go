@@ -99,6 +99,11 @@ func (fa *FileArena) ReadAt(b []byte, off int64) (n int, err error) {
 	return fa.file.ReadAt(b, off)
 }
 
+// Close the underlying file.
+func (fa *FileArena) Close() error {
+	return fa.file.Close()
+}
+
 func (fa *FileArena) withAlloc(size int64, f func(off int64)) {
 	fa.syncMu.RLock()
 	defer fa.syncMu.RUnlock()
