@@ -42,11 +42,8 @@ func (s *testStorage) Fetch(addr types.Addr) (data []byte, err error) {
 func (s *testStorage) Store(data []byte) (types.Addr, error) {
 	// FIXME: validate that data is not to big for uint32 length.
 	addr := types.Addr{
-		Arena: 0,
-		ArenaAddr: types.ArenaAddr{
-			Offset: s.nextOffset,
-			Size:   uint32(len(data)),
-		},
+		Offset: s.nextOffset,
+		Size:   uint32(len(data)),
 	}
 	s.nextOffset += int64(len(data))
 	s.blobs[addr] = cloneBytes(data)
@@ -146,8 +143,8 @@ func doDelete(e *env, key string) {
 	e.m = res.ResNode
 }
 
-func doInsert(e *env, key string, value uint32) {
-	res, err := Insert(e.s, []byte(key), types.Addr{Arena: value}.Encode(), e.m)
+func doInsert(e *env, key string, value int64) {
+	res, err := Insert(e.s, []byte(key), types.Addr{Offset: value}.Encode(), e.m)
 	chkfatal(e.t, "doInsert", err)
 	e.m = res.ResNode
 }
@@ -157,10 +154,10 @@ func expectAbsent(e *env, key string) {
 	assertErr(e.t, err, ErrNotFound)
 }
 
-func expectFound(e *env, key string, want uint32) {
+func expectFound(e *env, key string, want int64) {
 	have, err := Lookup(e.s, []byte(key), e.m)
 	chkfatal(e.t, "expectFound", err)
-	assertEq(e.t, have, types.Addr{Arena: want})
+	assertEq(e.t, have, types.Addr{Offset: want})
 }
 
 func chkfatal(t *testing.T, prefix string, err error) {

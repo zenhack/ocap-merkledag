@@ -62,11 +62,11 @@ func (fa *FileArena) Sync() (off int64, err error) {
 }
 
 // Write the bytes to the arena, returning its address.
-func (fa *FileArena) Put(data []byte) (addr types.ArenaAddr, err error) {
+func (fa *FileArena) Put(data []byte) (addr types.Addr, err error) {
 	size := len(data)
 	fa.withAlloc(int64(size), func(off int64) {
 		_, err = fa.file.WriteAt(data, off)
-		addr = types.ArenaAddr{
+		addr = types.Addr{
 			Offset: off,
 			Size:   uint32(size),
 		}
@@ -75,7 +75,7 @@ func (fa *FileArena) Put(data []byte) (addr types.ArenaAddr, err error) {
 }
 
 // Return the bytes at the specified address.
-func (fa *FileArena) Get(addr types.ArenaAddr) (data []byte, err error) {
+func (fa *FileArena) Get(addr types.Addr) (data []byte, err error) {
 	// TODO(perf): Maybe mmap if the blob is large enough.
 	data = make([]byte, addr.Size)
 	_, err = fa.ReadAt(data, addr.Offset)
@@ -87,7 +87,7 @@ func (fa *FileArena) Get(addr types.ArenaAddr) (data []byte, err error) {
 // We use spares files for this under the hood, so there appear to be "gaps"
 // in the file that are logically all zeros, but for which no storage is
 // allocated.
-func (fa *FileArena) Clear(addr types.ArenaAddr) error {
+func (fa *FileArena) Clear(addr types.Addr) error {
 	return fmt.Errorf("TODO")
 }
 

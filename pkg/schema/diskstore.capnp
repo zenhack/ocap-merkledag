@@ -9,7 +9,6 @@ using Protocol = import "protocol.capnp";
 struct Addr(T) {
   offset @0 :UInt64;
   length @1 :UInt32;
-  arena @2 :UInt32;
 }
 
 struct TrieMap {

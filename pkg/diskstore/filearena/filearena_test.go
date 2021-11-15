@@ -15,23 +15,23 @@ import (
 // - Sync()
 // - Clear()
 
-func writeThenRead(t *testing.T, fa *FileArena, data []byte) (types.ArenaAddr, error) {
+func writeThenRead(t *testing.T, fa *FileArena, data []byte) (types.Addr, error) {
 	addr, err := fa.Put(data)
 	if err != nil {
-		return types.ArenaAddr{}, fmt.Errorf("writeThenRead/Put: %v", err)
+		return types.Addr{}, fmt.Errorf("writeThenRead/Put: %v", err)
 	}
 	readBack, err := fa.Get(addr)
 	if err != nil {
-		return types.ArenaAddr{}, fmt.Errorf("writeThenRead/Get: %v", err)
+		return types.Addr{}, fmt.Errorf("writeThenRead/Get: %v", err)
 	}
 	if bytes.Compare(data, readBack) != 0 {
-		return types.ArenaAddr{}, fmt.Errorf("Read back wrong data; expected %v but got %v", data, readBack)
+		return types.Addr{}, fmt.Errorf("Read back wrong data; expected %v but got %v", data, readBack)
 	}
 	return addr, nil
 }
 
 type addrResult struct {
-	addr types.ArenaAddr
+	addr types.Addr
 	err  error
 }
 
