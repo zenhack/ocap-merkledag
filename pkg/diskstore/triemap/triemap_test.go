@@ -66,8 +66,12 @@ func TestTrieMapFileArena(t *testing.T) {
 	}
 	defer os.Remove(f.Name())
 	defer f.Close()
+	fa, err := filearena.New(f, 0)
+	if err != nil {
+		t.Fatal("filearena.New: ", err)
+	}
 	testTrieMap(t, &FileArenaStorage{
-		FileArena: filearena.New(f, 0),
+		FileArena: fa,
 	})
 }
 

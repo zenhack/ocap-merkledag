@@ -72,7 +72,11 @@ func TestParallelWrites(t *testing.T) {
 		}
 		defer os.Remove(path)
 		defer f.Close()
-		arena := New(f, 0)
+		arena, err := New(f, 0)
+		if err != nil {
+			t.Log("Error in filearena.New: ", err)
+		}
+		return false
 		testParallelWrites(t, arena, data)
 		return true
 	}, nil)

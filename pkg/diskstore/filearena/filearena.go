@@ -39,14 +39,17 @@ type FileArena struct {
 
 // Construct a FileArnea from an open file and the next allocation offset into
 // that file.
-func New(file *os.File, nextAlloc int64) *FileArena {
+func New(file *os.File, nextAlloc int64) (*FileArena, error) {
+	err := file.Truncate(nextAlloc)
+	if err != nil {
+		return nil, err
+	}
 	return &FileArena{
 		syncMu:    &sync.RWMutex{},
 		allocMu:   &sync.Mutex{},
 		file:      file,
 		nextAlloc: nextAlloc,
-	}
-	// TODO: truncate the file to the correct length.
+	}, nil
 }
 
 // Make changes to the arena durable. Returns the size of the arena at the time
