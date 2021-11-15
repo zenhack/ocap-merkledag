@@ -42,4 +42,5 @@ struct TrieMap {
 struct Manifest {
   blobMap @0 :Addr(TrieMap);
   root @1 :Protocol.ContentId;
+  blobArenaSize @2 :UInt64;
 }
