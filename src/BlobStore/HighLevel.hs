@@ -38,14 +38,12 @@ encodeBlob ptr resolveClient = do
     refs <- case traverse decodeHash ptrs of
         Left e  -> throwM e
         Right v -> pure v
-    seg :: Capnp.Segment 'Capnp.Const <- Capnp.createPure maxBound $ do
-        msg <- Capnp.newMessage Nothing
-        Capnp.Raw rawBlob <- Capnp.encode @(StoredBlob (Maybe Capnp.AnyPointer)) msg StoredBlob
+    Capnp.Raw rawBlob <- Capnp.createPure maxBound $
+        Capnp.parsedToRaw @(StoredBlob (Maybe Capnp.AnyPointer)) StoredBlob
             { data_
             , ptrs = V.fromList ptrs
             }
-        (_, seg) <- Capnp.canonicalize rawBlob
-        pure seg
+    seg <- Capnp.createPure maxBound $ snd <$> Capnp.canonicalize rawBlob
     let bytes = Capnp.toByteString seg
         digest = computeHash bytes
     pure (digest, M.singleSegment seg, refs)
