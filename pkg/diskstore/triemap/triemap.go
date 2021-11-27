@@ -95,12 +95,6 @@ type InsertResult struct {
 
 	// The new root of the tree.
 	ResNode diskstore.TrieMap
-
-	// Whether there was some old node that was dropped.
-	WasOld bool
-
-	// The add of said node, if any.
-	OldAddr types.Addr
 }
 
 // Insert the given key, value pair into the map. Replaces the old value if
@@ -122,8 +116,10 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 		}
 		if bytes.Compare(key, prefix) == 0 {
 			res, err = saveLeaf(s, key, value)
-			res.WasOld = true
-			res.OldAddr = types.DecodeAddr(oldAddr)
+			if err != nil {
+				return InsertResult{}, err
+			}
+			err = s.Clear(types.DecodeAddr(oldAddr))
 			return res, err
 		} else if len(key) == 0 {
 			return res, ErrShortKey
