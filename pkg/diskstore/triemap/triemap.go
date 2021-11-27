@@ -177,10 +177,6 @@ func Insert(s Storage, key []byte, value diskstore.Addr, m diskstore.TrieMap) (r
 
 // Result returned by Delete
 type DeleteResult struct {
-	// Address of a deleted node, if any (otherwise Deleted == types.Addr{}).
-	// Note, we don't currently make use of this; this is TODO.
-	Deleted types.Addr
-
 	// The new root of the map.
 	ResNode diskstore.TrieMap
 
@@ -246,12 +242,20 @@ func Delete(s Storage, key []byte, m diskstore.TrieMap) (DeleteResult, error) {
 			return DeleteResult{}, err
 		}
 		res.ResAddr.EncodeInto(branchAddr)
-		addr, err = s.Store(m.Struct.Segment().Data())
+		newAddr, err := s.Store(m.Struct.Segment().Data())
 		if err != nil {
 			return DeleteResult{}, err
 		}
+
+		if newAddr != addr {
+			err = s.Clear(addr)
+			if err != nil {
+				return DeleteResult{}, err
+			}
+		}
+
 		res.ResNode = m
-		res.ResAddr = addr
+		res.ResAddr = newAddr
 		return res, nil
 	default:
 		return DeleteResult{}, ErrMalformed
