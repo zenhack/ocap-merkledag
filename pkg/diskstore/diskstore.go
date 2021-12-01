@@ -63,6 +63,14 @@ func (s *DiskStore) Checkpoint() error {
 	indexRes := <-indexCh
 	blobsRes := <-blobsCh
 
+	// TODO: can we get away with finer-grained concurrency here? I think
+	// we should be able to release the locks on the arenas, now that we know
+	// their bounds; we just need to make sure nobody else tries to
+	// Checkpoint().
+	//
+	// At the very least, we should be able to release locks before the
+	// next fsync, which is the bigger deal.
+
 	err := firstErr(indexRes.err, blobsRes.err)
 	if err != nil {
 		return err
