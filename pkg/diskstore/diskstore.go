@@ -3,6 +3,7 @@ package diskstore
 import (
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"capnproto.org/go/capnp/v3"
 
@@ -16,6 +17,83 @@ type DiskStore struct {
 	manifest     diskstore.Manifest
 	index, blobs *filearena.FileArena
 	indexStorage triemap.Storage
+
+	// Lock which must be held in write mode to make a checkpoint.
+	// goroutines making modifications to the state must hold this
+	// in read mode whenever a checkpoint would be inconsistent.
+	checkpointLock *sync.RWMutex
+}
+
+type syncArenaResult struct {
+	off int64
+	err error
+}
+
+// TODO: move this to some utility module:
+func firstErr(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *DiskStore) Checkpoint() error {
+	tmpManifestPath := s.path + "/manifest.new"
+
+	s.checkpointLock.Lock()
+	defer s.checkpointLock.Unlock()
+
+	syncArena := func(a *filearena.FileArena) chan syncArenaResult {
+		ch := make(chan syncArenaResult, 1)
+		go func() {
+			off, err := a.Sync()
+			ch <- syncArenaResult{
+				off: off,
+				err: err,
+			}
+		}()
+		return ch
+	}
+
+	indexCh := syncArena(s.index)
+	blobsCh := syncArena(s.blobs)
+
+	indexRes := <-indexCh
+	blobsRes := <-blobsCh
+
+	err := firstErr(indexRes.err, blobsRes.err)
+	if err != nil {
+		return err
+	}
+	s.manifest.SetBlobArenaSize(uint64(blobsRes.off))
+
+	//TODO/FIXME: set address of root?
+
+	err = func() (err error) {
+		f, err := os.Create(tmpManifestPath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			f.Close()
+			err = firstErr(err, f.Sync())
+		}()
+		err = capnp.NewEncoder(f).Encode(s.manifest.Struct.Message())
+		return err
+	}()
+
+	// TODO: add some context.
+	if err != nil {
+		// Best effort cleanup:
+		os.Remove(tmpManifestPath)
+
+		return err
+	}
+
+	// TODO/FIXME: do we need to sync the parent dir?
+	return os.Rename(tmpManifestPath, s.path+"/manifest")
 }
 
 func (s *DiskStore) Close() error {
