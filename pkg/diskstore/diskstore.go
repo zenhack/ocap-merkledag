@@ -1,6 +1,7 @@
 package diskstore
 
 import (
+	"crypto/sha256"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -9,6 +10,7 @@ import (
 
 	"zenhack.net/go/ocap-md/pkg/diskstore/filearena"
 	"zenhack.net/go/ocap-md/pkg/diskstore/triemap"
+	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
 )
 
@@ -18,10 +20,19 @@ type DiskStore struct {
 	index, blobs *filearena.FileArena
 	indexStorage triemap.Storage
 
+	indexRoot diskstore.TrieMap
+
 	// Lock which must be held in write mode to make a checkpoint.
 	// goroutines making modifications to the state must hold this
 	// in read mode whenever a checkpoint would be inconsistent.
 	checkpointLock *sync.RWMutex
+
+	// TODO: the way much of the code is written tries to anticipate
+	// fine-grained locking, but at a certain point I decided I wanted
+	// to get something up and running faster, so this is currently
+	// a big giant lock that everything must hold. Down the line,
+	// remove this and do finer grained locking.
+	mu *sync.Mutex
 }
 
 type syncArenaResult struct {
@@ -40,6 +51,9 @@ func firstErr(errs ...error) error {
 }
 
 func (s *DiskStore) Checkpoint() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	// TODO: this all needs to be carefully audited and vetted.
 	tmpManifestPath := s.path + "/manifest.new"
 
@@ -201,4 +215,50 @@ func Create(path string) (*DiskStore, error) {
 		return nil, err
 	}
 	return ret, nil
+}
+
+func (s *DiskStore) lookup(hash *[sha256.Size]byte) (types.Addr, error) {
+	return triemap.Lookup(s.indexStorage, hash[:], s.indexRoot)
+}
+
+func (s *DiskStore) Get(hash *[sha256.Size]byte) ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	addr, err := s.lookup(hash)
+	if err != nil {
+		return nil, err
+	}
+	return s.blobs.Get(addr)
+}
+
+func (s *DiskStore) Put(data []byte) (types.Addr, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	hash := sha256.Sum256(data)
+	addr, err := s.lookup(&hash)
+	if err == nil {
+		return addr, nil
+	} else if err == triemap.ErrNotFound {
+		addr, err := s.blobs.Put(data)
+		if err != nil {
+			return types.Addr{}, err
+		}
+
+		return addr, s.insert(&hash, addr)
+	}
+	return types.Addr{}, err
+}
+
+func (s *DiskStore) insert(hash *[sha256.Size]byte, addr types.Addr) error {
+	res, err := triemap.Insert(s.indexStorage, hash[:], addr.Encode(), s.indexRoot)
+	if err != nil {
+		return err
+	}
+	bm, err := s.manifest.BlobMap()
+	if err != nil {
+		return err
+	}
+	res.ResAddr.EncodeInto(bm)
+	s.indexRoot = res.ResNode
+	return nil
 }
