@@ -40,6 +40,7 @@ func firstErr(errs ...error) error {
 }
 
 func (s *DiskStore) Checkpoint() error {
+	// TODO: this all needs to be carefully audited and vetted.
 	tmpManifestPath := s.path + "/manifest.new"
 
 	s.checkpointLock.Lock()
