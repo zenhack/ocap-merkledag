@@ -18,7 +18,12 @@ type refServer struct {
 	hash  Hash
 }
 
-func (s *storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
+type rootApiServer struct {
+	storage protocol.Storage
+	root    protocol.RootPtr
+}
+
+func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 	p.Ack()
 
 	args := p.Args()
@@ -117,5 +122,41 @@ func (r *refServer) getStored() (protocol.Stored, error) {
 		return protocol.Stored{}, err
 	}
 	// TODO: verify the hash.
-	return protocol.ReadRootStored(&capnp.Message{Arena: capnp.SingleSegment(data)})
+	stored, err := protocol.ReadRootStored(&capnp.Message{Arena: capnp.SingleSegment(data)})
+	if err != nil {
+		return protocol.Stored{}, err
+	}
+	msg := stored.Struct.Message()
+	refs, err := stored.Refs()
+	if err != nil {
+		return protocol.Stored{}, err
+	}
+	caps := msg.CapTable
+	for i := 0; i < refs.Len(); i++ {
+		// FIXME: attach caps to message.
+	}
+	msg.CapTable = caps
+	return stored, nil
+}
+
+func (s rootApiServer) Storage(ctx context.Context, p protocol.RootApi_storage) error {
+	res, err := p.AllocResults()
+	if err != nil {
+		return err
+	}
+	res.SetStorage(s.storage)
+	return nil
+}
+
+func (s rootApiServer) Root(ctx context.Context, p protocol.RootApi_root) error {
+	res, err := p.AllocResults()
+	if err != nil {
+		return err
+	}
+	res.SetRoot(s.root)
+	return nil
+}
+
+func (s rootApiServer) BlobMap(ctx context.Context, p protocol.RootApi_blobMap) error {
+	panic("TODO")
 }
