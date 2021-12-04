@@ -12,6 +12,7 @@ import (
 	"zenhack.net/go/ocap-md/pkg/diskstore/triemap"
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
+	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
 type DiskStore struct {
@@ -33,6 +34,14 @@ type DiskStore struct {
 	// a big giant lock that everything must hold. Down the line,
 	// remove this and do finer grained locking.
 	mu *sync.Mutex
+}
+
+type Hash [sha256.Size]byte
+
+func (h *Hash) ToContentId(cid protocol.ContentId) {
+	cid.SetDigest(h[:])
+	cid.SetFormat(protocol.ContentId_Format_segment)
+	cid.SetAlgo(protocol.ContentId_Algo_sha256)
 }
 
 type syncArenaResult struct {
@@ -217,11 +226,11 @@ func Create(path string) (*DiskStore, error) {
 	return ret, nil
 }
 
-func (s *DiskStore) lookup(hash *[sha256.Size]byte) (types.Addr, error) {
+func (s *DiskStore) lookup(hash *Hash) (types.Addr, error) {
 	return triemap.Lookup(s.indexStorage, hash[:], s.indexRoot)
 }
 
-func (s *DiskStore) Get(hash *[sha256.Size]byte) ([]byte, error) {
+func (s *DiskStore) Get(hash *Hash) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	addr, err := s.lookup(hash)
@@ -231,25 +240,25 @@ func (s *DiskStore) Get(hash *[sha256.Size]byte) ([]byte, error) {
 	return s.blobs.Get(addr)
 }
 
-func (s *DiskStore) Put(data []byte) (types.Addr, error) {
+func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	hash := sha256.Sum256(data)
+	hash := Hash(sha256.Sum256(data))
 	addr, err := s.lookup(&hash)
 	if err == nil {
-		return addr, nil
+		return hash, addr, nil
 	} else if err == triemap.ErrNotFound {
 		addr, err := s.blobs.Put(data)
 		if err != nil {
-			return types.Addr{}, err
+			return hash, types.Addr{}, err
 		}
 
-		return addr, s.insert(&hash, addr)
+		return hash, addr, s.insert(&hash, addr)
 	}
-	return types.Addr{}, err
+	return hash, types.Addr{}, err
 }
 
-func (s *DiskStore) insert(hash *[sha256.Size]byte, addr types.Addr) error {
+func (s *DiskStore) insert(hash *Hash, addr types.Addr) error {
 	res, err := triemap.Insert(s.indexStorage, hash[:], addr.Encode(), s.indexRoot)
 	if err != nil {
 		return err
