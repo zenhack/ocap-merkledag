@@ -164,7 +164,10 @@ func Open(path string) (*DiskStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	msg := &capnp.Message{Arena: capnp.SingleSegment(manifestBytes)}
+	msg, err := capnp.Unmarshal(manifestBytes)
+	if err != nil {
+		return nil, err
+	}
 	root, err := diskstore.ReadRootManifest(msg)
 	if err != nil {
 		return nil, err
