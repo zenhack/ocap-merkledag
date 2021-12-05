@@ -1,7 +1,9 @@
 package diskstore
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 
 	"capnproto.org/go/capnp/v3"
@@ -127,7 +129,13 @@ func (r *refServer) getStored() (protocol.Stored, error) {
 	if err != nil {
 		return protocol.Stored{}, err
 	}
-	// TODO: verify the hash.
+
+	// Verify the hash.
+	digest := sha256.Sum256(data)
+	if bytes.Compare(digest[:], r.hash[:]) != 0 {
+		return protocol.Stored{}, ErrCorruptedBlob
+	}
+
 	stored, err := protocol.ReadRootStored(&capnp.Message{Arena: capnp.SingleSegment(data)})
 	if err != nil {
 		return protocol.Stored{}, err
@@ -226,6 +234,7 @@ var (
 	ErrUnknownAlgo     = errors.New("Unknown hash algorithm")
 	ErrUnknownFormat   = errors.New("Unknown blob format")
 	ErrBadDigestLength = errors.New("Incorrect digest length")
+	ErrCorruptedBlob   = errors.New("Loaded blob did not match expected digest")
 )
 
 func contentIdHash(cid protocol.ContentId) (hash Hash, err error) {
