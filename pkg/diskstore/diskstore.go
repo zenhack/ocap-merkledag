@@ -210,6 +210,10 @@ func erase(s *DiskStore) {
 }
 
 func Create(path string) (*DiskStore, error) {
+	err := os.MkdirAll(path, 0700)
+	if err != nil {
+		return nil, err
+	}
 	ret := &DiskStore{path: path}
 	_, seg, _ := capnp.NewMessage(capnp.SingleSegment(nil))
 	manifest, err := diskstore.NewRootManifest(seg)
@@ -217,6 +221,17 @@ func Create(path string) (*DiskStore, error) {
 		return nil, err
 	}
 	ret.manifest = manifest
+
+	f, err := os.Create(path + "/manifest")
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	err = capnp.NewEncoder(f).Encode(manifest.Struct.Message())
+	if err != nil {
+		erase(ret)
+		return nil, err
+	}
 
 	if err = initArenas(ret, true); err != nil {
 		ret.Close()
