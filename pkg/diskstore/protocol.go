@@ -137,11 +137,21 @@ func (r *refServer) getStored() (protocol.Stored, error) {
 	if err != nil {
 		return protocol.Stored{}, err
 	}
+
+	// Attach capabilities for outgoing poitners:
 	caps := msg.CapTable
 	for i := 0; i < refs.Len(); i++ {
-		// FIXME: attach caps to message.
+		hash, err := contentIdHash(refs.At(i))
+		if err == nil {
+			refClient := protocol.Ref_ServerToClient(&refServer{
+				store: r.store,
+				hash:  hash,
+			}, nil)
+			caps = append(caps, refClient.Client)
+		}
 	}
 	msg.CapTable = caps
+
 	return stored, nil
 }
 
