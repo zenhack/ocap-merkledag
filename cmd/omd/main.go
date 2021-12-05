@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	path  = flag.String("path", "", "path to store")
-	laddr = flag.String("laddr", ":2323", "Address to listen on")
+	path = flag.String("path", "", "path to store")
+	addr = flag.String("addr", ":2323", "Address to listen on")
 )
 
 func main() {
@@ -26,9 +26,9 @@ func main() {
 		}
 		s.Close()
 	case "serve":
-		l, err := net.Listen("tcp", *laddr)
+		l, err := net.Listen("tcp", *addr)
 		if err != nil {
-			log.Fatalf("Error binding to %q: %v", *laddr, err)
+			log.Fatalf("Error binding to %q: %v", *addr, err)
 		}
 
 		s, err := diskstore.Open(*path)
