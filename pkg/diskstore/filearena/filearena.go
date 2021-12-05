@@ -87,7 +87,7 @@ func (fa *FileArena) Get(addr types.Addr) (data []byte, err error) {
 
 // Delete the data at the given address.
 //
-// We use spares files for this under the hood, so there appear to be "gaps"
+// We use sparse files for this under the hood, so there appear to be "gaps"
 // in the file that are logically all zeros, but for which no storage is
 // allocated.
 func (fa *FileArena) Clear(addr types.Addr) error {
