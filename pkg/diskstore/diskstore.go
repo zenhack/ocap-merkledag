@@ -218,7 +218,7 @@ func Create(path string) (*DiskStore, error) {
 		return nil, err
 	}
 	ret := &DiskStore{path: path}
-	_, seg, _ := capnp.NewMessage(capnp.SingleSegment(nil))
+	_, seg := capnp.NewSingleSegmentMessage(nil)
 	manifest, err := diskstore.NewRootManifest(seg)
 	if err != nil {
 		return nil, err

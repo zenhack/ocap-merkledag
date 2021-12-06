@@ -12,10 +12,7 @@ type Addr struct {
 }
 
 func (a Addr) Encode() diskstore.Addr {
-	_, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
-	if err != nil {
-		panic(err)
-	}
+	_, seg := capnp.NewSingleSegmentMessage(nil)
 	root, err := diskstore.NewRootAddr(seg)
 	if err != nil {
 		panic(err)

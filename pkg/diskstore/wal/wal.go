@@ -35,15 +35,11 @@ func (w *Wal) Write(p []byte) (n int, err error) {
 }
 
 func (w *Wal) StartEntry() (entry diskstore.WalEntry, write func() error) {
-	m, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
+	m, seg := capnp.NewSingleSegmentMessage(nil)
+	entry, err := diskstore.NewRootWalEntry(seg)
 	if err != nil {
 		// Should be impossible since we're supplying an allocator
 		// that doesn't fail.
-		panic(err)
-	}
-	entry, err = diskstore.NewRootWalEntry(seg)
-	if err != nil {
-		// Also impossible.
 		panic(err)
 	}
 	return entry, func() error {

@@ -264,7 +264,7 @@ func Delete(s Storage, key []byte, m diskstore.TrieMap) (DeleteResult, error) {
 
 // Allocate a new capnp message with a map as its root.
 func newNode() (*capnp.Message, *capnp.Segment, diskstore.TrieMap) {
-	msg, seg, _ := capnp.NewMessage(capnp.SingleSegment(nil))
+	msg, seg := capnp.NewSingleSegmentMessage(nil)
 	m, err := diskstore.NewRootTrieMap(seg)
 	if err != nil {
 		panic(err)
