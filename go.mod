@@ -2,4 +2,4 @@ module zenhack.net/go/ocap-md
 
 go 1.17
 
-require capnproto.org/go/capnp/v3 v3.0.0-alpha.1 // indirect
+require capnproto.org/go/capnp/v3 v3.0.0-alpha.1
