@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net"
+	"os"
 
+	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
 
+	"zenhack.net/go/ocap-md/pkg/blobtree"
 	"zenhack.net/go/ocap-md/pkg/diskstore"
+	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
 var (
@@ -52,7 +57,36 @@ func main() {
 				_, _ = <-capnpConn.Done()
 			}()
 		}
+	case "put":
+		ctx := context.Background()
+		conn, err := net.Dial("tcp", *addr)
+		chkfatal(err)
+		defer conn.Close()
+		capnpConn := rpc.NewConn(rpc.NewStreamTransport(conn), nil)
+		api := protocol.RootApi{capnpConn.Bootstrap(ctx)}
+		resStorage, rel := api.Storage(ctx, nil)
+		defer rel()
+		s := resStorage.Storage()
+		ref, err := blobtree.WriteStream(ctx, s, os.Stdin)
+		chkfatal(err)
+		resRoot, rel := api.Root(ctx, nil)
+		defer rel()
+		resSet, rel := resRoot.Root().Set(ctx, func(p protocol.Setter_set_Params) error {
+			seg := p.Segment()
+			capId := seg.Message().AddCap(ref.Client)
+			p.SetValue(capnp.NewInterface(seg, capId).ToPtr())
+			return nil
+		})
+		defer rel()
+		_, err = resSet.Struct()
+		chkfatal(err)
 	default:
 		log.Fatal("Unknow command: ", cmd)
+	}
+}
+
+func chkfatal(err error) {
+	if err != nil {
+		panic(err)
 	}
 }

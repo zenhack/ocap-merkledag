@@ -176,11 +176,17 @@ func Open(path string) (*DiskStore, error) {
 		path:     path,
 		manifest: root,
 	}
+	ret.initMutexes()
 	if err = initArenas(ret, false); err != nil {
 		ret.Close()
 		return nil, err
 	}
 	return ret, nil
+}
+
+func (s *DiskStore) initMutexes() {
+	s.mu = &sync.Mutex{}
+	s.checkpointLock = &sync.RWMutex{}
 }
 
 func initArenas(s *DiskStore, create bool) error {
@@ -218,6 +224,7 @@ func Create(path string) (*DiskStore, error) {
 		return nil, err
 	}
 	ret := &DiskStore{path: path}
+	ret.initMutexes()
 	_, seg := capnp.NewSingleSegmentMessage(nil)
 	manifest, err := diskstore.NewRootManifest(seg)
 	if err != nil {
