@@ -233,6 +233,10 @@ func Create(path string) (*DiskStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, err = manifest.NewBlobMap()
+	if err != nil {
+		return nil, err
+	}
 	ret.manifest = manifest
 
 	f, err := os.Create(path + "/manifest")
