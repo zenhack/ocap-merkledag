@@ -3,6 +3,7 @@ package diskstore
 import (
 	"crypto/sha256"
 	"io/ioutil"
+	"math"
 	"os"
 	"sync"
 
@@ -168,6 +169,7 @@ func Open(path string) (*DiskStore, error) {
 	if err != nil {
 		return nil, err
 	}
+	msg.ResetReadLimit(math.MaxUint64)
 	root, err := diskstore.ReadRootManifest(msg)
 	if err != nil {
 		return nil, err
@@ -225,7 +227,8 @@ func Create(path string) (*DiskStore, error) {
 	}
 	ret := &DiskStore{path: path}
 	ret.initMutexes()
-	_, seg := capnp.NewSingleSegmentMessage(nil)
+	msg, seg := capnp.NewSingleSegmentMessage(nil)
+	msg.ResetReadLimit(math.MaxUint64)
 	manifest, err := diskstore.NewRootManifest(seg)
 	if err != nil {
 		return nil, err
