@@ -21,7 +21,7 @@ type blobNode struct {
 
 func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (blobNode, error) {
 	var result blobNode
-	res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
+	res, _ := s.Put(ctx, func(p protocol.Storage_put_Params) error {
 		branches, err := files.NewBlobTree_List(p.Struct.Segment(), int32(len(nodes)))
 		if err != nil {
 			return err
@@ -44,7 +44,7 @@ func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (b
 		}
 		return nil
 	})
-	defer rel()
+	//defer rel()
 	result.ref = res.Ref().AddRef()
 	return result, nil
 }
@@ -66,7 +66,7 @@ func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader) (protocol
 		// TODO: do something with level other than print it.
 		log.Print("Level: ", level)
 
-		res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
+		res, _ := s.Put(ctx, func(p protocol.Storage_put_Params) error {
 			list, err := capnp.NewData(p.Struct.Segment(), b)
 			if err != nil {
 				return err
@@ -74,7 +74,7 @@ func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader) (protocol
 			p.SetValue(list.ToPtr())
 			return nil
 		})
-		defer rel()
+		//defer rel()
 		nodes = append(nodes, blobNode{
 			size:   uint64(len(b)),
 			isLeaf: true,
