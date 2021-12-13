@@ -12,6 +12,10 @@ import (
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
+var (
+	ErrNotRef = errors.New("Capability is not a (server hosted) ref")
+)
+
 type storageServer struct {
 	store *DiskStore
 }
@@ -29,6 +33,21 @@ type rootApiServer struct {
 type rootPtrServer struct {
 	store   *DiskStore
 	version uint64
+}
+
+func getRefServer(ctx context.Context, ref protocol.Ref) (*refServer, error) {
+	if err := ref.Client.Resolve(ctx); err != nil {
+		return nil, err
+	}
+	srv, ok := server.IsServer(ref.Client.State().Brand)
+	if !ok {
+		return nil, ErrNotRef
+	}
+	refSrv, ok := srv.(*refServer)
+	if !ok {
+		return nil, ErrNotRef
+	}
+	return refSrv, nil
 }
 
 func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
@@ -56,16 +75,11 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 	}
 
 	for i, c := range caps {
-		if err = c.Resolve(ctx); err != nil {
+		ref, err := getRefServer(ctx, protocol.Ref{c})
+		if err == ErrNotRef {
+			continue
+		} else if err != nil {
 			return err
-		}
-		srv, ok := server.IsServer(c.State().Brand)
-		if !ok {
-			continue
-		}
-		ref, ok := srv.(*refServer)
-		if !ok {
-			continue
 		}
 		ref.hash.ToContentId(refs.At(i))
 	}
@@ -212,7 +226,20 @@ func (s *rootPtrServer) Get(ctx context.Context, p protocol.Getter_get) error {
 }
 
 func (s *rootPtrServer) Set(ctx context.Context, p protocol.Setter_set) error {
-	panic("TODO")
+	v, err := p.Args().Value()
+	if err != nil {
+		return err
+	}
+	refSrv, err := getRefServer(ctx, protocol.Ref{v.Interface().Client()})
+	if err != nil {
+		return err
+	}
+	err = s.store.SetRoot(&refSrv.hash)
+	if err != nil {
+		return err
+	}
+	s.version++
+	return nil
 }
 
 func (s *rootPtrServer) TxGet(ctx context.Context, p protocol.TxCell_txGet) error {

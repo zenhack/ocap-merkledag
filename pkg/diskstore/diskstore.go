@@ -60,6 +60,17 @@ func firstErr(errs ...error) error {
 	return nil
 }
 
+func (s *DiskStore) SetRoot(h *Hash) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	root, err := s.manifest.Root()
+	if err != nil {
+		return err
+	}
+	h.ToContentId(root)
+	return nil
+}
+
 func (s *DiskStore) Checkpoint() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
