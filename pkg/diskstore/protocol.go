@@ -168,7 +168,7 @@ func (s rootApiServer) Storage(ctx context.Context, p protocol.RootApi_storage) 
 	if err != nil {
 		return err
 	}
-	res.SetStorage(s.storage)
+	res.SetStorage(s.storage.AddRef())
 	return nil
 }
 
@@ -177,7 +177,7 @@ func (s rootApiServer) Root(ctx context.Context, p protocol.RootApi_root) error 
 	if err != nil {
 		return err
 	}
-	res.SetRoot(s.root)
+	res.SetRoot(s.root.AddRef())
 	return nil
 }
 

@@ -50,7 +50,7 @@ func main() {
 			}
 			trans := rpc.NewStreamTransport(conn)
 			capnpConn := rpc.NewConn(trans, &rpc.Options{
-				BootstrapClient: api.Client,
+				BootstrapClient: api.Client.AddRef(),
 			})
 			go func() {
 				defer conn.Close()
