@@ -67,6 +67,12 @@ func (s *DiskStore) SetRoot(h *Hash) error {
 	if err != nil {
 		return err
 	}
+	if !root.IsValid() {
+		root, err = s.manifest.NewRoot()
+	}
+	if err != nil {
+		return err
+	}
 	h.ToContentId(root)
 	return nil
 }
