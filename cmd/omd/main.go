@@ -73,7 +73,7 @@ func main() {
 		defer rel()
 		resSet, rel := resRoot.Root().Set(ctx, func(p protocol.Setter_set_Params) error {
 			seg := p.Segment()
-			capId := seg.Message().AddCap(ref.Client)
+			capId := seg.Message().AddCap(ref.Client.AddRef())
 			p.SetValue(capnp.NewInterface(seg, capId).ToPtr())
 			return nil
 		})
