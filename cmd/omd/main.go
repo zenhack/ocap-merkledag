@@ -5,19 +5,20 @@ import (
 	"flag"
 	"log"
 	"net"
-	"os"
 
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
 
-	"zenhack.net/go/ocap-md/pkg/blobtree"
 	"zenhack.net/go/ocap-md/pkg/diskstore"
+	"zenhack.net/go/ocap-md/pkg/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
 var (
-	path = flag.String("path", "", "path to store")
-	addr = flag.String("addr", ":2323", "Address to listen on")
+	storepath = flag.String("storepath", "", "path to store")
+	addr      = flag.String("addr", ":2323", "Address to listen on")
+
+	path = flag.String("path", "", "path to file to upload")
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 	cmd := flag.Args()[0]
 	switch cmd {
 	case "init":
-		s, err := diskstore.Create(*path)
+		s, err := diskstore.Create(*storepath)
 		if err != nil {
 			log.Fatal("Error creating store: ", err)
 		}
@@ -36,7 +37,7 @@ func main() {
 			log.Fatalf("Error binding to %q: %v", *addr, err)
 		}
 
-		s, err := diskstore.Open(*path)
+		s, err := diskstore.Open(*storepath)
 		if err != nil {
 			log.Fatal("Error opening store: ", err)
 		}
@@ -67,7 +68,7 @@ func main() {
 		resStorage, rel := api.Storage(ctx, nil)
 		defer rel()
 		s := resStorage.Storage()
-		ref, err := blobtree.WriteStream(ctx, s, os.Stdin)
+		ref, err := files.PutFile(ctx, s, *path)
 		chkfatal(err)
 		resRoot, rel := api.Root(ctx, nil)
 		defer rel()
