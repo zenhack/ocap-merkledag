@@ -1,5 +1,7 @@
 capnproto.org/go/capnp/v3 v3.0.0-alpha.1 h1:lA/zWC1XgaFez/UdqcWi5Bz1grsqPQDY5Ki4lgYrQ1o=
 capnproto.org/go/capnp/v3 v3.0.0-alpha.1/go.mod h1:izbWjXlvObqHwvhxwDBFLpY9lXSXIxDKRtnuktKHVsU=
+capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220119180648-4da6b7c27f7f h1:A3GZVASGvtAZTjHotaMX1V5iDr/xhhm3HF+8I/O7ECk=
+capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220119180648-4da6b7c27f7f/go.mod h1:6IWA2uGtBieoTMydMR7yoyTlvRcWkL5OXYSaZ9QelYg=
 github.com/bobg/hashsplit v1.1.3 h1:u9RWzJcGnLOojFY5ornTHHOfLbJQS1LnrGUufwU+CSA=
 github.com/bobg/hashsplit v1.1.3/go.mod h1:2JjSYhF/skYn30fNpk1CL7gYmh1sZf+YDb12ZNxTa4M=
 github.com/chmduquesne/rollinghash v4.0.0+incompatible h1:hnREQO+DXjqIw3rUTzWN7/+Dpw+N5Um8zpKV0JOEgbo=
