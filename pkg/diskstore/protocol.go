@@ -82,9 +82,7 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 
 	for i, c := range caps {
 		ref, err := getRefServer(ctx, protocol.Ref{c})
-		if err == ErrNotRef {
-			continue
-		} else if err != nil {
+		if err != nil {
 			return err
 		}
 		ref.hash.ToContentId(refs.At(i))
