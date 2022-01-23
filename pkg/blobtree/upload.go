@@ -49,7 +49,7 @@ func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (b
 	return result, nil
 }
 
-// WriteStream constructs a Ref(BlobTree) inthe storage, from the contents of r.
+// WriteStream constructs a Ref(BlobTree) in the storage, from the contents of r.
 func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader) (protocol.Ref, error) {
 	var nodes []blobNode
 	defer func() {
