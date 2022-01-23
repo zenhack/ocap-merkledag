@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"zenhack.net/go/ocap-md/pkg/schema/files"
-	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
 // os.PathSepartor, but as a string instead of a rune.
@@ -49,12 +50,23 @@ func saveFile(ctx context.Context, dir string, f files.File) error {
 		if err != nil {
 			return err
 		}
-		err = writeBlobTree(ctx, localFile, f.File())
-		localFile.Close()
+		defer localFile.Close()
+
+		// TODO: remove the ref indirection; a BlobTree is already
+		// a small object wrapping a ref.
+		ref := f.File()
+		res, rel := ref.Get(ctx, nil)
+		defer rel()
+		s, err := res.Value().Struct()
 		if err != nil {
 			return err
 		}
-		return syncMetadata(path, f)
+		err = writeBlobTree(ctx, localFile, files.BlobTree{s})
+
+		if err != nil {
+			return err
+		}
+		return syncMetadata(path, f.Metadata())
 	case files.File_Which_dir:
 		res, rel := f.Dir().Get(ctx, nil)
 		ret, err := res.Struct()
@@ -70,7 +82,7 @@ func saveFile(ctx context.Context, dir string, f files.File) error {
 		if err != nil {
 			return err
 		}
-		return syncMetadata(path, f)
+		return syncMetadata(path, f.Metadata())
 	case files.File_Which_symlink:
 		target, err := f.Symlink()
 		if err != nil {
@@ -98,10 +110,60 @@ func saveDir(ctx context.Context, path string, ents files.File_List) error {
 	return nil
 }
 
-func writeBlobTree(ctx context.Context, sink io.Writer, ref protocol.Ref) error {
-	panic("TODO")
+func writeBlobTree(ctx context.Context, w io.Writer, bt files.BlobTree) error {
+	switch bt.Which() {
+	case files.BlobTree_Which_leaf:
+		res, rel := bt.Leaf().Get(ctx, nil)
+		defer rel()
+		s, err := res.Struct()
+		if err != nil {
+			return err
+		}
+		v, err := s.Value()
+		if err != nil {
+			return err
+		}
+		_, err = w.Write(v.Data())
+		return err
+	case files.BlobTree_Which_branch:
+		res, rel := bt.Branch().Get(ctx, nil)
+		defer rel()
+		s, err := res.Struct()
+		if err != nil {
+			return err
+		}
+		v, err := s.Value()
+		if err != nil {
+			return err
+		}
+		kids := files.BlobTree_List{v.List()}
+		for i := 0; i < kids.Len(); i++ {
+			kid := kids.At(i)
+			if err = writeBlobTree(ctx, w, kid); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("Unknown BlobTree variant: %v", bt.Which())
+	}
 }
 
-func syncMetadata(path string, f files.File) error {
-	panic("TODO")
+func syncMetadata(path string, m files.File_metadata) error {
+	if m.Which() != files.File_metadata_Which_unixMetadata {
+		return nil
+	}
+
+	um, err := m.UnixMetadata()
+	if err != nil {
+		return err
+	}
+
+	perm := fs.FileMode(um.Permissions() & 0777)
+	modTime := time.Unix(um.ModTime(), 0)
+
+	if err := os.Chmod(path, perm); err != nil {
+		return err
+	}
+	return os.Chtimes(path, modTime, modTime)
 }
