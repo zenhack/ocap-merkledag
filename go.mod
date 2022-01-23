@@ -7,3 +7,5 @@ require (
 	github.com/bobg/hashsplit v1.1.3 // indirect
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible // indirect
 )
+
+replace  capnproto.org/go/capnp/v3 => /home/isd/src/foreign/go-capnproto2

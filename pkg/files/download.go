@@ -11,7 +11,23 @@ import (
 	"time"
 
 	"zenhack.net/go/ocap-md/pkg/schema/files"
+	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
+
+func Download(ctx context.Context, dir string, ref protocol.Ref) error {
+	res, rel := ref.Get(ctx, nil)
+	defer rel()
+	s, err := res.Struct()
+	if err != nil {
+		return err
+	}
+	v, err := s.Value()
+	if err != nil {
+		return err
+	}
+	f := files.File{v.Struct()}
+	return saveFile(ctx, dir, f)
+}
 
 // os.PathSepartor, but as a string instead of a rune.
 var pathSepString = fmt.Sprintf("%c", os.PathSeparator)

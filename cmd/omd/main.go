@@ -81,8 +81,22 @@ func main() {
 		defer rel()
 		_, err = resSet.Struct()
 		chkfatal(err)
+	case "get":
+		ctx := context.Background()
+		conn, err := net.Dial("tcp", *addr)
+		chkfatal(err)
+		defer conn.Close()
+		capnpConn := rpc.NewConn(rpc.NewStreamTransport(conn), nil)
+		api := protocol.RootApi{capnpConn.Bootstrap(ctx)}
+
+		resRoot, rel := api.Root(ctx, nil)
+		defer rel()
+		resGet, rel := resRoot.Root().Get(ctx, nil)
+		defer rel()
+		ref := protocol.Ref{resGet.Value().Client()}
+		chkfatal(files.Download(ctx, *path, ref))
 	default:
-		log.Fatal("Unknow command: ", cmd)
+		log.Fatal("Unknown command: ", cmd)
 	}
 }
 
