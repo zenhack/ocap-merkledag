@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/server"
@@ -39,7 +40,12 @@ func getRefServer(ctx context.Context, ref protocol.Ref) (*refServer, error) {
 	if err := ref.Client.Resolve(ctx); err != nil {
 		return nil, err
 	}
-	srv, ok := server.IsServer(ref.Client.State().Brand)
+	brand := ref.Client.State().Brand
+	if err, ok := brand.Value.(error); ok {
+		return nil, fmt.Errorf("getRefServer: ref is an error: %w\n", err)
+	}
+
+	srv, ok := server.IsServer(brand)
 	if !ok {
 		return nil, ErrNotRef
 	}
