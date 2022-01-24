@@ -19,6 +19,15 @@ type blobNode struct {
 	ref    protocol.Ref
 }
 
+func (node blobNode) encode(bt files.BlobTree) {
+	if node.isLeaf {
+		bt.SetLeaf(node.ref)
+	} else {
+		bt.SetBranch(node.ref)
+	}
+	bt.SetSize(node.size)
+}
+
 func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (blobNode, error) {
 	var result blobNode
 	res, _ := s.Put(ctx, func(p protocol.Storage_put_Params) error {
@@ -26,22 +35,11 @@ func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (b
 		if err != nil {
 			return err
 		}
-		totalSize := uint64(0)
 		for i, node := range nodes {
-			totalSize += node.size
-			branch := branches.At(i)
-			if node.isLeaf {
-				branch.SetLeaf(node.ref)
-			} else {
-				branch.SetBranch(node.ref)
-			}
-			branch.SetSize(node.size)
+			result.size += node.size
+			node.encode(branches.At(i))
 		}
-		result = blobNode{
-			size:   totalSize,
-			isLeaf: false,
-			// We fill in ref below.
-		}
+		p.SetValue(branches.ToPtr())
 		return nil
 	})
 	//defer rel()
