@@ -78,8 +78,8 @@ func saveFile(ctx context.Context, dir string, f files.File) error {
 		return syncMetadata(path, f.Metadata())
 	case files.File_Which_dir:
 		res, rel := f.Dir().Get(ctx, nil)
+		defer rel()
 		ret, err := res.Struct()
-		rel()
 		if err != nil {
 			return err
 		}
