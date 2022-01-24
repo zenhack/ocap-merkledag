@@ -47,8 +47,9 @@ func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (b
 	return result, nil
 }
 
-// WriteStream constructs a Ref(BlobTree) in the storage, from the contents of r.
-func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader) (protocol.Ref, error) {
+// WriteStream constructs a BlobTree in the storage from the contents of r,
+// and encodes its root node in bt.
+func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader, bt files.BlobTree) error {
 	var nodes []blobNode
 	defer func() {
 		for _, node := range nodes {
@@ -83,11 +84,12 @@ func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader) (protocol
 	sp.MinSize = 32 * 1024
 	_, err := io.Copy(sp, r)
 	if err != nil {
-		return protocol.Ref{}, err
+		return err
 	}
 	rootNode, err := writeBranches(ctx, s, nodes)
 	if err != nil {
-		return protocol.Ref{}, err
+		return err
 	}
-	return rootNode.ref, nil
+	rootNode.encode(bt)
+	return nil
 }

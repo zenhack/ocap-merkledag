@@ -73,11 +73,14 @@ func storeRegularFile(ctx context.Context, s protocol.Storage, path string, f fi
 	}
 	defer input.Close()
 
-	contents, err := blobtree.WriteStream(ctx, s, input)
+	bt, err := f.NewFile()
+	if err != nil {
+		return err
+	}
+	err = blobtree.WriteStream(ctx, s, input, bt)
 	if err != nil {
 		return fmt.Errorf("blobtree.WriteStream(): %w", err)
 	}
-	f.SetFile(contents.AddRef())
 	return nil
 }
 

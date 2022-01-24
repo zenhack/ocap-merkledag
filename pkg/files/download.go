@@ -67,18 +67,11 @@ func saveFile(ctx context.Context, dir string, f files.File) error {
 			return err
 		}
 		defer localFile.Close()
-
-		// TODO: remove the ref indirection; a BlobTree is already
-		// a small object wrapping a ref.
-		ref := f.File()
-		res, rel := ref.Get(ctx, nil)
-		defer rel()
-		s, err := res.Value().Struct()
+		bt, err := f.File()
 		if err != nil {
 			return err
 		}
-		err = writeBlobTree(ctx, localFile, files.BlobTree{s})
-
+		err = writeBlobTree(ctx, localFile, bt)
 		if err != nil {
 			return err
 		}

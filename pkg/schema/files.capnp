@@ -21,7 +21,7 @@ struct File {
   }
 
   union {
-    file @5 :Protocol.Ref(BlobTree);
+    file @5 :BlobTree;
     # A regular file
 
     dir @4 :Protocol.Ref(List(File));
