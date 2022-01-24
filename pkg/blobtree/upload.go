@@ -86,6 +86,10 @@ func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader, bt files.
 	if err != nil {
 		return err
 	}
+	err = sp.Close()
+	if err != nil {
+		return err
+	}
 	rootNode, err := writeBranches(ctx, s, nodes)
 	if err != nil {
 		return err
