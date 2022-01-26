@@ -8,4 +8,7 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible // indirect
 )
 
-replace capnproto.org/go/capnp/v3 => /home/isd/src/foreign/go-capnproto2
+// I(zenhack) sometimes use this when hacking on go-capnp in tandem with this
+// repository:
+//
+// replace capnproto.org/go/capnp/v3 => /home/isd/src/foreign/go-capnproto2
