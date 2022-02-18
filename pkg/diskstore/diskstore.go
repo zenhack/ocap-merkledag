@@ -3,9 +3,11 @@ package diskstore
 import (
 	"crypto/sha256"
 	"io/ioutil"
+	"log"
 	"math"
 	"os"
 	"sync"
+	"time"
 
 	"capnproto.org/go/capnp/v3"
 
@@ -22,7 +24,9 @@ type DiskStore struct {
 	index, blobs *filearena.FileArena
 	indexStorage triemap.Storage
 
-	indexRoot diskstore.TrieMap
+	indexRoot       diskstore.TrieMap
+	checkpointTimer *time.Timer
+	closing         chan struct{}
 
 	// Lock which must be held in write mode to make a checkpoint.
 	// goroutines making modifications to the state must hold this
@@ -61,6 +65,7 @@ func firstErr(errs ...error) error {
 }
 
 func (s *DiskStore) SetRoot(h *Hash) error {
+	defer s.dirty()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	root, err := s.manifest.Root()
@@ -127,7 +132,7 @@ func (s *DiskStore) Checkpoint() error {
 			return err
 		}
 		defer func() {
-			f.Close()
+			defer f.Close()
 			err = firstErr(err, f.Sync())
 		}()
 		err = capnp.NewEncoder(f).Encode(s.manifest.Struct.Message())
@@ -147,6 +152,9 @@ func (s *DiskStore) Checkpoint() error {
 }
 
 func (s *DiskStore) Close() error {
+	if s.closing != nil {
+		close(s.closing)
+	}
 	if s.index != nil {
 		s.index.Close()
 	}
@@ -154,6 +162,34 @@ func (s *DiskStore) Close() error {
 		s.blobs.Close()
 	}
 	return nil
+}
+
+func (s *DiskStore) dirty() {
+	s.checkpointTimer.Reset(5 * time.Second)
+}
+
+func (s *DiskStore) startCheckpointLoop() {
+	s.closing = make(chan struct{})
+	s.checkpointTimer = time.NewTimer(5 * time.Second)
+	ticker := time.NewTicker(30 * time.Second)
+	go func() {
+		done := false
+		for !done {
+			select {
+			case <-s.closing:
+				done = true
+			case <-ticker.C:
+			case <-s.checkpointTimer.C:
+			}
+			err := s.Checkpoint()
+			if err != nil {
+				// TODO: find a better way to manage this.
+				log.Printf("Error taking checkpoint: %v", err)
+			}
+			ticker.Reset(30 * time.Second)
+		}
+		ticker.Stop()
+	}()
 }
 
 func openArena(path string, offset int64, create bool) (*filearena.FileArena, error) {
@@ -200,6 +236,7 @@ func Open(path string) (*DiskStore, error) {
 		ret.Close()
 		return nil, err
 	}
+	ret.startCheckpointLoop()
 	return ret, nil
 }
 
@@ -272,6 +309,7 @@ func Create(path string) (*DiskStore, error) {
 		erase(ret)
 		return nil, err
 	}
+	ret.startCheckpointLoop()
 	return ret, nil
 }
 
@@ -290,6 +328,8 @@ func (s *DiskStore) Get(hash *Hash) ([]byte, error) {
 }
 
 func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
+	s.dirty()
+	defer s.dirty()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	hash := Hash(sha256.Sum256(data))

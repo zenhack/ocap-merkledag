@@ -23,7 +23,7 @@ func PutFile(ctx context.Context, s protocol.Storage, path string) (protocol.Ref
 	if err != nil {
 		return protocol.Ref{}, err
 	}
-	res, _ := s.Put(ctx, func(p protocol.Storage_put_Params) error {
+	res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
 		f, err := files.NewFile(p.Segment())
 		if err != nil {
 			return err
@@ -32,6 +32,9 @@ func PutFile(ctx context.Context, s protocol.Storage, path string) (protocol.Ref
 		p.SetValue(f.ToPtr())
 		return nil
 	})
+	defer func() {
+		go rel()
+	}()
 	return res.Ref().AddRef(), nil
 }
 
@@ -91,8 +94,7 @@ func storeDirectory(ctx context.Context, s protocol.Storage, fi fs.FileInfo, pat
 		return fmt.Errorf("readdir(): %w", err)
 	}
 
-	// TODO: release?
-	res, _ := s.Put(ctx, func(p protocol.Storage_put_Params) error {
+	res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
 		var contents files.File_List
 		contents, err = files.NewFile_List(p.Segment(), int32(len(ents)))
 		if err != nil {
@@ -111,6 +113,9 @@ func storeDirectory(ctx context.Context, s protocol.Storage, fi fs.FileInfo, pat
 		p.SetValue(contents.ToPtr())
 		return nil
 	})
+	defer func() {
+		go rel()
+	}()
 	if err != nil {
 		return err
 	}
