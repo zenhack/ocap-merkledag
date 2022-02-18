@@ -4,6 +4,8 @@ capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220119180648-4da6b7c27f7f h1:A3GZVA
 capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220119180648-4da6b7c27f7f/go.mod h1:6IWA2uGtBieoTMydMR7yoyTlvRcWkL5OXYSaZ9QelYg=
 capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220124213008-97f728170360 h1:tPNJ5/P1wezRtma6V96AYqzH36sc/4KjU6URblNTB9c=
 capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220124213008-97f728170360/go.mod h1:6IWA2uGtBieoTMydMR7yoyTlvRcWkL5OXYSaZ9QelYg=
+capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220202181208-17b4e866fb30 h1:4jTD0Po4iHYA9696lS0LIBzBbkFInDoNBGY1gc8wgxQ=
+capnproto.org/go/capnp/v3 v3.0.0-alpha.1.0.20220202181208-17b4e866fb30/go.mod h1:6IWA2uGtBieoTMydMR7yoyTlvRcWkL5OXYSaZ9QelYg=
 github.com/bobg/hashsplit v1.1.3 h1:u9RWzJcGnLOojFY5ornTHHOfLbJQS1LnrGUufwU+CSA=
 github.com/bobg/hashsplit v1.1.3/go.mod h1:2JjSYhF/skYn30fNpk1CL7gYmh1sZf+YDb12ZNxTa4M=
 github.com/chmduquesne/rollinghash v4.0.0+incompatible h1:hnREQO+DXjqIw3rUTzWN7/+Dpw+N5Um8zpKV0JOEgbo=
