@@ -265,6 +265,18 @@ func initArenas(s *DiskStore, create bool) error {
 		FileArena: s.index,
 		// TODO: Set ClearFn to something useful.
 	}
+
+	// Load the root node of the index:
+	addr := types.DecodeAddr(blobMapAddr)
+	if addr.Length != 0 { // If this is zero, the root hasn't been set yet.
+		indexRootBytes, err := s.indexStorage.Fetch(types.DecodeAddr(blobMapAddr))
+		if err != nil {
+			return err
+		}
+		indexRootMsg := &capnp.Message{Arena: capnp.SingleSegment(indexRootBytes)}
+		s.indexRoot, err = diskstore.ReadRootTrieMap(indexRootMsg)
+		return err
+	}
 	return nil
 }
 
