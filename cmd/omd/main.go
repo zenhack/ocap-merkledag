@@ -5,10 +5,13 @@ import (
 	"flag"
 	"log"
 	"net"
+	"strings"
 
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
+	"github.com/gorilla/websocket"
 
+	wscapnp "zenhack.net/go/ocap-md/internal/websocket-capnp"
 	"zenhack.net/go/ocap-md/pkg/diskstore"
 	"zenhack.net/go/ocap-md/pkg/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
@@ -60,11 +63,11 @@ func main() {
 		}
 	case "put":
 		ctx := context.Background()
-		conn, err := net.Dial("tcp", *addr)
+		trans, releaseTrans, err := connect(*addr)
 		chkfatal(err)
-		defer conn.Close()
-		capnpConn := rpc.NewConn(rpc.NewStreamTransport(conn), nil)
-		api := protocol.RootApi{capnpConn.Bootstrap(ctx)}
+		defer releaseTrans()
+		conn := rpc.NewConn(trans, nil)
+		api := protocol.RootApi{conn.Bootstrap(ctx)}
 		resStorage, rel := api.Storage(ctx, nil)
 		defer rel()
 		s := resStorage.Storage()
@@ -83,11 +86,11 @@ func main() {
 		chkfatal(err)
 	case "get":
 		ctx := context.Background()
-		conn, err := net.Dial("tcp", *addr)
+		trans, releaseTrans, err := connect(*addr)
 		chkfatal(err)
-		defer conn.Close()
-		capnpConn := rpc.NewConn(rpc.NewStreamTransport(conn), nil)
-		api := protocol.RootApi{capnpConn.Bootstrap(ctx)}
+		defer releaseTrans()
+		conn := rpc.NewConn(trans, nil)
+		api := protocol.RootApi{conn.Bootstrap(ctx)}
 
 		resRoot, rel := api.Root(ctx, nil)
 		defer rel()
@@ -104,4 +107,31 @@ func chkfatal(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func connect(addr string) (_ rpc.Transport, release func(), _ error) {
+	if strings.HasPrefix(addr, "ws:") || strings.HasPrefix(addr, "wss:") {
+		return connectWebsocket(addr)
+	} else {
+		return connectNetwork(addr)
+	}
+}
+
+func connectWebsocket(addr string) (_ rpc.Transport, release func(), _ error) {
+	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	return wscapnp.NewTransport(c), func() {}, nil
+}
+
+func connectNetwork(addr string) (_ rpc.Transport, release func(), _ error) {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, nil, err
+	}
+	release = func() {
+		conn.Close()
+	}
+	return rpc.NewStreamTransport(conn), release, nil
 }
