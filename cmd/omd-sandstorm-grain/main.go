@@ -37,7 +37,7 @@ func main() {
 		transport := wscapnp.NewTransport(wsConn)
 		defer transport.Close()
 		rpcConn := rpc.NewConn(transport, &rpc.Options{
-			BootstrapClient: api.Client,
+			BootstrapClient: api.Client.AddRef(),
 		})
 		defer rpcConn.Close()
 		<-rpcConn.Done()
