@@ -2,3 +2,6 @@ coverage.out
 /omd
 /cmd/omd/omd
 /cmd/omd-sandstorm-grain/omd-sandstorm-grain
+
+# I(@zenhack) sometimes use this file to leave myself very short term reminders:
+/NOTES
