@@ -1,2 +1,4 @@
 coverage.out
 /omd
+/cmd/omd/omd
+/cmd/omd-sandstorm-grain/omd-sandstorm-grain
