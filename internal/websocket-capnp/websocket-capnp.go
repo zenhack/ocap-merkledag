@@ -31,7 +31,7 @@ func (t websocketTransport) NewMessage(ctx context.Context) (
 	_ error,
 ) {
 	arena := capnp.SingleSegment(nil)
-	msg, _, err := capnp.NewMessage(arena)
+	msg, seg, err := capnp.NewMessage(arena)
 	if err != nil {
 		return rpccp.Message{}, func() error { return nil }, func() {}, err
 	}
@@ -44,7 +44,6 @@ func (t websocketTransport) NewMessage(ctx context.Context) (
 		return t.conn.WriteMessage(websocket.BinaryMessage, data)
 	}
 	release := func() {}
-	seg, _ := msg.Segment(0)
 	rpcMsg, err := rpccp.NewRootMessage(seg)
 	return rpcMsg, send, release, err
 }
