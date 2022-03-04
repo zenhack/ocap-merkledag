@@ -2,10 +2,16 @@ package main
 
 import (
 	_ "embed"
+	"log"
 	"net/http"
 	"strconv"
 
+	wscapnp "zenhack.net/go/ocap-md/internal/websocket-capnp"
 	"zenhack.net/go/ocap-md/pkg/diskstore"
+
+	"capnproto.org/go/capnp/v3/rpc"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 )
 
 //go:embed index.html
@@ -18,15 +24,33 @@ func main() {
 		s, err = diskstore.Create(storePath)
 	}
 	chkfatal(err)
-	_ = diskstore.NewRootApi(s) // TODO: use this
+	api := diskstore.NewRootApi(s)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+	r := mux.NewRouter()
+
+	r.HandleFunc("/api", func(w http.ResponseWriter, req *http.Request) {
+		wsConn, err := (&websocket.Upgrader{}).Upgrade(w, req, nil)
+		if err != nil {
+			log.Print("Error upgrading to websocket: ", err)
+			return
+		}
+		transport := wscapnp.NewTransport(wsConn)
+		defer transport.Close()
+		rpcConn := rpc.NewConn(transport, &rpc.Options{
+			BootstrapClient: api.Client,
+		})
+		defer rpcConn.Close()
+		<-rpcConn.Done()
+	})
+
+	r.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		h := w.Header()
 		h.Set("Content-Type", "text/html")
 		h.Set("Content-Length", strconv.Itoa(len(indexHtml)))
 		w.WriteHeader(200)
 		w.Write(indexHtml)
 	})
+	http.Handle("/", r)
 	panic(http.ListenAndServe(":8000", nil))
 }
 
