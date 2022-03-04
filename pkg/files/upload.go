@@ -8,8 +8,11 @@ import (
 	"path/filepath"
 
 	"zenhack.net/go/ocap-md/pkg/blobtree"
+	"zenhack.net/go/ocap-md/pkg/schema/containers"
 	"zenhack.net/go/ocap-md/pkg/schema/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
+
+	"capnproto.org/go/capnp/v3"
 )
 
 type ErrUnsupportedFileType fs.FileMode
@@ -58,7 +61,6 @@ func storeFile(ctx context.Context, s protocol.Storage, fi os.FileInfo, path str
 }
 
 func storeFileInfo(fi fs.FileInfo, f files.File) error {
-	f.SetName(fi.Name())
 	meta, err := files.NewUnixMetadata(f.Segment())
 	if err != nil {
 		return err
@@ -95,8 +97,16 @@ func storeDirectory(ctx context.Context, s protocol.Storage, fi fs.FileInfo, pat
 	}
 
 	res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
-		var contents files.File_List
-		contents, err = files.NewFile_List(p.Segment(), int32(len(ents)))
+		bptree, err := containers.NewBPlusTree(p.Segment())
+		if err != nil {
+			return err
+		}
+		bptree.SetMaxBranches(uint32(len(ents)))
+		root, err := bptree.NewRoot()
+		if err != nil {
+			return nil
+		}
+		branches, err := root.NewBranches(int32(len(ents)))
 		if err != nil {
 			return err
 		}
@@ -105,12 +115,23 @@ func storeDirectory(ctx context.Context, s protocol.Storage, fi fs.FileInfo, pat
 			if err != nil {
 				return err
 			}
-			err = storeFile(ctx, s, fi, filepath.Join(path, fi.Name()), contents.At(i))
+			b := branches.At(i)
+			f, err := files.NewFile(b.Segment())
+			if err != nil {
+				return err
+			}
+			err = storeFile(ctx, s, fi, filepath.Join(path, fi.Name()), f)
 			if err != nil {
 				fmt.Errorf("storeFile at index %d: %w", i, err)
 			}
+			name, err := capnp.NewText(b.Segment(), fi.Name())
+			if err != nil {
+				return err
+			}
+			b.SetKey(name.ToPtr())
+			b.SetLeaf(f.ToPtr())
 		}
-		p.SetValue(contents.ToPtr())
+		p.SetValue(bptree.ToPtr())
 		return nil
 	})
 	defer func() {

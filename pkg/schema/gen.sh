@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-schema='protocol diskstore files'
+schema='protocol diskstore files containers'
 
 do_gen() {
 	for s in $schema; do

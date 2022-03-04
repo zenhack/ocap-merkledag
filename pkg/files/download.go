@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"zenhack.net/go/ocap-md/pkg/schema/containers"
 	"zenhack.net/go/ocap-md/pkg/schema/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
-func Download(ctx context.Context, dir string, ref protocol.Ref) error {
+func Download(ctx context.Context, path string, ref protocol.Ref) error {
 	res, rel := ref.Get(ctx, nil)
 	defer rel()
 	s, err := res.Struct()
@@ -26,7 +27,7 @@ func Download(ctx context.Context, dir string, ref protocol.Ref) error {
 		return err
 	}
 	f := files.File{v.Struct()}
-	return saveFile(ctx, dir, f)
+	return saveFile(ctx, path, f)
 }
 
 // os.PathSepartor, but as a string instead of a rune.
@@ -40,22 +41,13 @@ func isValidPathSegment(s string) bool {
 		!strings.Contains(s, pathSepString)
 }
 
-func saveFile(ctx context.Context, dir string, f files.File) error {
-	name, err := f.Name()
-	if err != nil {
-		return err
-	}
-	if !isValidPathSegment(name) {
-		return fmt.Errorf("Invalid path segment: %q", name)
-	}
-	path := filepath.Join(dir, name)
-
+func saveFile(ctx context.Context, path string, f files.File) error {
 	// Check if the file already exists. This protects us against
 	// downloading malformed directories which contain multiple
 	// files by the same name; if one is a symlink it could be used
 	// for path traversal attacks. This is racy, but works to avoid
 	// interfering with ourselves.
-	_, err = os.Lstat(path)
+	_, err := os.Lstat(path)
 	if err == nil {
 		return fmt.Errorf("lstat: %q already exists.", path)
 	}
@@ -77,17 +69,7 @@ func saveFile(ctx context.Context, dir string, f files.File) error {
 		}
 		return syncMetadata(path, f.Metadata())
 	case files.File_Which_dir:
-		res, rel := f.Dir().Get(ctx, nil)
-		defer rel()
-		ret, err := res.Struct()
-		if err != nil {
-			return err
-		}
-		v, err := ret.Value()
-		if err != nil {
-			return err
-		}
-		err = saveDir(ctx, path, files.File_List{v.List()})
+		err = saveDir(ctx, path, f)
 		if err != nil {
 			return err
 		}
@@ -103,18 +85,69 @@ func saveFile(ctx context.Context, dir string, f files.File) error {
 	}
 }
 
-func saveDir(ctx context.Context, path string, ents files.File_List) error {
+func saveDir(ctx context.Context, path string, f files.File) error {
 	err := os.Mkdir(path, 0700)
 	if err != nil {
 		return err
 	}
+	res, rel := f.Dir().Get(ctx, nil)
+	defer rel()
+	s, err := res.Value().Struct()
+	if err != nil {
+		return err
+	}
+	root, err := containers.BPlusTree{s}.Root()
+	if err != nil {
+		return err
+	}
+	return saveDirEnts(ctx, path, root)
+}
+
+func saveDirEnts(ctx context.Context, path string, node containers.BPlusTree_Node) error {
+	ents, err := node.Branches()
+	if err != nil {
+		return err
+	}
+
 	for i := 0; i < ents.Len(); i++ {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-		if err = saveFile(ctx, path, ents.At(i)); err != nil {
-			return err
+		ent := ents.At(i)
+		switch ent.Which() {
+		case containers.BPlusTree_Branch_Which_leaf:
+			k, err := ent.Key()
+			if err != nil {
+				return err
+			}
+			name := k.Text()
+			if !isValidPathSegment(name) {
+				return fmt.Errorf("Invalid path segment: %q", name)
+			}
+			leaf, err := ent.Leaf()
+			if err != nil {
+				return err
+			}
+			f := files.File{leaf.Struct()}
+			if err = saveFile(ctx, filepath.Join(path, name), f); err != nil {
+				return err
+			}
+		case containers.BPlusTree_Branch_Which_node:
+			res, rel := ent.Node().Get(ctx, nil)
+			s, err := res.Value().Struct()
+			if err != nil {
+				rel()
+				return err
+			}
+			err = saveDirEnts(ctx, path, containers.BPlusTree_Node{s})
+			rel()
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("Uknown Branch tag: %d", ent.Which())
 		}
+
 	}
 	return nil
 }

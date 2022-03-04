@@ -6,12 +6,10 @@ $Go.package("files");
 $Go.import("zenhack.net/go/ocap-md/pkg/schema/files");
 
 using Protocol = import "protocol.capnp";
+using Containers = import "containers.capnp";
 
 struct File {
   # A node in the filesystem.
-
-  name @0 :Text;
-  # The name of the file
 
   metadata :union {
     # Other file metadata. Exactly what lives here may depend on the filesystem;
@@ -21,10 +19,10 @@ struct File {
   }
 
   union {
-    file @5 :BlobTree;
+    file @0 :BlobTree;
     # A regular file
 
-    dir @4 :Protocol.Ref(List(File));
+    dir @4 :Protocol.Ref(Containers.BPlusTree(Text, File));
     # A directory; the argument is the contents of the directory.
 
     symlink @2 :Text;
