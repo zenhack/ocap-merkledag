@@ -47,6 +47,10 @@ func saveFile(ctx context.Context, path string, f files.File) error {
 	// files by the same name; if one is a symlink it could be used
 	// for path traversal attacks. This is racy, but works to avoid
 	// interfering with ourselves.
+	//
+	// TODO: we could avoid this by instead incrementally checking
+	// when walking the directory entries that they are sorted,
+	// and therefore catch duplicates.
 	_, err := os.Lstat(path)
 	if err == nil {
 		return fmt.Errorf("lstat: %q already exists.", path)
@@ -133,6 +137,8 @@ func saveDirEnts(ctx context.Context, path string, node containers.BPlusTree_Nod
 				return err
 			}
 		case containers.BPlusTree_Branch_Which_node:
+			// N.B. this is curerntly untested. The upload logic doesn't
+			// actually construct nested trees (yet).
 			res, rel := ent.Node().Get(ctx, nil)
 			s, err := res.Value().Struct()
 			if err != nil {

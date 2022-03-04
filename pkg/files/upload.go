@@ -90,7 +90,11 @@ func storeRegularFile(ctx context.Context, s protocol.Storage, path string, f fi
 }
 
 func storeDirectory(ctx context.Context, s protocol.Storage, fi fs.FileInfo, path string, f files.File) error {
-	// TODO: handle very large directories.
+	// TODO: handle very large directories. For now, we just read the whole
+	// directory in at once, and then make a B+ tree that is a single leaf
+	// node, setting its maximum branch factor to whatever it needs to be to
+	// make this legal. Instead, we should actually choose the branching
+	// factor, and build a proper tree if needed.
 	ents, err := os.ReadDir(path)
 	if err != nil {
 		return fmt.Errorf("readdir(): %w", err)
