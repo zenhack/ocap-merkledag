@@ -5,7 +5,8 @@ import (
 	"flag"
 	"log"
 	"net"
-	"strings"
+	"net/http"
+	"net/url"
 
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
@@ -110,15 +111,26 @@ func chkfatal(err error) {
 }
 
 func connect(addr string) (_ rpc.Transport, release func(), _ error) {
-	if strings.HasPrefix(addr, "ws:") || strings.HasPrefix(addr, "wss:") {
-		return connectWebsocket(addr)
-	} else {
+	u, err := url.Parse(addr)
+	if err != nil {
+		// Not a url. Try treating it as an address.
 		return connectNetwork(addr)
 	}
-}
-
-func connectWebsocket(addr string) (_ rpc.Transport, release func(), _ error) {
-	c, _, err := websocket.DefaultDialer.Dial(addr, nil)
+	h := http.Header{}
+	if u.Fragment != "" {
+		h.Set("Authorization", "Bearer "+u.Fragment)
+		u.Fragment = ""
+	}
+	switch u.Scheme {
+	case "http":
+		u.Path += "/api"
+		u.Scheme = "ws"
+	case "https":
+		u.Path += "/api"
+		u.Scheme = "wss"
+	}
+	wsUrl := u.String()
+	c, _, err := websocket.DefaultDialer.Dial(wsUrl, h)
 	if err != nil {
 		return nil, nil, err
 	}

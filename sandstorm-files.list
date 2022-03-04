@@ -4,6 +4,7 @@
 # expect comments or ordering to be retained.
 cmd/omd-sandstorm-grain/omd-sandstorm-grain
 etc/ld.so.cache
+etc/localtime
 lib64
 proc/cpuinfo
 sandstorm-http-bridge
@@ -12,3 +13,4 @@ sandstorm-manifest
 usr/lib/ld-linux-x86-64.so.2
 usr/lib/libc.so.6
 usr/lib/libpthread.so.0
+usr/share/zoneinfo/US/Eastern
