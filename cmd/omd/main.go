@@ -5,22 +5,20 @@ import (
 	"flag"
 	"log"
 	"net"
-	"net/http"
-	"net/url"
 
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
-	"github.com/gorilla/websocket"
 
-	wscapnp "zenhack.net/go/ocap-md/internal/websocket-capnp"
 	"zenhack.net/go/ocap-md/pkg/diskstore"
 	"zenhack.net/go/ocap-md/pkg/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
+	capnp_url "zenhack.net/go/ocap-md/pkg/url"
 )
 
 var (
 	storepath = flag.String("storepath", "", "path to store")
-	addr      = flag.String("addr", ":2323", "Address to listen on")
+	addr      = flag.String("addr", "tcp::2323", "Address to connect to")
+	laddr     = flag.String("laddr", ":2323", "(tcp) address to listen on")
 
 	path = flag.String("path", "", "path to file to upload")
 )
@@ -36,7 +34,7 @@ func main() {
 		}
 		s.Close()
 	case "serve":
-		l, err := net.Listen("tcp", *addr)
+		l, err := net.Listen("tcp", *laddr)
 		if err != nil {
 			log.Fatalf("Error binding to %q: %v", *addr, err)
 		}
@@ -111,39 +109,7 @@ func chkfatal(err error) {
 }
 
 func connect(addr string) (_ rpc.Transport, release func(), _ error) {
-	u, err := url.Parse(addr)
-	if err != nil {
-		// Not a url. Try treating it as an address.
-		return connectNetwork(addr)
-	}
-	h := http.Header{}
-	if u.Fragment != "" {
-		h.Set("Authorization", "Bearer "+u.Fragment)
-		u.Fragment = ""
-	}
-	switch u.Scheme {
-	case "http":
-		u.Path += "/api"
-		u.Scheme = "ws"
-	case "https":
-		u.Path += "/api"
-		u.Scheme = "wss"
-	}
-	wsUrl := u.String()
-	c, _, err := websocket.DefaultDialer.Dial(wsUrl, h)
-	if err != nil {
-		return nil, nil, err
-	}
-	return wscapnp.NewTransport(c), func() {}, nil
-}
-
-func connectNetwork(addr string) (_ rpc.Transport, release func(), _ error) {
-	conn, err := net.Dial("tcp", addr)
-	if err != nil {
-		return nil, nil, err
-	}
-	release = func() {
-		conn.Close()
-	}
-	return rpc.NewStreamTransport(conn), release, nil
+	d := &capnp_url.Dialer{}
+	d.RegisterDefaults()
+	return d.Dial(addr)
 }
