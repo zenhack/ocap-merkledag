@@ -62,5 +62,5 @@ struct Stored(T) {
 interface RootApi {
   blobMap @0 () -> (map :Map(ContentId, Ref(AnyPointer)));
   root @1 () -> (root :RootPtr);
-  storage @2 () -> (storage: Storage);
+  storage @2 () -> (storage :Storage);
 }
