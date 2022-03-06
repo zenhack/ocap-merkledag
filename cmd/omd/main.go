@@ -6,11 +6,15 @@ import (
 	"log"
 	"net"
 
+	"bazil.org/fuse"
+	"bazil.org/fuse/fs"
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
 
 	"zenhack.net/go/ocap-md/pkg/diskstore"
 	"zenhack.net/go/ocap-md/pkg/files"
+	omdfuse "zenhack.net/go/ocap-md/pkg/files/fuse"
+	filescapnp "zenhack.net/go/ocap-md/pkg/schema/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 	capnp_url "zenhack.net/go/ocap-md/pkg/url"
 )
@@ -97,6 +101,34 @@ func main() {
 		defer rel()
 		ref := protocol.Ref{resGet.Value().Client()}
 		chkfatal(files.Download(ctx, *path, ref))
+	case "mount":
+		ctx := context.Background()
+		trans, releaseTrans, err := connect(*addr)
+		chkfatal(err)
+		defer releaseTrans()
+		conn := rpc.NewConn(trans, nil)
+		api := protocol.RootApi{conn.Bootstrap(ctx)}
+		resRoot, rel := api.Root(ctx, nil)
+		defer rel()
+		resRootGet, rel := resRoot.Root().Get(ctx, nil)
+		defer rel()
+		ref := protocol.Ref{resRootGet.Value().Client()}
+		resGet, rel := ref.Get(ctx, nil)
+		defer rel()
+		s, err := resGet.Value().Struct()
+		chkfatal(err)
+		rootFile := filescapnp.File{s}
+		filesystem := omdfuse.FS(func() (filescapnp.File, error) {
+			return rootFile, nil
+		})
+		fuseConn, err := fuse.Mount(
+			*path,
+			fuse.FSName("ocap-md"),
+			fuse.Subtype("ocap-md"),
+		)
+		chkfatal(err)
+		defer fuseConn.Close()
+		chkfatal(fs.Serve(fuseConn, filesystem))
 	default:
 		log.Fatal("Unknown command: ", cmd)
 	}
