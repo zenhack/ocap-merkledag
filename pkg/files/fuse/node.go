@@ -18,7 +18,7 @@ type Node struct {
 }
 
 func (n *Node) Attr(ctx context.Context, attr *fuse.Attr) error {
-	// Imutable; cache as long as you want:
+	// Immutable; cache as long as you want:
 	attr.Valid = time.Duration(math.MaxInt64)
 
 	m := n.f.Metadata()
