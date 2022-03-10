@@ -11,8 +11,8 @@ import (
 	"bazil.org/fuse"
 	//"bazil.org/fuse/fs"
 
-	"zenhack.net/go/ocap-md/pkg/containers"
-	containerscp "zenhack.net/go/ocap-md/pkg/schema/containers"
+	"zenhack.net/go/ocap-md/pkg/containers/bptree"
+	"zenhack.net/go/ocap-md/pkg/schema/containers"
 	"zenhack.net/go/ocap-md/pkg/schema/files"
 	//"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
@@ -103,7 +103,7 @@ func (n *Node) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	if err != nil {
 		return nil, err
 	}
-	it, err := containers.IterBPlusTree(containerscp.BPlusTree{v.Struct()})
+	it, err := bptree.Iter(containers.BPlusTree{v.Struct()})
 	ents := []fuse.Dirent{}
 	k, v, err := it.Next(ctx)
 	for err == nil {
