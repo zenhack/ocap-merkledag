@@ -3,6 +3,7 @@ package url
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	wscapnp "zenhack.net/go/ocap-md/internal/websocket-capnp"
 
@@ -33,7 +34,10 @@ func DialWebkey(u *url.URL) (_ rpc.Transport, release func(), _ error) {
 	}
 	switch u.Scheme {
 	case "http":
-		u.Path += "/api"
+		if !strings.HasSuffix(u.Path, "/") {
+			u.Path += "/"
+		}
+		u.Path += "api"
 		u.Scheme = "ws"
 	case "https":
 		u.Path += "/api"
