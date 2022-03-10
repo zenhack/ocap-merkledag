@@ -1,4 +1,4 @@
-package containers
+package bptree
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"zenhack.net/go/ocap-md/pkg/schema/containers"
 )
 
-func IterBPlusTree(bt containers.BPlusTree) (*BPlusTreeIterator, error) {
+func Iter(bt containers.BPlusTree) (*Iterator, error) {
 	root, err := bt.Root()
 	if err != nil {
 		return nil, err
@@ -18,9 +18,9 @@ func IterBPlusTree(bt containers.BPlusTree) (*BPlusTreeIterator, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &BPlusTreeIterator{
+	return &Iterator{
 		parents: nil,
-		current: bpTreeLevelIterator{
+		current: levelIterator{
 			i:        0,
 			branches: branches,
 			rel:      nil,
@@ -28,25 +28,25 @@ func IterBPlusTree(bt containers.BPlusTree) (*BPlusTreeIterator, error) {
 	}, nil
 }
 
-type BPlusTreeIterator struct {
-	parents []bpTreeLevelIterator
-	current bpTreeLevelIterator
+type Iterator struct {
+	parents []levelIterator
+	current levelIterator
 }
 
-type bpTreeLevelIterator struct {
+type levelIterator struct {
 	i        int
 	branches containers.BPlusTree_Branch_List
 	rel      capnp.ReleaseFunc
 }
 
-func (it *BPlusTreeIterator) releaseCurrent() {
+func (it *Iterator) releaseCurrent() {
 	if it.current.rel != nil {
 		it.current.rel()
 		it.current.rel = nil
 	}
 }
 
-func (it *BPlusTreeIterator) Next(ctx context.Context) (capnp.Ptr, capnp.Ptr, error) {
+func (it *Iterator) Next(ctx context.Context) (capnp.Ptr, capnp.Ptr, error) {
 	for it.current.i >= it.current.branches.Len() {
 		it.releaseCurrent()
 		if len(it.parents) == 0 {
@@ -84,7 +84,7 @@ func (it *BPlusTreeIterator) Next(ctx context.Context) (capnp.Ptr, capnp.Ptr, er
 				return capnp.Ptr{}, capnp.Ptr{}, err
 			}
 			it.parents = append(it.parents, it.current)
-			it.current = bpTreeLevelIterator{
+			it.current = levelIterator{
 				i:        0,
 				branches: branches,
 				rel:      rel,
