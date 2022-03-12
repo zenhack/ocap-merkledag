@@ -110,7 +110,7 @@ func storeDirectory(ctx context.Context, s protocol.Storage, fi fs.FileInfo, pat
 		if err != nil {
 			return nil
 		}
-		branches, err := root.NewBranches(int32(len(ents)))
+		branches, err := root.NewLeaf(int32(len(ents)))
 		if err != nil {
 			return err
 		}
@@ -133,7 +133,7 @@ func storeDirectory(ctx context.Context, s protocol.Storage, fi fs.FileInfo, pat
 				return err
 			}
 			b.SetKey(name.ToPtr())
-			b.SetLeaf(f.ToPtr())
+			b.SetVal(f.ToPtr())
 		}
 		p.SetValue(bptree.ToPtr())
 		return nil

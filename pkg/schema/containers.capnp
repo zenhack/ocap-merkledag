@@ -4,7 +4,13 @@ using Go = import "/go.capnp";
 $Go.package("containers");
 $Go.import("zenhack.net/go/ocap-md/pkg/schema/containers");
 
-using Protocol = import "protocol.capnp";
+using Ref = import "protocol.capnp".Ref;
+
+struct KV(K, V) {
+  # A key/value pair.
+  key @0 :K;
+  val @1 :V;
+}
 
 struct BPlusTree(K, V) {
   # A B+ tree, with keys K and values V.
@@ -22,22 +28,22 @@ struct BPlusTree(K, V) {
   # The maximum branch factor of a node.
 
   struct Node {
-    # An interior node in the tree.
-    branches @0 :List(Branch);
-  }
-
-  struct Branch {
-    key @0 :K;
-    # A key for this branch.
-
+    # A node in the tree.
     union {
-      leaf @1 :V;
-      # This is a leaf branch; it stores value associated with the key.
+      leaf @0 :List(KV(K, V));
+      # A leaf node; this is a list of sorted key, value pairs representing
+      # entries in the map..
 
-      node @2 :Protocol.Ref(Node);
-      # This is another interior node; the subtree contains only keys >=
-      # they `key` field, and less than the key field of the next branch,
-      # if any.
+      interior :group {
+        # An interior node in the tree.
+
+        left @1 :Ref(Node);
+        # left-most branch of the node; contains all keys < branches[0].key
+
+        branches @2 :List(KV(K, Ref(Node)));
+        # Branches. branches[i].val contains all keys >= branches[i].key and
+        # (if i is not the last branch in the list) < branches[i+1].key.
+      }
     }
   }
 }

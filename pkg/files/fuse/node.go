@@ -2,14 +2,16 @@ package fuse
 
 import (
 	"context"
-	"io"
 	"io/fs"
 	"math"
+	"strings"
 	"syscall"
 	"time"
 
 	"bazil.org/fuse"
 	//"bazil.org/fuse/fs"
+
+	"capnproto.org/go/capnp/v3"
 
 	"zenhack.net/go/ocap-md/pkg/containers/bptree"
 	"zenhack.net/go/ocap-md/pkg/schema/containers"
@@ -103,10 +105,24 @@ func (n *Node) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	if err != nil {
 		return nil, err
 	}
-	it, err := bptree.Iter(containers.BPlusTree{v.Struct()})
+	bt := bptree.Open(containers.BPlusTree{v.Struct()}, func(x, y capnp.Ptr) int {
+		return strings.Compare(x.Text(), y.Text())
+	})
+	iterCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ch := make(chan containers.KV)
+	go bt.Iter(iterCtx, ch)
 	ents := []fuse.Dirent{}
-	k, v, err := it.Next(ctx)
-	for err == nil {
+	for kv := range ch {
+		k, err := kv.Key()
+		if err != nil {
+			return nil, err
+		}
+		v, err := kv.Val()
+		if err != nil {
+			return nil, err
+		}
+
 		f := files.File{v.Struct()}
 		var typ fuse.DirentType
 		switch f.Which() {
@@ -124,12 +140,8 @@ func (n *Node) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			Type:  typ,
 			Inode: 0, // TODO: make these unique.
 		})
-		k, v, err = it.Next(ctx)
 	}
-	if err == io.EOF {
-		return ents, nil
-	}
-	return nil, err
+	return ents, ctx.Err()
 }
 
 func readBlobTree(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse, bt files.BlobTree) error {

@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"capnproto.org/go/capnp/v3"
+
+	"zenhack.net/go/ocap-md/pkg/containers/bptree"
 	"zenhack.net/go/ocap-md/pkg/schema/containers"
 	"zenhack.net/go/ocap-md/pkg/schema/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
@@ -100,62 +103,33 @@ func saveDir(ctx context.Context, path string, f files.File) error {
 	if err != nil {
 		return err
 	}
-	root, err := containers.BPlusTree{s}.Root()
-	if err != nil {
-		return err
-	}
-	return saveDirEnts(ctx, path, root)
-}
-
-func saveDirEnts(ctx context.Context, path string, node containers.BPlusTree_Node) error {
-	ents, err := node.Branches()
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < ents.Len(); i++ {
-		if err = ctx.Err(); err != nil {
+	bt := bptree.Open(containers.BPlusTree{s}, func(x, y capnp.Ptr) int {
+		// TODO: move this function somewhere.
+		return strings.Compare(x.Text(), y.Text())
+	})
+	ch := make(chan containers.KV, 1)
+	iterCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go bt.Iter(iterCtx, ch)
+	for kv := range ch {
+		k, err := kv.Key()
+		if err != nil {
 			return err
 		}
-		ent := ents.At(i)
-		switch ent.Which() {
-		case containers.BPlusTree_Branch_Which_leaf:
-			k, err := ent.Key()
-			if err != nil {
-				return err
-			}
-			name := k.Text()
-			if !isValidPathSegment(name) {
-				return fmt.Errorf("Invalid path segment: %q", name)
-			}
-			leaf, err := ent.Leaf()
-			if err != nil {
-				return err
-			}
-			f := files.File{leaf.Struct()}
-			if err = saveFile(ctx, filepath.Join(path, name), f); err != nil {
-				return err
-			}
-		case containers.BPlusTree_Branch_Which_node:
-			// N.B. this is curerntly untested. The upload logic doesn't
-			// actually construct nested trees (yet).
-			res, rel := ent.Node().Get(ctx, nil)
-			s, err := res.Value().Struct()
-			if err != nil {
-				rel()
-				return err
-			}
-			err = saveDirEnts(ctx, path, containers.BPlusTree_Node{s})
-			rel()
-			if err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("Uknown Branch tag: %d", ent.Which())
+		name := k.Text()
+		if !isValidPathSegment(name) {
+			return fmt.Errorf("Invalid path segment: %q", name)
 		}
-
+		v, err := kv.Val()
+		if err != nil {
+			return err
+		}
+		f := files.File{v.Struct()}
+		if err = saveFile(ctx, filepath.Join(path, name), f); err != nil {
+			return err
+		}
 	}
-	return nil
+	return iterCtx.Err()
 }
 
 func writeBlobTree(ctx context.Context, w io.Writer, bt files.BlobTree) error {
