@@ -196,7 +196,7 @@ func readBlobTree(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadRes
 	return sysErr(syscall.EIO)
 }
 
-func (n *Node) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.LookupResponse) (fusefs.Node, error) {
+func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 	if n.f.Which() != files.File_Which_dir {
 		return nil, sysErr(syscall.ENOTDIR)
 	}
@@ -211,7 +211,7 @@ func (n *Node) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.L
 		return strings.Compare(x.Text(), y.Text())
 	})
 
-	key, err := capnp.NewText(s.Segment(), req.Name)
+	key, err := capnp.NewText(s.Segment(), name)
 	if err != nil {
 		return nil, err
 	}
