@@ -19,16 +19,6 @@ import (
 	//"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
-type sysErr syscall.Errno
-
-func (e sysErr) Error() string {
-	return syscall.Errno(e).Error()
-}
-
-func (e sysErr) Errno() fuse.Errno {
-	return fuse.Errno(e)
-}
-
 type Node struct {
 	f files.File
 }
@@ -76,7 +66,7 @@ func (n *Node) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 	switch n.f.Which() {
 	case files.File_Which_file:
 		if req.Dir {
-			return sysErr(syscall.ENOTDIR)
+			return fuse.Errno(syscall.ENOTDIR)
 		}
 		bt, err := n.f.File()
 		if err != nil {
@@ -85,15 +75,15 @@ func (n *Node) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadR
 		return readBlobTree(ctx, req, resp, bt)
 	case files.File_Which_dir:
 		if !req.Dir {
-			return sysErr(syscall.EISDIR)
+			return fuse.Errno(syscall.EISDIR)
 		}
 	}
-	return sysErr(syscall.EIO)
+	return fuse.Errno(syscall.EIO)
 }
 
 func (n *Node) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	if n.f.Which() != files.File_Which_dir {
-		return nil, sysErr(syscall.ENOTDIR)
+		return nil, fuse.Errno(syscall.ENOTDIR)
 	}
 	res, rel := n.f.Dir().Get(ctx, nil)
 	defer rel()
@@ -193,12 +183,12 @@ func readBlobTree(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadRes
 			req.Offset -= size
 		}
 	}
-	return sysErr(syscall.EIO)
+	return fuse.Errno(syscall.EIO)
 }
 
 func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 	if n.f.Which() != files.File_Which_dir {
-		return nil, sysErr(syscall.ENOTDIR)
+		return nil, fuse.Errno(syscall.ENOTDIR)
 	}
 
 	res, rel := n.f.Dir().Get(ctx, nil)
@@ -221,7 +211,7 @@ func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 		return nil, err
 	}
 	if !ok {
-		return nil, sysErr(syscall.ENOENT)
+		return nil, fuse.Errno(syscall.ENOENT)
 	}
 	return &Node{
 		f: files.File{ret.Struct()},
@@ -230,10 +220,10 @@ func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 
 func (n *Node) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fusefs.Handle, error) {
 	if req.Dir && n.f.Which() != files.File_Which_dir {
-		return nil, sysErr(syscall.ENOTDIR)
+		return nil, fuse.Errno(syscall.ENOTDIR)
 	}
 	if !req.Flags.IsReadOnly() {
-		return nil, sysErr(syscall.EROFS)
+		return nil, fuse.Errno(syscall.EROFS)
 	}
 	return n, nil
 }
