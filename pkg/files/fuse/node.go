@@ -30,7 +30,8 @@ var (
 )
 
 type Node struct {
-	f files.File
+	f   files.File
+	rel capnp.ReleaseFunc
 }
 
 func (n *Node) Attr(ctx context.Context, attr *fuse.Attr) error {
@@ -202,7 +203,12 @@ func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 	}
 
 	res, rel := n.f.Dir().Get(ctx, nil)
-	defer rel()
+	var err error
+	defer func() {
+		if err != nil {
+			rel()
+		}
+	}()
 	s, err := res.Value().Struct()
 	if err != nil {
 		return nil, err
@@ -224,7 +230,8 @@ func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 		return nil, fuse.Errno(syscall.ENOENT)
 	}
 	return &Node{
-		f: files.File{ret.Struct()},
+		f:   files.File{ret.Struct()},
+		rel: rel,
 	}, nil
 }
 
