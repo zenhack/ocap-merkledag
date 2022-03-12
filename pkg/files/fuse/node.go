@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"bazil.org/fuse"
-	//"bazil.org/fuse/fs"
+	fusefs "bazil.org/fuse/fs"
 
 	"capnproto.org/go/capnp/v3"
 
@@ -194,4 +194,36 @@ func readBlobTree(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadRes
 		}
 	}
 	return sysErr(syscall.EIO)
+}
+
+func (n *Node) Lookup(ctx context.Context, req *fuse.LookupRequest, resp *fuse.LookupResponse) (fusefs.Node, error) {
+	if n.f.Which() != files.File_Which_dir {
+		return nil, sysErr(syscall.ENOTDIR)
+	}
+
+	res, rel := n.f.Dir().Get(ctx, nil)
+	defer rel()
+	s, err := res.Value().Struct()
+	if err != nil {
+		return nil, err
+	}
+	bt := bptree.Open(containers.BPlusTree{s}, func(x, y capnp.Ptr) int {
+		return strings.Compare(x.Text(), y.Text())
+	})
+
+	key, err := capnp.NewText(s.Segment(), req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok, err := bt.Lookup(ctx, key.ToPtr())
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, sysErr(syscall.ENOENT)
+	}
+	return &Node{
+		f: files.File{ret.Struct()},
+	}, nil
 }
