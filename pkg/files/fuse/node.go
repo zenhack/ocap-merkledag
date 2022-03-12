@@ -227,3 +227,13 @@ func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 		f: files.File{ret.Struct()},
 	}, nil
 }
+
+func (n *Node) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fusefs.Handle, error) {
+	if req.Dir && n.f.Which() != files.File_Which_dir {
+		return nil, sysErr(syscall.ENOTDIR)
+	}
+	if !req.Flags.IsReadOnly() {
+		return nil, sysErr(syscall.EROFS)
+	}
+	return n, nil
+}
