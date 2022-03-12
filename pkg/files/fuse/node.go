@@ -19,6 +19,16 @@ import (
 	//"zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
+var (
+	// Check interface satisfaction:
+	nilNode *Node                     = nil
+	_       fusefs.Node               = nilNode
+	_       fusefs.NodeOpener         = nilNode
+	_       fusefs.NodeStringLookuper = nilNode
+	_       fusefs.HandleReader       = nilNode
+	_       fusefs.HandleReadDirAller = nilNode
+)
+
 type Node struct {
 	f files.File
 }
