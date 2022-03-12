@@ -2,17 +2,13 @@ package bptree
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"capnproto.org/go/capnp/v3"
 
+	"zenhack.net/go/ocap-md/pkg/errs"
 	"zenhack.net/go/ocap-md/pkg/schema/containers"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
-)
-
-var (
-	ErrUnknownVariant = errors.New("Unknown variant")
 )
 
 type CmpFn = func(x, y capnp.Ptr) int
@@ -56,7 +52,7 @@ func (t BPlusTree) iterNode(ctx context.Context, ch chan<- containers.KV, node c
 	case containers.BPlusTree_Node_Which_interior:
 		return t.iterInterior(ctx, ch, node.Interior())
 	default:
-		return ErrUnknownVariant
+		return errs.UnknownVariant("BPlusTree.Node", uint16(node.Which()))
 	}
 }
 

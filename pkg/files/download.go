@@ -13,6 +13,7 @@ import (
 	"capnproto.org/go/capnp/v3"
 
 	"zenhack.net/go/ocap-md/pkg/containers/bptree"
+	"zenhack.net/go/ocap-md/pkg/errs"
 	"zenhack.net/go/ocap-md/pkg/schema/containers"
 	"zenhack.net/go/ocap-md/pkg/schema/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
@@ -167,7 +168,7 @@ func writeBlobTree(ctx context.Context, w io.Writer, bt files.BlobTree) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("Unknown BlobTree variant: %v", bt.Which())
+		return errs.UnknownVariant("BlobTree", uint16(bt.Which()))
 	}
 }
 
