@@ -12,12 +12,18 @@ dev: sandstorm
 	spk dev
 
 webui := pkg/webui
-webui: $(webui)/bundle.js
-ts_src := $(shell find $(webui) -type f -name '*.ts')
-$(webui)/bundle.js: $(ts_src) $(webui)/tsconfig.json
+ui_deps := $(webui)/node_modules/.deps_installed
+webui: $(webui)/out/bundle.min.js
+ts_src := $(shell find $(webui)/src -type f -name '*.ts')
+$(ui_deps): $(webui)/package.json
+	cd $(webui) && npm install
+	touch $@
+$(webui)/out/.ts-build: $(ts_src) $(webui)/tsconfig.json $(ui_deps)
 	cd $(webui) && tsc
-# TODO: minify:
-#$(webui)/bundle.min.js: $(webui)/bundle.js
-#	cd $(webui) && npx uglfiyjs --compress --mangle < bundle.js > bundle.min.js
+	touch $@
+$(webui)/out/bundle.js: $(webui)/out/.ts-build $(webui)/webpack.config.js
+	cd $(webui) && npx webpack
+$(webui)/out/bundle.min.js: $(webui)/out/bundle.js $(ui_deps)
+	cd $(webui) && npx uglifyjs --compress --mangle < out/bundle.js > out/bundle.min.js
 
 .PHONY: all webui dev sandstorm

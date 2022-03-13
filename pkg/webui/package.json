@@ -1,0 +1,16 @@
+{
+  "name": "webui",
+  "version": "1.0.0",
+  "description": "Web UI for OCap-MerkleDag",
+  "main": "bundle.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "Apache 2.0",
+  "dependencies": {
+    "preact": "^10.6.6",
+    "uglify-js": "^3.15.3",
+    "webpack-cli": "^4.9.2"
+  }
+}

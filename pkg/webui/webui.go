@@ -12,7 +12,7 @@ var (
 	//go:embed index.html
 	indexHtml []byte
 
-	//go:embed bundle.js
+	//go:embed out/bundle.min.js
 	bundleJs []byte
 )
 
@@ -28,5 +28,5 @@ func handleStatic(r *mux.Router, path, contentType string, data []byte) {
 
 func RegisterRoutes(r *mux.Router) {
 	handleStatic(r, "/", "text/html", indexHtml)
-	handleStatic(r, "/bundle.js", "application/javascript", bundleJs)
+	handleStatic(r, "/bundle.min.js", "application/javascript", bundleJs)
 }
