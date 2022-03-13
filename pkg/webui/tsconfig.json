@@ -3,6 +3,8 @@
     "module": "es6",
     "moduleResolution": "node",
     "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "outDir": "out"
   }
 }

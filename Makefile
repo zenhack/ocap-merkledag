@@ -11,10 +11,15 @@ sandstorm: cmd/$(sandstorm_exe)/$(sandstorm_exe)
 dev: sandstorm
 	spk dev
 
+clean:
+	cd $(webui) && rm -rf out
+
 webui := pkg/webui
 ui_deps := $(webui)/node_modules/.deps_installed
 webui: $(webui)/out/bundle.min.js
-ts_src := $(shell find $(webui)/src -type f -name '*.ts')
+ts_src := \
+	  $(shell find $(webui)/src -type f -name '*.ts') \
+	  $(shell find $(webui)/src -type f -name '*.tsx')
 $(ui_deps): $(webui)/package.json
 	cd $(webui) && npm install
 	touch $@
