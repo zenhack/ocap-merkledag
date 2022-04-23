@@ -274,6 +274,7 @@ func initArenas(s *DiskStore, create bool) error {
 			return err
 		}
 		indexRootMsg := &capnp.Message{Arena: capnp.SingleSegment(indexRootBytes)}
+		indexRootMsg.ResetReadLimit(math.MaxUint64)
 		s.indexRoot, err = diskstore.ReadRootTrieMap(indexRootMsg)
 		return err
 	}
@@ -370,5 +371,6 @@ func (s *DiskStore) insert(hash *Hash, addr types.Addr) error {
 	}
 	res.ResAddr.EncodeInto(bm)
 	s.indexRoot = res.ResNode
+	s.indexRoot.Message().ResetReadLimit(math.MaxUint64)
 	return nil
 }

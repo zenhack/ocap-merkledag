@@ -5,6 +5,7 @@ package triemap
 import (
 	"bytes"
 	"errors"
+	"math"
 
 	"capnproto.org/go/capnp/v3"
 
@@ -335,6 +336,9 @@ func fetchNode(s Storage, addr types.Addr) (diskstore.TrieMap, error) {
 	if err != nil {
 		return diskstore.TrieMap{}, err
 	}
-	msg := &capnp.Message{Arena: capnp.SingleSegment(data)}
+	msg := &capnp.Message{
+		Arena:         capnp.SingleSegment(data),
+		TraverseLimit: math.MaxUint64,
+	}
 	return diskstore.ReadRootTrieMap(msg)
 }
