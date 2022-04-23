@@ -87,7 +87,7 @@ func saveFile(ctx context.Context, path string, f files.File) error {
 		if err != nil {
 			return err
 		}
-		return os.Symlink(path, target)
+		return os.Symlink(target, path)
 	default:
 		return fmt.Errorf("%q: Unknown file type: %v", path, f.Which())
 	}
