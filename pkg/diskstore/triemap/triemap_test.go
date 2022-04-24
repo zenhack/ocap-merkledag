@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"testing/quick"
 
 	"zenhack.net/go/ocap-md/pkg/diskstore/filearena"
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
@@ -55,7 +56,11 @@ func (s *testStorage) Clear(addr types.Addr) error {
 }
 
 func TestTrieMapInMemory(t *testing.T) {
-	testTrieMap(t, makeTestStorage())
+	err := quick.Check(func(flushPoints []byte) bool {
+		testTrieMap(t, makeTestStorage(), flushPoints)
+		return true
+	}, nil)
+	chkfatal(t, "quick.Check", err)
 }
 
 func TestTrieMapFileArena(t *testing.T) {
@@ -71,11 +76,11 @@ func TestTrieMapFileArena(t *testing.T) {
 	}
 	testTrieMap(t, &FileArenaStorage{
 		FileArena: fa,
-	})
+	}, nil)
 }
 
-func testTrieMap(t *testing.T, s Storage) {
-	e := makeEnv(t, s)
+func testTrieMap(t *testing.T, s Storage, flushPoints []byte) {
+	e := makeEnv(t, s, flushPoints)
 
 	expectAbsent(e, "")
 	expectAbsent(e, "abc")
@@ -127,22 +132,38 @@ func testTrieMap(t *testing.T, s Storage) {
 	expectFound(e, "abf", 6)
 }
 
-func makeEnv(t *testing.T, s Storage) *env {
+func makeEnv(t *testing.T, s Storage, flushPoints []byte) *env {
 	ret := &env{
 		t: t,
 		s: makeTestStorage(),
+	}
+	for _, p := range flushPoints {
+		ret.flushPoints[p] = true
 	}
 	ret.m = New(ret.s, types.Addr{})
 	return ret
 }
 
 type env struct {
-	t *testing.T
-	s Storage
-	m *TrieMap
+	t           *testing.T
+	s           Storage
+	m           *TrieMap
+	ctr         byte
+	flushPoints [256]bool
+}
+
+func (e *env) tick() {
+	if e.flushPoints[e.ctr] {
+		fmt.Println("Flushing at point", e.ctr)
+		chkfatal(e.t, "e.m.Flush()", e.m.Flush())
+	} else {
+		fmt.Println("Not flushing at point", e.ctr)
+	}
+	e.ctr++
 }
 
 func doDelete(e *env, key string, found bool) {
+	e.tick()
 	err := e.m.Remove([]byte(key))
 	if !found {
 		assertErr(e.t, err, ErrNotFound)
@@ -152,16 +173,19 @@ func doDelete(e *env, key string, found bool) {
 }
 
 func doInsert(e *env, key string, value int64) {
+	e.tick()
 	err := e.m.Insert([]byte(key), types.Addr{Offset: value})
 	chkfatal(e.t, "doInsert", err)
 }
 
 func expectAbsent(e *env, key string) {
+	e.tick()
 	_, err := e.m.Lookup([]byte(key))
 	assertErr(e.t, err, ErrNotFound)
 }
 
 func expectFound(e *env, key string, want int64) {
+	e.tick()
 	have, err := e.m.Lookup([]byte(key))
 	chkfatal(e.t, "expectFound", err)
 	assertEq(e.t, have, types.Addr{Offset: want})

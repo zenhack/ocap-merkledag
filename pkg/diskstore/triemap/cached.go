@@ -154,16 +154,16 @@ func (p *nodePtr) flushAndClear(s Storage) (types.Addr, error) {
 }
 
 func (p *nodePtr) flush(s Storage) (addr types.Addr, err error) {
-	if !p.dirty || p.empty() {
+	if !p.dirty {
 		return p.addr, nil
 	}
-	if (p.addr != types.Addr{}) {
+	if p.node != nil {
 		addr, err = p.node.flush(s)
-		if err != nil {
-			return types.Addr{}, err
-		}
-		p.addr = addr
 	}
+	if err != nil {
+		return types.Addr{}, err
+	}
+	p.addr = addr
 	p.dirty = false
 	return addr, nil
 }
