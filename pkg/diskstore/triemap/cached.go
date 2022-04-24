@@ -124,7 +124,12 @@ func (p *nodePtr) remove(key []byte, s Storage) error {
 	node, err := p.node.remove(key, s)
 	if err == nil {
 		p.node = node
-		p.dirty = true
+		if node == nil {
+			p.addr = types.Addr{}
+			p.dirty = false
+		} else {
+			p.dirty = true
+		}
 	}
 	return err
 }

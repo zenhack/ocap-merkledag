@@ -154,10 +154,7 @@ type env struct {
 
 func (e *env) tick() {
 	if e.flushPoints[e.ctr] {
-		fmt.Println("Flushing at point", e.ctr)
 		chkfatal(e.t, "e.m.Flush()", e.m.Flush())
-	} else {
-		fmt.Println("Not flushing at point", e.ctr)
 	}
 	e.ctr++
 }
@@ -166,7 +163,7 @@ func doDelete(e *env, key string, found bool) {
 	e.tick()
 	err := e.m.Remove([]byte(key))
 	if !found {
-		assertErr(e.t, err, ErrNotFound)
+		assertErr(e.t, "doDelete", err, ErrNotFound)
 	} else {
 		chkfatal(e.t, "doDelete", err)
 	}
@@ -181,7 +178,7 @@ func doInsert(e *env, key string, value int64) {
 func expectAbsent(e *env, key string) {
 	e.tick()
 	_, err := e.m.Lookup([]byte(key))
-	assertErr(e.t, err, ErrNotFound)
+	assertErr(e.t, "expectAbsent", err, ErrNotFound)
 }
 
 func expectFound(e *env, key string, want int64) {
@@ -198,9 +195,9 @@ func chkfatal(t *testing.T, prefix string, err error) {
 	}
 }
 
-func assertErr(t *testing.T, errHave, errWant error) {
+func assertErr(t *testing.T, ctx string, errHave, errWant error) {
 	if !errors.Is(errHave, errWant) {
-		t.Fatalf("Expected error %v, but got %v", errWant, errHave)
+		t.Fatalf("%v: Expected error %v, but got %v", ctx, errWant, errHave)
 	}
 }
 
