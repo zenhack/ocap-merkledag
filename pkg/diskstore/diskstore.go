@@ -22,9 +22,8 @@ type DiskStore struct {
 	path         string
 	manifest     diskstore.Manifest
 	index, blobs *filearena.FileArena
-	indexStorage triemap.Storage
 
-	indexRoot       diskstore.TrieMap
+	indexRoot       *triemap.TrieMap
 	checkpointTimer *time.Timer
 	closing         chan struct{}
 
@@ -92,6 +91,11 @@ func (s *DiskStore) Checkpoint() error {
 	s.checkpointLock.Lock()
 	defer s.checkpointLock.Unlock()
 
+	err := s.indexRoot.Flush()
+	if err != nil {
+		return err
+	}
+
 	syncArena := func(a *filearena.FileArena) chan syncArenaResult {
 		ch := make(chan syncArenaResult, 1)
 		go func() {
@@ -118,7 +122,7 @@ func (s *DiskStore) Checkpoint() error {
 	// At the very least, we should be able to release locks before the
 	// next fsync, which is the bigger deal.
 
-	err := firstErr(indexRes.err, blobsRes.err)
+	err = firstErr(indexRes.err, blobsRes.err)
 	if err != nil {
 		return err
 	}
@@ -261,23 +265,14 @@ func initArenas(s *DiskStore, create bool) error {
 	if s.blobs, err = openArena(s.path+"/blobs", int64(s.manifest.BlobArenaSize()), create); err != nil {
 		return err
 	}
-	s.indexStorage = &triemap.FileArenaStorage{
-		FileArena: s.index,
-		// TODO: Set ClearFn to something useful.
-	}
 
-	// Load the root node of the index:
-	addr := types.DecodeAddr(blobMapAddr)
-	if addr.Length != 0 { // If this is zero, the root hasn't been set yet.
-		indexRootBytes, err := s.indexStorage.Fetch(types.DecodeAddr(blobMapAddr))
-		if err != nil {
-			return err
-		}
-		indexRootMsg := &capnp.Message{Arena: capnp.SingleSegment(indexRootBytes)}
-		indexRootMsg.ResetReadLimit(math.MaxUint64)
-		s.indexRoot, err = diskstore.ReadRootTrieMap(indexRootMsg)
-		return err
-	}
+	s.indexRoot = triemap.New(
+		&triemap.FileArenaStorage{
+			FileArena: s.index,
+			// TODO: Set ClearFn to something useful.
+		},
+		types.DecodeAddr(blobMapAddr),
+	)
 	return nil
 }
 
@@ -327,7 +322,7 @@ func Create(path string) (*DiskStore, error) {
 }
 
 func (s *DiskStore) lookup(hash *Hash) (types.Addr, error) {
-	return triemap.Lookup(s.indexStorage, hash[:], s.indexRoot)
+	return s.indexRoot.Lookup(hash[:])
 }
 
 func (s *DiskStore) Get(hash *Hash) ([]byte, error) {
@@ -361,7 +356,7 @@ func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
 }
 
 func (s *DiskStore) insert(hash *Hash, addr types.Addr) error {
-	res, err := triemap.Insert(s.indexStorage, hash[:], addr.Encode(), s.indexRoot)
+	err := s.indexRoot.Insert(hash[:], addr)
 	if err != nil {
 		return err
 	}
@@ -369,8 +364,6 @@ func (s *DiskStore) insert(hash *Hash, addr types.Addr) error {
 	if err != nil {
 		return err
 	}
-	res.ResAddr.EncodeInto(bm)
-	s.indexRoot = res.ResNode
-	s.indexRoot.Message().ResetReadLimit(math.MaxUint64)
+	s.indexRoot.RootAddr().EncodeInto(bm)
 	return nil
 }

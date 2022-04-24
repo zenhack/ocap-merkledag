@@ -9,7 +9,6 @@ import (
 
 	"zenhack.net/go/ocap-md/pkg/diskstore/filearena"
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
-	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
 )
 
 type testStorage struct {
@@ -103,19 +102,19 @@ func testTrieMap(t *testing.T, s Storage) {
 	expectFound(e, "bcd", 5)
 	expectFound(e, "abf", 6)
 
-	doDelete(e, "xyz")
+	doDelete(e, "xyz", false)
 	expectFound(e, "abc", 3)
 	expectFound(e, "acc", 4)
 	expectFound(e, "bcd", 5)
 	expectFound(e, "abf", 6)
 
-	doDelete(e, "abc")
+	doDelete(e, "abc", true)
 	expectAbsent(e, "abc")
 	expectFound(e, "acc", 4)
 	expectFound(e, "bcd", 5)
 	expectFound(e, "abf", 6)
 
-	doDelete(e, "bcd")
+	doDelete(e, "bcd", true)
 	expectAbsent(e, "abc")
 	expectFound(e, "acc", 4)
 	expectAbsent(e, "bcd")
@@ -129,37 +128,41 @@ func testTrieMap(t *testing.T, s Storage) {
 }
 
 func makeEnv(t *testing.T, s Storage) *env {
-	return &env{
+	ret := &env{
 		t: t,
 		s: makeTestStorage(),
 	}
+	ret.m = New(ret.s, types.Addr{})
+	return ret
 }
 
 type env struct {
 	t *testing.T
 	s Storage
-	m diskstore.TrieMap
+	m *TrieMap
 }
 
-func doDelete(e *env, key string) {
-	res, err := Delete(e.s, []byte(key), e.m)
-	chkfatal(e.t, "doDelete", err)
-	e.m = res.ResNode
+func doDelete(e *env, key string, found bool) {
+	err := e.m.Remove([]byte(key))
+	if !found {
+		assertErr(e.t, err, ErrNotFound)
+	} else {
+		chkfatal(e.t, "doDelete", err)
+	}
 }
 
 func doInsert(e *env, key string, value int64) {
-	res, err := Insert(e.s, []byte(key), types.Addr{Offset: value}.Encode(), e.m)
+	err := e.m.Insert([]byte(key), types.Addr{Offset: value})
 	chkfatal(e.t, "doInsert", err)
-	e.m = res.ResNode
 }
 
 func expectAbsent(e *env, key string) {
-	_, err := Lookup(e.s, []byte(key), e.m)
+	_, err := e.m.Lookup([]byte(key))
 	assertErr(e.t, err, ErrNotFound)
 }
 
 func expectFound(e *env, key string, want int64) {
-	have, err := Lookup(e.s, []byte(key), e.m)
+	have, err := e.m.Lookup([]byte(key))
 	chkfatal(e.t, "expectFound", err)
 	assertEq(e.t, have, types.Addr{Offset: want})
 }
