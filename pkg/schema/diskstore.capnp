@@ -39,20 +39,6 @@ struct TrieMap {
   }
 }
 
-struct WalEntry {
-  # An operation to be written to a write-ahead-log (WAL).
-  #
-  # This is used for destructive operations that must wait until after
-  # a checkpoint, like clearing space.
-  union {
-    noop @0 :Void;
-    # No-op, because capnp doesn't allow one variant unions.
-
-    clearBlobMapStorage @1 :Addr(TrieMap);
-    # Clear the address range inside the blobMap.
-  }
-}
-
 struct Manifest {
   blobMap @0 :Addr(TrieMap);
   root @1 :Protocol.ContentId;
