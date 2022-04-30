@@ -263,15 +263,11 @@ func NewRootApi(s *DiskStore) protocol.RootApi {
 
 var (
 	ErrUnknownAlgo     = errors.New("Unknown hash algorithm")
-	ErrUnknownFormat   = errors.New("Unknown blob format")
 	ErrBadDigestLength = errors.New("Incorrect digest length")
 	ErrCorruptedBlob   = errors.New("Loaded blob did not match expected digest")
 )
 
 func contentIdHash(cid protocol.ContentId) (hash Hash, err error) {
-	if cid.Format() != protocol.ContentId_Format_segment {
-		return hash, ErrUnknownFormat
-	}
 	if cid.Algo() != protocol.ContentId_Algo_sha256 {
 		return hash, ErrUnknownAlgo
 	}

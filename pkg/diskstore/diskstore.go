@@ -44,7 +44,6 @@ type Hash [sha256.Size]byte
 
 func (h *Hash) ToContentId(cid protocol.ContentId) {
 	cid.SetDigest(h[:])
-	cid.SetFormat(protocol.ContentId_Format_segment)
 	cid.SetAlgo(protocol.ContentId_Algo_sha256)
 }
 
@@ -126,7 +125,7 @@ func (s *DiskStore) Checkpoint() error {
 	if err != nil {
 		return err
 	}
-	s.manifest.SetBlobArenaSize(uint64(blobsRes.off))
+	s.manifest.LastLog().SetSize(uint64(blobsRes.off))
 
 	//TODO/FIXME: set address of root?
 
@@ -262,7 +261,7 @@ func initArenas(s *DiskStore, create bool) error {
 		return err
 	}
 
-	if s.blobs, err = openArena(s.path+"/blobs", int64(s.manifest.BlobArenaSize()), create); err != nil {
+	if s.blobs, err = openArena(s.path+"/blobs", int64(s.manifest.LastLog().Size()), create); err != nil {
 		return err
 	}
 
