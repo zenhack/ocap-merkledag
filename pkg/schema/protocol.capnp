@@ -42,13 +42,7 @@ struct Dynamic {
 struct ContentId {
   digest @0 :Data;
 
-  format @1 :Format;
-  enum Format {
-    segment @0;
-    bytes @1;
-  }
-
-  algo @2 :Algo;
+  algo @1 :Algo;
   enum Algo {
     sha256 @0;
   }
