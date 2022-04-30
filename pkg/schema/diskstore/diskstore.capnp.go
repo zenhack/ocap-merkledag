@@ -52,21 +52,12 @@ func (s Addr) SetLength(v uint32) {
 }
 
 // Addr_List is a list of Addr.
-type Addr_List struct{ capnp.List }
+type Addr_List = capnp.StructList[Addr]
 
 // NewAddr creates a new list of Addr.
 func NewAddr_List(s *capnp.Segment, sz int32) (Addr_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 0}, sz)
-	return Addr_List{l}, err
-}
-
-func (s Addr_List) At(i int) Addr { return Addr{s.List.Struct(i)} }
-
-func (s Addr_List) Set(i int, v Addr) error { return s.List.SetStruct(i, v.Struct) }
-
-func (s Addr_List) String() string {
-	str, _ := text.MarshalList(0xe45f1d3ad96f0c55, s.List)
-	return str
+	return capnp.StructList[Addr]{l}, err
 }
 
 // Addr_Future is a wrapper for a Addr promised by a client call.
@@ -200,21 +191,12 @@ func (s TrieMap) NewBranches(n int32) (Addr_List, error) {
 }
 
 // TrieMap_List is a list of TrieMap.
-type TrieMap_List struct{ capnp.List }
+type TrieMap_List = capnp.StructList[TrieMap]
 
 // NewTrieMap creates a new list of TrieMap.
 func NewTrieMap_List(s *capnp.Segment, sz int32) (TrieMap_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2}, sz)
-	return TrieMap_List{l}, err
-}
-
-func (s TrieMap_List) At(i int) TrieMap { return TrieMap{s.List.Struct(i)} }
-
-func (s TrieMap_List) Set(i int, v TrieMap) error { return s.List.SetStruct(i, v.Struct) }
-
-func (s TrieMap_List) String() string {
-	str, _ := text.MarshalList(0xcc6f8e43c0d837f7, s.List)
-	return str
+	return capnp.StructList[TrieMap]{l}, err
 }
 
 // TrieMap_Future is a wrapper for a TrieMap promised by a client call.
@@ -237,119 +219,6 @@ func (p TrieMap_leaf_Future) Struct() (TrieMap_leaf, error) {
 
 func (p TrieMap_leaf_Future) Addr() Addr_Future {
 	return Addr_Future{Future: p.Future.Field(1, nil)}
-}
-
-type WalEntry struct{ capnp.Struct }
-type WalEntry_Which uint16
-
-const (
-	WalEntry_Which_noop                WalEntry_Which = 0
-	WalEntry_Which_clearBlobMapStorage WalEntry_Which = 1
-)
-
-func (w WalEntry_Which) String() string {
-	const s = "noopclearBlobMapStorage"
-	switch w {
-	case WalEntry_Which_noop:
-		return s[0:4]
-	case WalEntry_Which_clearBlobMapStorage:
-		return s[4:23]
-
-	}
-	return "WalEntry_Which(" + strconv.FormatUint(uint64(w), 10) + ")"
-}
-
-// WalEntry_TypeID is the unique identifier for the type WalEntry.
-const WalEntry_TypeID = 0xce6abb84859ac517
-
-func NewWalEntry(s *capnp.Segment) (WalEntry, error) {
-	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return WalEntry{st}, err
-}
-
-func NewRootWalEntry(s *capnp.Segment) (WalEntry, error) {
-	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return WalEntry{st}, err
-}
-
-func ReadRootWalEntry(msg *capnp.Message) (WalEntry, error) {
-	root, err := msg.Root()
-	return WalEntry{root.Struct()}, err
-}
-
-func (s WalEntry) String() string {
-	str, _ := text.Marshal(0xce6abb84859ac517, s.Struct)
-	return str
-}
-
-func (s WalEntry) Which() WalEntry_Which {
-	return WalEntry_Which(s.Struct.Uint16(0))
-}
-func (s WalEntry) SetNoop() {
-	s.Struct.SetUint16(0, 0)
-
-}
-
-func (s WalEntry) ClearBlobMapStorage() (Addr, error) {
-	if s.Struct.Uint16(0) != 1 {
-		panic("Which() != clearBlobMapStorage")
-	}
-	p, err := s.Struct.Ptr(0)
-	return Addr{Struct: p.Struct()}, err
-}
-
-func (s WalEntry) HasClearBlobMapStorage() bool {
-	if s.Struct.Uint16(0) != 1 {
-		return false
-	}
-	return s.Struct.HasPtr(0)
-}
-
-func (s WalEntry) SetClearBlobMapStorage(v Addr) error {
-	s.Struct.SetUint16(0, 1)
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
-}
-
-// NewClearBlobMapStorage sets the clearBlobMapStorage field to a newly
-// allocated Addr struct, preferring placement in s's segment.
-func (s WalEntry) NewClearBlobMapStorage() (Addr, error) {
-	s.Struct.SetUint16(0, 1)
-	ss, err := NewAddr(s.Struct.Segment())
-	if err != nil {
-		return Addr{}, err
-	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
-	return ss, err
-}
-
-// WalEntry_List is a list of WalEntry.
-type WalEntry_List struct{ capnp.List }
-
-// NewWalEntry creates a new list of WalEntry.
-func NewWalEntry_List(s *capnp.Segment, sz int32) (WalEntry_List, error) {
-	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return WalEntry_List{l}, err
-}
-
-func (s WalEntry_List) At(i int) WalEntry { return WalEntry{s.List.Struct(i)} }
-
-func (s WalEntry_List) Set(i int, v WalEntry) error { return s.List.SetStruct(i, v.Struct) }
-
-func (s WalEntry_List) String() string {
-	str, _ := text.MarshalList(0xce6abb84859ac517, s.List)
-	return str
-}
-
-// WalEntry_Future is a wrapper for a WalEntry promised by a client call.
-type WalEntry_Future struct{ *capnp.Future }
-
-func (p WalEntry_Future) Struct() (WalEntry, error) {
-	s, err := p.Future.Struct()
-	return WalEntry{s}, err
-}
-
-func (p WalEntry_Future) ClearBlobMapStorage() Addr_Future {
-	return Addr_Future{Future: p.Future.Field(0, nil)}
 }
 
 type Manifest struct{ capnp.Struct }
@@ -434,21 +303,12 @@ func (s Manifest) SetBlobArenaSize(v uint64) {
 }
 
 // Manifest_List is a list of Manifest.
-type Manifest_List struct{ capnp.List }
+type Manifest_List = capnp.StructList[Manifest]
 
 // NewManifest creates a new list of Manifest.
 func NewManifest_List(s *capnp.Segment, sz int32) (Manifest_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2}, sz)
-	return Manifest_List{l}, err
-}
-
-func (s Manifest_List) At(i int) Manifest { return Manifest{s.List.Struct(i)} }
-
-func (s Manifest_List) Set(i int, v Manifest) error { return s.List.SetStruct(i, v.Struct) }
-
-func (s Manifest_List) String() string {
-	str, _ := text.MarshalList(0xe09672577fe40a61, s.List)
-	return str
+	return capnp.StructList[Manifest]{l}, err
 }
 
 // Manifest_Future is a wrapper for a Manifest promised by a client call.
@@ -467,48 +327,43 @@ func (p Manifest_Future) Root() protocol.ContentId_Future {
 	return protocol.ContentId_Future{Future: p.Future.Field(1, nil)}
 }
 
-const schema_dc976fcd6fee6223 = "x\xda\xa4\x92OH\x14o\x1c\xc6\x9f\xe7}g]\xfd" +
-	"\xa1\xee\x8c\xe3\x0f\xbb\x84\x87\x0aRH\x0c\x84`!\xfc" +
-	"\x13{(\x10|\xd1\xf0\x12\xc4\xac;\xab[\xc3\xbc\xcb" +
-	"\xbb\x03\xa6(\x06\x15y\xeaX\xd1\xb1C\x87 \xa2\x83" +
-	"\x87\x08!\x02/R\x9d:$tH\xb0K\x87\xaeA" +
-	"\x07'fV\xdbE\xb6Cu}\xe7\xc3w>\xcf\xf3" +
-	"\xfd\x0e\xdf\xe5\x988\x9bY\xb3\x005\x92i\x8b\xd7w" +
-	"o\xb9\xab\xfb\xf3\x0f\xa1\x8e\x91\xf1\xf7s\x1f__\xb8" +
-	"\xa7\xdf\xe2\x7f\x91%\xe0\x9e\x12_Aw@,\xa2\xe9" +
-	"\x9b\xb2\xc9\xf8D\xf1\x9b~\xa7\x1f|BAd\x05\xe0" +
-	"n\x887\xee\xa6\xc8\x02\xee\xcb\x94\xee\xdbzt\xe7\xf6" +
-	"\xabk\xef\x8f\xd2L\xe9\xf3r\xdb\xbd(\x13\xba \x13" +
-	"\xda\xfboom\xd6\xdc\xff|\x84\xce\xa4\x03w\xe4\xb6" +
-	"\xfb%\x85w\xe5s0\xbe\xdc\xa9w\xf2\xc7\xaf\xee%" +
-	"\xb0h\xc0V\xd6\xa6\xfb\xccz\xeanX\x09\xfb\xc2Z" +
-	"L\x02dr\x98\x8dK\x95\xda\xf5Z\xa4\x8d\xf0\x87\xe6" +
-	"\xbcjX\xcd\xcf\x98\x8a?\xe9U\x87r\x81\xef\x95U" +
-	"\xbb\xb4\x00\x8b\x803\x90\x07\xd4II5,\xe8\x90\xbd" +
-	"L\x1e\xcf\x0c\x02\xea\xb4\xa4*\x09\x8eV\x8d_\xae\xdc" +
-	"`\x17\x04\xbb\xc0\x9cW*\x19\xda\x0d%`\x8c\x0e\xfb" +
-	"\x95%\xd8\xfc\xe8\xb0OY$9%\xc9\x1e\x08\xda\xe0" +
-	"o\xad0E&N\x9dqL6\x16\xe4\x0c\x0cBt" +
-	"q?\xee\xa5\x00\x1c\xe7\x12\xa0lIuE0\x8d\x11" +
-	"\x17\x8d\x17\xce-\xf85\x00\xecF\xfa\xab\xbf0\xebn" +
-	"e6\xeb\x05\x8502Khr\xab\x176\xd8(\xac" +
-	"\xee\x966\xf6\x18P\xc3\x92*\x10\xcc\x85ZW\xd1\x16" +
-	"\xcf\x05\xbeg&\x02\xcd\xe2\xa4W\x9d\x8e\xb4\xc9z\xf3" +
-	"\xfe\x9f\x0a\xda\x8d+\x04[\x978\xe9\x85\x95\xb2_\x8b" +
-	"\xea\xaa\x9d\xbfV[\x98\x00\xd4\x98\xa4ZiZ\xedR" +
-	"\xa2\x1fI\xaa\x9b\x82\x14\xf5bW\x0d\xa0V$\xd5\xba" +
-	"\xe0Z1\xd0\x89\xef?{\xe6\x8c\xd6\x11\xed\xf8\x89\xf9" +
-	"\xb1\xf0ays\xebP?\x99?n\xfc\x10\xfd\xdet" +
-	"e\xd9g\x07\x04;\x9ab\xf10Vn\xbcT2\x07" +
-	"\xe5\xb7<VqP}\xfe\xe0XG\x04Gu\xb9\\" +
-	"\xf3\xa3\xc3\xa1\xa3\x81\x1f\xceG\x0bl\x87`;8n" +
-	"\xd1a\x0fg~\x06\x00\x00\xff\xff\x07\xd8\x06\x0b"
+const schema_dc976fcd6fee6223 = "x\xda\x9c\x92Ak\x13_\x14\xc5\xcf\xb9o\xfaO\xfb" +
+	"'if:\x15uQ\xbaP\xd0\x16,\x11\x04!\x9b" +
+	"$J7b\xa0\x0f+\xdd(2\xe9L\x9a`\xc8\x84" +
+	"\x97\x81ji\xa9\xe0\xa6.\x14\xdc\xa8\x9f\xc0\x85\x1b?" +
+	"\x81 \x82\x1b\xd1\x9d\x0b\x05\x17\x0au\xa1\xa0[Q\xb0" +
+	"O&\xa6&H]\xe8n\xb8s\xb8\xefw\x7f\x9c\xc2" +
+	"Y\x96\x9d\xe3\xb9#\x0eD\x17F\xfe\xb3[\xef\xae\xfb" +
+	"\x1b;+\xf7\xa0\x0f\x90\xf6\xcb\xc9W\x8fO\xdf\x8a\x9f" +
+	"c\x9fd\x08\xf8_\xf9\x11\xf4\xbfs\x15C\xff\xb4K" +
+	"\xdaC\xb5\xcf\xf1\x8b\xf8\xee\x1b\xccKF\x00\xff\x86<" +
+	"\xf1oK\x06\xf0oJ\x9a\x0e\xfe\xdf\xde\\2w\xde" +
+	"\xfe\x96\x1e\xe9E<\xf5\xcc\x9fR\xe9\xd7A\xf5\x10\xb4" +
+	"\xe7\xb3\xf1\xeb\xe2\xd4\xa5\xed4,\x83\xb0\x93q\xe9\xbf" +
+	"W\x0f\xfcO\xbd\xec\x07\xb5\x0a\xf8\x17\x9d<\x96l\xd8" +
+	"\xec^\xee&\xb1\x91hn9\xe8\xb4;\xc5E\xd3\x8c" +
+	"\xaaAg.\xdf\x8a\x82\xba\x1eU\x0e\xe0\x10\xf0f\x8a" +
+	"\x80>\xac\xa8\x0bB\x8f\x9cd:<6\x0b\xe8\xa3\x8a" +
+	":\x14\x96:&\xaa7\xaf0\x07a\x0e\xcc\x07ah" +
+	"\xe8\x0e\x90\x802=NkG8<\xf4\xb8_;$" +
+	"\xb9\xa0\xc8\x09\x08]\xf0\x8fTX S\xa6\xac\xb5\xe4" +
+	"@\xb973\x0b\xc9q\xc7NR\x00\xcf;\x03hW" +
+	"Q_\x10\xf6\xce\xb05\x13\xb4\x97\x1bQ\x17\x00\xc7\xd1" +
+	"{\xea\x1f\xc8\xc6\xf7\"\xab\x06\xedf=\xea&\xe8\xb1" +
+	"e\x7f\xf9\x9a?\x05\xe8\xb2\xa2^\x1f\xf2u5\xf5\x95" +
+	"(\xeakB\xcaO\xda\x0d\x03\xe8uE\xbd%\xdc\xac" +
+	"\xb5\xe2Z5\xe8\xfc-\x9d;(\x15\x98\x1a\xcc\x9b8" +
+	"N\xe8\xda\xfb\xe6[\xe3\xe5\xda\xa3\xa7\xfd\xb1M\xf7W" +
+	"L\xd4\xc6tp\xae\xb9\x16q\x0c\xc2\xb1\xa1\xb3\xb8{" +
+	"V\xbe\x12\x86\xa6o{\xcf\x06H\xbf\x01\xc5~\x03N" +
+	"\x08Kq\xbd\xde\x8d\x92\xdd\xa5\xa5V\xd4^I\x1a\x1c" +
+	"\x85p\x14\xac8\xf48\xc1\xc5\x1f\x01\x00\x00\xff\xff\xb2" +
+	"6\xc9\xa2"
 
 func init() {
 	schemas.Register(schema_dc976fcd6fee6223,
 		0x9867fe7d1383e188,
 		0xcc6f8e43c0d837f7,
-		0xce6abb84859ac517,
 		0xe09672577fe40a61,
 		0xe45f1d3ad96f0c55)
 }
