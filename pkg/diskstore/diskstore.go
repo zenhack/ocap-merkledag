@@ -27,11 +27,6 @@ type DiskStore struct {
 	checkpointTimer *time.Timer
 	closing         chan struct{}
 
-	// Lock which must be held in write mode to make a checkpoint.
-	// goroutines making modifications to the state must hold this
-	// in read mode whenever a checkpoint would be inconsistent.
-	checkpointLock *sync.RWMutex
-
 	// TODO: the way much of the code is written tries to anticipate
 	// fine-grained locking, but at a certain point I decided I wanted
 	// to get something up and running faster, so this is currently
@@ -86,9 +81,6 @@ func (s *DiskStore) Checkpoint() error {
 
 	// TODO: this all needs to be carefully audited and vetted.
 	tmpManifestPath := s.path + "/manifest.new"
-
-	s.checkpointLock.Lock()
-	defer s.checkpointLock.Unlock()
 
 	err := s.indexRoot.Flush()
 	if err != nil {
@@ -245,7 +237,6 @@ func Open(path string) (*DiskStore, error) {
 
 func (s *DiskStore) initMutexes() {
 	s.mu = &sync.Mutex{}
-	s.checkpointLock = &sync.RWMutex{}
 }
 
 func initArenas(s *DiskStore, create bool) error {
