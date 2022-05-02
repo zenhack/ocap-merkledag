@@ -9,21 +9,6 @@ import (
 	"capnproto.org/go/capnp/v3"
 )
 
-/*
-// Abstract interface for the backing store.
-type Storage interface {
-	// Fetch the log entry at the given address.
-	Fetch(types.Addr) (diskstore.LogEntry, error)
-
-	// Store the data, returning its address.
-	WriteEntry(ent diskstore.LogEntry) (types.Addr, error)
-
-	// Marks the address range for deletion. Note: the current implementation
-	// does not use this; proper cleanup is still TODO
-	Clear(types.Addr) error
-}
-*/
-
 type logWriterStorage struct {
 	l *LogWriter
 }

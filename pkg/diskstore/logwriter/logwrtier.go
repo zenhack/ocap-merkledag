@@ -98,10 +98,6 @@ func (l *LogWriter) WriteEntry(ent diskstore.LogEntry) (types.LocalAddr, error) 
 	}, nil
 }
 
-func (l *LogWriter) File() *os.File {
-	return l.file
-}
-
 func (l *LogWriter) Offset() int64 {
 	return l.offset
 }
