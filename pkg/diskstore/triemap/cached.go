@@ -10,11 +10,11 @@ import (
 )
 
 type TrieMap struct {
-	storage Storage
+	storage types.Storage
 	root    nodePtr
 }
 
-func New(s Storage, addr types.Addr) *TrieMap {
+func New(s types.Storage, addr types.Addr) *TrieMap {
 	return &TrieMap{
 		storage: s,
 		root:    nodePtr{addr: addr},
@@ -43,10 +43,10 @@ func (m *TrieMap) RootAddr() types.Addr {
 }
 
 type node interface {
-	remove(key []byte, s Storage) (node, error)
-	insert(key []byte, val types.Addr, s Storage) (node, error)
-	lookup(key []byte, s Storage) (types.Addr, error)
-	flush(s Storage) (types.Addr, error)
+	remove(key []byte, s types.Storage) (node, error)
+	insert(key []byte, val types.Addr, s types.Storage) (node, error)
+	lookup(key []byte, s types.Storage) (types.Addr, error)
+	flush(s types.Storage) (types.Addr, error)
 }
 
 type nodePtr struct {
@@ -68,7 +68,7 @@ func (p *nodePtr) empty() bool {
 	return p.node == nil && p.addr == types.Addr{}
 }
 
-func (p *nodePtr) insert(key []byte, val types.Addr, s Storage) error {
+func (p *nodePtr) insert(key []byte, val types.Addr, s types.Storage) error {
 	err := p.load(s)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (p *nodePtr) insert(key []byte, val types.Addr, s Storage) error {
 	return err
 }
 
-func (l *leaf) insert(key []byte, val types.Addr, s Storage) (node, error) {
+func (l *leaf) insert(key []byte, val types.Addr, s types.Storage) (node, error) {
 	if bytes.Compare(key, l.key) == 0 {
 		l.addr = val
 		return l, nil
@@ -104,7 +104,7 @@ func (l *leaf) insert(key []byte, val types.Addr, s Storage) (node, error) {
 	return node.insert(key, val, s)
 }
 
-func (b *branch) insert(key []byte, val types.Addr, s Storage) (node, error) {
+func (b *branch) insert(key []byte, val types.Addr, s types.Storage) (node, error) {
 	if len(key) == 0 {
 		return nil, ErrShortKey
 	}
@@ -113,7 +113,7 @@ func (b *branch) insert(key []byte, val types.Addr, s Storage) (node, error) {
 	return b, err
 }
 
-func (p *nodePtr) remove(key []byte, s Storage) error {
+func (p *nodePtr) remove(key []byte, s types.Storage) error {
 	if p.empty() {
 		return ErrNotFound
 	}
@@ -134,7 +134,7 @@ func (p *nodePtr) remove(key []byte, s Storage) error {
 	return err
 }
 
-func (l *leaf) remove(key []byte, s Storage) (node, error) {
+func (l *leaf) remove(key []byte, s types.Storage) (node, error) {
 	if bytes.Compare(l.key, key) == 0 {
 		return nil, nil
 	}
@@ -142,7 +142,7 @@ func (l *leaf) remove(key []byte, s Storage) (node, error) {
 	return l, ErrNotFound
 }
 
-func (b *branch) remove(key []byte, s Storage) (node, error) {
+func (b *branch) remove(key []byte, s types.Storage) (node, error) {
 	if len(key) == 0 {
 		return b, ErrShortKey
 	}
@@ -150,7 +150,7 @@ func (b *branch) remove(key []byte, s Storage) (node, error) {
 	return b, err
 }
 
-func (p *nodePtr) flushAndClear(s Storage) (types.Addr, error) {
+func (p *nodePtr) flushAndClear(s types.Storage) (types.Addr, error) {
 	addr, err := p.flush(s)
 	if err == nil {
 		p.node = nil
@@ -158,7 +158,7 @@ func (p *nodePtr) flushAndClear(s Storage) (types.Addr, error) {
 	return addr, err
 }
 
-func (p *nodePtr) flush(s Storage) (addr types.Addr, err error) {
+func (p *nodePtr) flush(s types.Storage) (addr types.Addr, err error) {
 	if !p.dirty {
 		return p.addr, nil
 	}
@@ -173,9 +173,8 @@ func (p *nodePtr) flush(s Storage) (addr types.Addr, err error) {
 	return addr, nil
 }
 
-func (l *leaf) flush(s Storage) (types.Addr, error) {
-	_, seg, _ := capnp.NewMessage(capnp.SingleSegment(nil))
-	m, err := diskstore.NewRootTrieMap(seg)
+func (l *leaf) flush(s types.Storage) (types.Addr, error) {
+	ent, m, err := newTrieMapEntry()
 	if err != nil {
 		return types.Addr{}, err
 	}
@@ -187,12 +186,11 @@ func (l *leaf) flush(s Storage) (types.Addr, error) {
 		return types.Addr{}, err
 	}
 	l.addr.EncodeInto(addr)
-	return s.Store(seg.Data())
+	return s.WriteEntry(ent)
 }
 
-func (b *branch) flush(s Storage) (types.Addr, error) {
-	_, seg, _ := capnp.NewMessage(capnp.SingleSegment(nil))
-	m, err := diskstore.NewRootTrieMap(seg)
+func (b *branch) flush(s types.Storage) (types.Addr, error) {
+	ent, m, err := newTrieMapEntry()
 	if err != nil {
 		return types.Addr{}, err
 	}
@@ -209,10 +207,20 @@ func (b *branch) flush(s Storage) (types.Addr, error) {
 		addr.EncodeInto(branches.At(i))
 	}
 
-	return s.Store(seg.Data())
+	return s.WriteEntry(ent)
 }
 
-func (p *nodePtr) lookup(key []byte, s Storage) (types.Addr, error) {
+func newTrieMapEntry() (diskstore.LogEntry, diskstore.TrieMap, error) {
+	_, seg, _ := capnp.NewMessage(capnp.SingleSegment(nil))
+	ent, err := diskstore.NewRootLogEntry(seg)
+	if err != nil {
+		return ent, diskstore.TrieMap{}, err
+	}
+	m, err := ent.NewIndexNode()
+	return ent, m, err
+}
+
+func (p *nodePtr) lookup(key []byte, s types.Storage) (types.Addr, error) {
 	err := p.load(s)
 	if err != nil {
 		return types.Addr{}, err
@@ -223,14 +231,14 @@ func (p *nodePtr) lookup(key []byte, s Storage) (types.Addr, error) {
 	return p.node.lookup(key, s)
 }
 
-func (l *leaf) lookup(key []byte, s Storage) (types.Addr, error) {
+func (l *leaf) lookup(key []byte, s types.Storage) (types.Addr, error) {
 	if bytes.Compare(key, l.key) != 0 {
 		return types.Addr{}, ErrNotFound
 	}
 	return l.addr, nil
 }
 
-func (b *branch) lookup(key []byte, s Storage) (types.Addr, error) {
+func (b *branch) lookup(key []byte, s types.Storage) (types.Addr, error) {
 	if len(key) == 0 {
 		return types.Addr{}, ErrShortKey
 	}
@@ -238,12 +246,12 @@ func (b *branch) lookup(key []byte, s Storage) (types.Addr, error) {
 	return kid.lookup(key[1:], s)
 }
 
-func (p *nodePtr) load(s Storage) error {
+func (p *nodePtr) load(s types.Storage) error {
 	if p.node != nil || p.empty() {
 		// already loaded.
 		return nil
 	}
-	m, err := fetchNode(s, p.addr)
+	m, err := types.FetchTrieMap(s, p.addr)
 	if err != nil {
 		return err
 	}

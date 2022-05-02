@@ -2,16 +2,18 @@ package diskstore
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"capnproto.org/go/capnp/v3"
 
-	"zenhack.net/go/ocap-md/pkg/diskstore/filearena"
+	"zenhack.net/go/ocap-md/pkg/diskstore/logwriter"
 	"zenhack.net/go/ocap-md/pkg/diskstore/triemap"
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
@@ -19,42 +21,28 @@ import (
 )
 
 type DiskStore struct {
-	path         string
-	manifest     diskstore.Manifest
-	index, blobs *filearena.FileArena
+	// Protects mutable fields
+	mu sync.Mutex
+
+	path           string
+	manifest       diskstore.Manifest
+	currentLog     *logwriter.LogWriter
+	currentLogFile *os.File
+	storage        types.Storage
 
 	indexRoot       *triemap.TrieMap
 	checkpointTimer *time.Timer
 	closing         chan struct{}
-
-	// TODO: the way much of the code is written tries to anticipate
-	// fine-grained locking, but at a certain point I decided I wanted
-	// to get something up and running faster, so this is currently
-	// a big giant lock that everything must hold. Down the line,
-	// remove this and do finer grained locking.
-	mu *sync.Mutex
 }
 
 type Hash [sha256.Size]byte
 
 func (h *Hash) ToContentId(cid protocol.ContentId) {
-	cid.SetDigest(h[:])
 	cid.SetAlgo(protocol.ContentId_Algo_sha256)
-}
-
-type syncArenaResult struct {
-	off int64
-	err error
-}
-
-// TODO: move this to some utility module:
-func firstErr(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	// FIXME: re-use existing buffer if it exists and is large enough.
+	// otherwise this will leak space.
+	// FIXME: check & return errors.
+	cid.SetDigest(h[:])
 }
 
 func (s *DiskStore) SetRoot(h *Hash) error {
@@ -75,86 +63,68 @@ func (s *DiskStore) SetRoot(h *Hash) error {
 	return nil
 }
 
+func (s *DiskStore) writeManifest() error {
+	s.manifest.SetFormatVersion(diskstore.StorageFormatVersion)
+	tmpManifestPath := filepath.Join(s.path, "manifest.tmp")
+	err := func() error {
+		f, err := os.Create(tmpManifestPath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		err = capnp.NewEncoder(f).Encode(s.manifest.Struct.Message())
+		if err != nil {
+			return err
+		}
+		err = f.Sync()
+		if err != nil {
+			return err
+		}
+		return os.Rename(tmpManifestPath, filepath.Join(s.path, "manifest"))
+		// TODO/FIXME: do we need to sync the parent dir?
+	}()
+	if err != nil {
+		// Best effort cleanup:
+		os.Remove(tmpManifestPath)
+	}
+	return err
+}
+
 func (s *DiskStore) Checkpoint() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// TODO: this all needs to be carefully audited and vetted.
-	tmpManifestPath := s.path + "/manifest.new"
 
 	err := s.indexRoot.Flush()
 	if err != nil {
 		return err
 	}
 
-	syncArena := func(a *filearena.FileArena) chan syncArenaResult {
-		ch := make(chan syncArenaResult, 1)
-		go func() {
-			off, err := a.Sync()
-			ch <- syncArenaResult{
-				off: off,
-				err: err,
-			}
-		}()
-		return ch
-	}
+	lastLog := s.currentLog
+	lastLogFile := s.currentLogFile
+	s.manifest.LastLog().SetSize(uint64(lastLog.Offset()))
 
-	indexCh := syncArena(s.index)
-	blobsCh := syncArena(s.blobs)
+	// TODO: set lastLog.logNumber. Ok for now since we don't
+	// yet break stuff up into multiple logs, so it's always zero.
 
-	indexRes := <-indexCh
-	blobsRes := <-blobsCh
+	// TODO: we should un-block other activity at this point; we have
+	// the data we need and in principle don't need to make the rest of the
+	// system wait for the .Sync() calls.
 
-	// TODO: can we get away with finer-grained concurrency here? I think
-	// we should be able to release the locks on the arenas, now that we know
-	// their bounds; we just need to make sure nobody else tries to
-	// Checkpoint().
-	//
-	// At the very least, we should be able to release locks before the
-	// next fsync, which is the bigger deal.
-
-	err = firstErr(indexRes.err, blobsRes.err)
+	err = lastLogFile.Sync()
 	if err != nil {
 		return err
 	}
-	s.manifest.LastLog().SetSize(uint64(blobsRes.off))
-
-	//TODO/FIXME: set address of root?
-
-	err = func() (err error) {
-		f, err := os.Create(tmpManifestPath)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			defer f.Close()
-			err = firstErr(err, f.Sync())
-		}()
-		err = capnp.NewEncoder(f).Encode(s.manifest.Struct.Message())
-		return err
-	}()
-
-	// TODO: add some context.
-	if err != nil {
-		// Best effort cleanup:
-		os.Remove(tmpManifestPath)
-
-		return err
-	}
-
-	// TODO/FIXME: do we need to sync the parent dir?
-	return os.Rename(tmpManifestPath, s.path+"/manifest")
+	return s.writeManifest()
 }
 
 func (s *DiskStore) Close() error {
 	if s.closing != nil {
 		close(s.closing)
 	}
-	if s.index != nil {
-		s.index.Close()
-	}
-	if s.blobs != nil {
-		s.blobs.Close()
+	if s.currentLogFile != nil {
+		s.currentLogFile.Close()
 	}
 	return nil
 }
@@ -187,27 +157,6 @@ func (s *DiskStore) startCheckpointLoop() {
 	}()
 }
 
-func openArena(path string, offset int64, create bool) (*filearena.FileArena, error) {
-	f, err := openArenaFile(path, create)
-	if err != nil {
-		return nil, err
-	}
-	fa, err := filearena.New(f, offset)
-	if err != nil {
-		f.Close()
-		return nil, err
-	}
-	return fa, nil
-}
-
-func openArenaFile(path string, create bool) (*os.File, error) {
-	if create {
-		return os.Create(path)
-	} else {
-		return os.OpenFile(path, os.O_RDWR, 0600)
-	}
-}
-
 func Open(path string) (*DiskStore, error) {
 	manifestBytes, err := ioutil.ReadFile(path + "/manifest")
 	if err != nil {
@@ -226,50 +175,43 @@ func Open(path string) (*DiskStore, error) {
 		path:     path,
 		manifest: root,
 	}
-	ret.initMutexes()
-	if err = initArenas(ret, false); err != nil {
-		ret.Close()
-		return nil, err
+	if ret.manifest.FormatVersion() > diskstore.StorageFormatVersion {
+		return nil, fmt.Errorf(
+			"Disk storage format version (%v) is too new; supported version is %v.",
+			ret.manifest.FormatVersion(), diskstore.StorageFormatVersion,
+		)
 	}
-	ret.startCheckpointLoop()
-	return ret, nil
+	return ret, ret.init(false)
 }
 
-func (s *DiskStore) initMutexes() {
-	s.mu = &sync.Mutex{}
-}
-
-func initArenas(s *DiskStore, create bool) error {
+func (s *DiskStore) init(create bool) error {
 	blobMapAddr, err := s.manifest.BlobMap()
 	if err != nil {
 		return err
 	}
-
-	// Cut the index arena off right after the root node, as that will have been
-	// the last allocation:
-	indexBound := int64(blobMapAddr.Offset()) + int64(blobMapAddr.Length())
-	if s.index, err = openArena(s.path+"/index", indexBound, create); err != nil {
-		return err
-	}
-
-	if s.blobs, err = openArena(s.path+"/blobs", int64(s.manifest.LastLog().Size()), create); err != nil {
-		return err
-	}
-
-	s.indexRoot = triemap.New(
-		&triemap.FileArenaStorage{
-			FileArena: s.index,
-			// TODO: Set ClearFn to something useful.
-		},
-		types.DecodeAddr(blobMapAddr),
+	rootAddr := types.DecodeAddr(blobMapAddr)
+	mll := s.manifest.LastLog()
+	s.currentLogFile, s.currentLog, err = logwriter.Init(
+		s.path,
+		mll.Number(),
+		int64(mll.Size()),
+		create,
 	)
+	if err != nil {
+		return err
+	}
+	if rootAddr.LogNumber != mll.Number() {
+		panic("Blob map is not in the LastLog.")
+	}
+	s.storage = logwriter.NewStorage(s.currentLog)
+	s.indexRoot = triemap.New(s.storage, rootAddr)
+	s.startCheckpointLoop()
 	return nil
 }
 
 func erase(s *DiskStore) {
-	os.Remove(s.path + "/manifest")
-	os.Remove(s.path + "/index")
-	os.Remove(s.path + "/blobs")
+	os.Remove(filepath.Join(s.path, "manifest"))
+	os.Remove(filepath.Join(logwriter.MakePath(s.path, 0)))
 }
 
 func Create(path string) (*DiskStore, error) {
@@ -278,7 +220,6 @@ func Create(path string) (*DiskStore, error) {
 		return nil, err
 	}
 	ret := &DiskStore{path: path}
-	ret.initMutexes()
 	msg, seg := capnp.NewSingleSegmentMessage(nil)
 	msg.ResetReadLimit(math.MaxUint64)
 	manifest, err := diskstore.NewRootManifest(seg)
@@ -290,20 +231,10 @@ func Create(path string) (*DiskStore, error) {
 		return nil, err
 	}
 	ret.manifest = manifest
+	ret.init(true)
+	err = ret.writeManifest()
 
-	f, err := os.Create(path + "/manifest")
 	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	err = capnp.NewEncoder(f).Encode(manifest.Struct.Message())
-	if err != nil {
-		erase(ret)
-		return nil, err
-	}
-
-	if err = initArenas(ret, true); err != nil {
-		ret.Close()
 		erase(ret)
 		return nil, err
 	}
@@ -322,7 +253,7 @@ func (s *DiskStore) Get(hash *Hash) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.blobs.Get(addr)
+	return types.FetchBlob(s.storage, addr)
 }
 
 func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
@@ -335,7 +266,15 @@ func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
 	if err == nil {
 		return hash, addr, nil
 	} else if err == triemap.ErrNotFound {
-		addr, err := s.blobs.Put(data)
+		_, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
+		if err != nil {
+			return hash, types.Addr{}, err
+		}
+		ent, err := diskstore.NewRootLogEntry(seg)
+		if err != nil {
+			return hash, types.Addr{}, err
+		}
+		addr, err := s.storage.WriteEntry(ent)
 		if err != nil {
 			return hash, types.Addr{}, err
 		}
