@@ -316,6 +316,10 @@ func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
 		if err != nil {
 			return hash, types.Addr{}, err
 		}
+		err = ent.SetBlob(data)
+		if err != nil {
+			return hash, types.Addr{}, err
+		}
 		addr, err := s.storage.WriteEntry(ent)
 		if err != nil {
 			return hash, types.Addr{}, err
