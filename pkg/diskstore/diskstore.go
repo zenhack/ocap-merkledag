@@ -1,6 +1,7 @@
 package diskstore
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -40,7 +41,9 @@ type DiskStore struct {
 
 	indexRoot       *triemap.TrieMap
 	checkpointTimer *time.Timer
-	closing         chan struct{}
+
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
 }
 
 type Hash [sha256.Size]byte
@@ -162,9 +165,8 @@ func (s *DiskStore) Checkpoint() error {
 }
 
 func (s *DiskStore) Close() error {
-	if s.closing != nil {
-		close(s.closing)
-	}
+	s.cancel()
+	s.wg.Wait()
 	if s.currentLogFile != nil {
 		s.currentLogFile.Close()
 	}
@@ -175,16 +177,17 @@ func (s *DiskStore) dirty() {
 	s.checkpointTimer.Reset(5 * time.Second)
 }
 
-func (s *DiskStore) startCheckpointLoop() {
-	s.closing = make(chan struct{})
+func (s *DiskStore) startCheckpointLoop(ctx context.Context) {
 	s.checkpointTimer = time.NewTimer(5 * time.Second)
 	ticker := time.NewTicker(30 * time.Second)
+	s.wg.Add(1)
 	go func() {
-		done := false
-		for !done {
+		defer ticker.Stop()
+		defer s.wg.Done()
+		for {
 			select {
-			case <-s.closing:
-				done = true
+			case <-ctx.Done():
+				return
 			case <-ticker.C:
 			case <-s.checkpointTimer.C:
 			}
@@ -195,7 +198,6 @@ func (s *DiskStore) startCheckpointLoop() {
 			}
 			ticker.Reset(30 * time.Second)
 		}
-		ticker.Stop()
 	}()
 }
 
@@ -247,7 +249,9 @@ func (s *DiskStore) init(create bool) error {
 	}
 	s.storage = logwriter.NewStorage(s.currentLog)
 	s.indexRoot = triemap.New(s.storage, rootAddr)
-	s.startCheckpointLoop()
+	ctx, cancel := context.WithCancel(context.Background())
+	s.cancel = cancel
+	s.startCheckpointLoop(ctx)
 	return nil
 }
 
@@ -280,7 +284,6 @@ func Create(path string) (*DiskStore, error) {
 		erase(ret)
 		return nil, err
 	}
-	ret.startCheckpointLoop()
 	return ret, nil
 }
 
