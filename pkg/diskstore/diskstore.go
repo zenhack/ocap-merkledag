@@ -101,6 +101,12 @@ func (s *DiskStore) Checkpoint() error {
 		return err
 	}
 
+	bm, err := s.manifest.BlobMap()
+	if err != nil {
+		return err
+	}
+	s.indexRoot.RootAddr().EncodeInto(bm)
+
 	lastLog := s.currentLog
 	lastLogFile := s.currentLogFile
 	s.manifest.LastLog().SetSize(uint64(lastLog.Offset()))
@@ -285,14 +291,5 @@ func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
 }
 
 func (s *DiskStore) insert(hash *Hash, addr types.Addr) error {
-	err := s.indexRoot.Insert(hash[:], addr)
-	if err != nil {
-		return err
-	}
-	bm, err := s.manifest.BlobMap()
-	if err != nil {
-		return err
-	}
-	s.indexRoot.RootAddr().EncodeInto(bm)
-	return nil
+	return s.indexRoot.Insert(hash[:], addr)
 }
