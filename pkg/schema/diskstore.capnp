@@ -115,12 +115,4 @@ struct TrieMap {
     # always has length 256, where each element is the address of another
     # `TrieMap`, containing all keys prefixed with its index.
   }
-
-  breadCrumbs @3 :Data;
-  # `breadCrumbs` is the portion of a key that this node in the map covers;
-  # if this is empty then this is the root of the map, otherwise it specifies
-  # the path that is taken to get to this node.
-  #
-  # This is mainly helpful for determining whether a node is currently used
-  # when collecting garbage.
 }
