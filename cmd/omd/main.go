@@ -12,6 +12,7 @@ import (
 	"capnproto.org/go/capnp/v3/rpc"
 
 	"zenhack.net/go/ocap-md/pkg/diskstore"
+	protoimpl "zenhack.net/go/ocap-md/pkg/diskstore/protocol"
 	"zenhack.net/go/ocap-md/pkg/files"
 	omdfuse "zenhack.net/go/ocap-md/pkg/files/fuse"
 	filescapnp "zenhack.net/go/ocap-md/pkg/schema/files"
@@ -48,7 +49,7 @@ func main() {
 			log.Fatal("Error opening store: ", err)
 		}
 		defer s.Close()
-		api := diskstore.NewRootApi(s)
+		api := protoimpl.NewRootApi(s)
 		for {
 			conn, err := l.Accept()
 			if err != nil {

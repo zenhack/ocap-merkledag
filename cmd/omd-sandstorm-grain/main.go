@@ -7,6 +7,7 @@ import (
 
 	wscapnp "zenhack.net/go/ocap-md/internal/websocket-capnp"
 	"zenhack.net/go/ocap-md/pkg/diskstore"
+	protoimpl "zenhack.net/go/ocap-md/pkg/diskstore/protocol"
 	"zenhack.net/go/ocap-md/pkg/webui"
 
 	"capnproto.org/go/capnp/v3/rpc"
@@ -21,7 +22,7 @@ func main() {
 		s, err = diskstore.Create(storePath)
 	}
 	chkfatal(err)
-	api := diskstore.NewRootApi(s)
+	api := protoimpl.NewRootApi(s)
 
 	r := mux.NewRouter()
 

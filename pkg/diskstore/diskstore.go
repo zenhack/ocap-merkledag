@@ -2,6 +2,7 @@ package diskstore
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,6 +19,13 @@ import (
 	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
+)
+
+var (
+	ErrUnknownAlgo     = errors.New("Unknown hash algorithm")
+	ErrBadDigestLength = errors.New("Incorrect digest length")
+	ErrCorruptedBlob   = errors.New("Loaded blob did not match expected digest")
+	ErrNoRoot          = errors.New("No root object")
 )
 
 type DiskStore struct {
@@ -43,6 +51,34 @@ func (h *Hash) ToContentId(cid protocol.ContentId) {
 	// otherwise this will leak space.
 	// FIXME: check & return errors.
 	cid.SetDigest(h[:])
+}
+
+func (s *DiskStore) GetRoot() (Hash, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cid, err := s.manifest.Root()
+	if err != nil {
+		return Hash{}, err
+	}
+	if !cid.IsValid() {
+		return Hash{}, ErrNoRoot
+	}
+	return ContentIdHash(cid)
+}
+
+func ContentIdHash(cid protocol.ContentId) (hash Hash, err error) {
+	if cid.Algo() != protocol.ContentId_Algo_sha256 {
+		return hash, ErrUnknownAlgo
+	}
+	digest, err := cid.Digest()
+	if err != nil {
+		return hash, err
+	}
+	if len(digest) != len(hash) {
+		return hash, ErrBadDigestLength
+	}
+	copy(hash[:], digest)
+	return hash, nil
 }
 
 func (s *DiskStore) SetRoot(h *Hash) error {
