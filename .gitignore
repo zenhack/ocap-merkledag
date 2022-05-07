@@ -1,7 +1,12 @@
+# Go code coverage data:
 coverage.out
+
+# Build outputs:
 /omd
 /cmd/omd/omd
 /cmd/omd-sandstorm-grain/omd-sandstorm-grain
+*.spk
 
 # I(@zenhack) sometimes use this file to leave myself very short term reminders:
 /NOTES
+
