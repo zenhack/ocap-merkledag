@@ -9,6 +9,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"capnproto.org/go/capnp/v3"
+	"capnproto.org/go/capnp/v3/flowcontrol"
 	"capnproto.org/go/capnp/v3/rpc"
 
 	"zenhack.net/go/ocap-md/pkg/diskstore"
@@ -75,6 +76,10 @@ func main() {
 		resStorage, rel := api.Storage(ctx, nil)
 		defer rel()
 		s := resStorage.Storage()
+
+		// Cap outstanding requests to 512MiB, to avoid runaway memory usage:
+		s.Client.SetFlowLimiter(flowcontrol.NewFixedLimiter(512 * 1024 * 1024))
+
 		ref, err := files.PutFile(ctx, s, *path)
 		chkfatal(err)
 		resRoot, rel := api.Root(ctx, nil)
