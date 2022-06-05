@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
-	capnproto.org/go/capnp/v3 v3.0.0-alpha.2
+	capnproto.org/go/capnp/v3 v3.0.0-alpha.3
 	github.com/bobg/hashsplit v1.1.3
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.5.0
