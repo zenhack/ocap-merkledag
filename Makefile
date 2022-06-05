@@ -6,6 +6,8 @@ all: webui
 	go build ./...
 
 sandstorm: cmd/$(sandstorm_exe)/$(sandstorm_exe)
+
+cmd/$(sandstorm_exe)/$(sandstorm_exe):
 	cd cmd/$(sandstorm_exe) && go build
 
 dev: sandstorm
