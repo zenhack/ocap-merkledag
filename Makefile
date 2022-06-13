@@ -10,6 +10,9 @@ sandstorm: cmd/$(sandstorm_exe)/$(sandstorm_exe)
 cmd/$(sandstorm_exe)/$(sandstorm_exe):
 	cd cmd/$(sandstorm_exe) && go build
 
+pack: omd.spk
+omd.spk: sandstorm sandstorm-files.list
+	spk pack $@
 dev: sandstorm
 	spk dev
 
@@ -33,4 +36,4 @@ $(webui)/out/bundle.js: $(webui)/out/.ts-build $(webui)/webpack.config.js
 $(webui)/out/bundle.min.js: $(webui)/out/bundle.js $(ui_deps)
 	cd $(webui) && npx uglifyjs --compress --mangle < out/bundle.js > out/bundle.min.js
 
-.PHONY: all webui dev sandstorm
+.PHONY: all webui dev sandstorm pack
