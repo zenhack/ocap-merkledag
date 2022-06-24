@@ -46,6 +46,15 @@ type DiskStore struct {
 	wg     sync.WaitGroup
 }
 
+type Ref struct {
+	hash Hash
+	addr types.Addr
+}
+
+func (r Ref) Hash() Hash {
+	return r.hash
+}
+
 type Hash [sha256.Size]byte
 
 func (h *Hash) ToContentId(cid protocol.ContentId) {
@@ -301,7 +310,7 @@ func (s *DiskStore) Get(hash *Hash) ([]byte, error) {
 	return types.FetchBlob(s.storage, addr)
 }
 
-func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
+func (s *DiskStore) Put(data []byte) (Ref, error) {
 	s.dirty()
 	defer s.dirty()
 	s.mu.Lock()
@@ -309,28 +318,28 @@ func (s *DiskStore) Put(data []byte) (Hash, types.Addr, error) {
 	hash := Hash(sha256.Sum256(data))
 	addr, err := s.lookup(&hash)
 	if err == nil {
-		return hash, addr, nil
+		return Ref{hash: hash, addr: addr}, nil
 	} else if err == triemap.ErrNotFound {
 		_, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 		if err != nil {
-			return hash, types.Addr{}, err
+			return Ref{}, err
 		}
 		ent, err := diskstore.NewRootLogEntry(seg)
 		if err != nil {
-			return hash, types.Addr{}, err
+			return Ref{}, err
 		}
 		err = ent.SetBlob(data)
 		if err != nil {
-			return hash, types.Addr{}, err
+			return Ref{}, err
 		}
 		addr, err := s.storage.WriteEntry(ent)
 		if err != nil {
-			return hash, types.Addr{}, err
+			return Ref{}, err
 		}
 
-		return hash, addr, s.insert(&hash, addr)
+		return Ref{hash: hash, addr: addr}, s.insert(&hash, addr)
 	}
-	return hash, types.Addr{}, err
+	return Ref{}, err
 }
 
 func (s *DiskStore) insert(hash *Hash, addr types.Addr) error {

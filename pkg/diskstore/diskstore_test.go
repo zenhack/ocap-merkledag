@@ -41,8 +41,10 @@ func TestGetPut(t *testing.T) {
 	ents := make(map[Hash]getPutEntry)
 
 	testPut := func(data []byte) {
-		h, addr, err := store.Put(data)
+		r, err := store.Put(data)
 		assert.Nil(t, err, "Put() should succeed.")
+		h := r.Hash()
+		addr := r.addr
 		assert.Equal(t, Hash(sha256.Sum256(data)), h,
 			"Put() should return the sha256 hash of the data we gave it.")
 		oldEnt, ok := ents[h]

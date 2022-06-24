@@ -94,13 +94,13 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 		return err
 	}
 
-	hash, _, err := s.store.Put(data)
+	diskRef, err := s.store.Put(data)
 	if err != nil {
 		return err
 	}
 	refClient := protocol.Ref_ServerToClient(&refServer{
 		store: s.store,
-		hash:  hash,
+		hash:  diskRef.Hash(),
 	}, nil)
 
 	res, err := p.AllocResults()
