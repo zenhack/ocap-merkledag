@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 
 	wscapnp "zenhack.net/go/ocap-md/internal/websocket-capnp"
 	"zenhack.net/go/ocap-md/pkg/diskstore"
