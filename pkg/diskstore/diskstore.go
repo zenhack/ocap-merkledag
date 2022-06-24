@@ -1,6 +1,7 @@
 package diskstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -47,7 +48,14 @@ type DiskStore struct {
 }
 
 type Ref struct {
-	hash Hash
+	hash  Hash
+	store *DiskStore
+
+	// N.B. This is mostly stored for the benefit of the test suite. We could
+	// also use it to avoid a separate lookup of the location, but we need to
+	// be careful if we implement moving GC (likely at some point) to either
+	// keep this up to date or fall to a regular lookup if the result is
+	// junk/not present.
 	addr types.Addr
 }
 
@@ -55,9 +63,29 @@ func (r Ref) Hash() Hash {
 	return r.hash
 }
 
+func (r Ref) Get() ([]byte, error) {
+	s := r.store
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	addr, err := s.lookup(&r.hash)
+	if err != nil {
+		return nil, err
+	}
+	data, err := types.FetchBlob(s.storage, addr)
+	if err != nil {
+		return nil, err
+	}
+	// Verify the hash.
+	digest := sha256.Sum256(data)
+	if bytes.Compare(digest[:], r.hash[:]) != 0 {
+		return nil, ErrCorruptedBlob
+	}
+	return data, nil
+}
+
 type Hash [sha256.Size]byte
 
-func (h *Hash) ToContentId(cid protocol.ContentId) {
+func (h Hash) ToContentId(cid protocol.ContentId) {
 	cid.SetAlgo(protocol.ContentId_Algo_sha256)
 	// FIXME: re-use existing buffer if it exists and is large enough.
 	// otherwise this will leak space.
@@ -65,17 +93,35 @@ func (h *Hash) ToContentId(cid protocol.ContentId) {
 	cid.SetDigest(h[:])
 }
 
-func (s *DiskStore) GetRoot() (Hash, error) {
+func (s *DiskStore) ResolveHash(h Hash) (Ref, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.resolveHash(h)
+}
+
+func (s *DiskStore) resolveHash(h Hash) (Ref, error) {
+	addr, err := s.lookup(&h)
+	if err != nil {
+		return Ref{}, err
+	}
+	return Ref{hash: h, addr: addr}, nil
+}
+
+func (s *DiskStore) GetRoot() (Ref, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cid, err := s.manifest.Root()
 	if err != nil {
-		return Hash{}, err
+		return Ref{}, err
 	}
 	if !cid.IsValid() {
-		return Hash{}, ErrNoRoot
+		return Ref{}, ErrNoRoot
 	}
-	return ContentIdHash(cid)
+	h, err := ContentIdHash(cid)
+	if err != nil {
+		return Ref{}, err
+	}
+	return s.resolveHash(h)
 }
 
 func ContentIdHash(cid protocol.ContentId) (hash Hash, err error) {
@@ -93,7 +139,7 @@ func ContentIdHash(cid protocol.ContentId) (hash Hash, err error) {
 	return hash, nil
 }
 
-func (s *DiskStore) SetRoot(h *Hash) error {
+func (s *DiskStore) SetRoot(r Ref) error {
 	defer s.dirty()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -107,7 +153,7 @@ func (s *DiskStore) SetRoot(h *Hash) error {
 	if err != nil {
 		return err
 	}
-	h.ToContentId(root)
+	r.hash.ToContentId(root)
 	return nil
 }
 
@@ -300,16 +346,6 @@ func (s *DiskStore) lookup(hash *Hash) (types.Addr, error) {
 	return s.indexRoot.Lookup(hash[:])
 }
 
-func (s *DiskStore) Get(hash *Hash) ([]byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	addr, err := s.lookup(hash)
-	if err != nil {
-		return nil, err
-	}
-	return types.FetchBlob(s.storage, addr)
-}
-
 func (s *DiskStore) Put(data []byte) (Ref, error) {
 	s.dirty()
 	defer s.dirty()
@@ -318,7 +354,7 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 	hash := Hash(sha256.Sum256(data))
 	addr, err := s.lookup(&hash)
 	if err == nil {
-		return Ref{hash: hash, addr: addr}, nil
+		return Ref{hash: hash, addr: addr, store: s}, nil
 	} else if err == triemap.ErrNotFound {
 		_, seg, err := capnp.NewMessage(capnp.SingleSegment(nil))
 		if err != nil {
@@ -337,7 +373,7 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 			return Ref{}, err
 		}
 
-		return Ref{hash: hash, addr: addr}, s.insert(&hash, addr)
+		return Ref{hash: hash, addr: addr, store: s}, s.insert(&hash, addr)
 	}
 	return Ref{}, err
 }

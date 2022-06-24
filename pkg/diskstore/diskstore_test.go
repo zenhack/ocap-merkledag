@@ -6,8 +6,6 @@ import (
 	"testing/quick"
 
 	"github.com/stretchr/testify/assert"
-
-	"zenhack.net/go/ocap-md/pkg/diskstore/types"
 )
 
 func makeTestStore(t *testing.T) *DiskStore {
@@ -25,11 +23,14 @@ func TestGetSetRoot(t *testing.T) {
 	assert.Equal(t, ErrNoRoot, err,
 		"GetRoot() should return ErrNoRoot before a root has been set.")
 
-	assert.Nil(t, quick.Check(func(h Hash) bool {
-		store.SetRoot(&h)
-		newH, err := store.GetRoot()
+	assert.Nil(t, quick.Check(func(rootData []byte) bool {
+		putRef, err := store.Put(rootData)
 		assert.Nil(t, err)
-		assert.Equal(t, h, newH, "Should return the hash we set.")
+
+		store.SetRoot(putRef)
+		getRef, err := store.GetRoot()
+		assert.Nil(t, err)
+		assert.Equal(t, getRef.Hash(), putRef.Hash(), "Should return the hash we set.")
 		return true
 	}, nil), "quick.Check failed")
 }
@@ -49,10 +50,10 @@ func TestGetPut(t *testing.T) {
 			"Put() should return the sha256 hash of the data we gave it.")
 		oldEnt, ok := ents[h]
 		if ok {
-			assert.Equal(t, oldEnt.addr, addr, "Put()ing a blob twice gives the same address.")
+			assert.Equal(t, oldEnt.ref.addr, addr, "Put()ing a blob twice gives the same address.")
 		} else {
 			ents[h] = getPutEntry{
-				addr: addr,
+				ref:  r,
 				data: data,
 			}
 		}
@@ -65,14 +66,14 @@ func TestGetPut(t *testing.T) {
 		return true
 	}, nil), "quick.Check failed")
 
-	for h, ent := range ents {
-		data, err := store.Get(&h)
+	for _, ent := range ents {
+		data, err := ent.ref.Get()
 		assert.Nil(t, err, "Should find all the blobs we Put() earlier.")
 		assert.Equal(t, ent.data, data, "Should return the data we Put() earlier.")
 	}
 }
 
 type getPutEntry struct {
-	addr types.Addr
+	ref  Ref
 	data []byte
 }

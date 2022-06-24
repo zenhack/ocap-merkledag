@@ -1,9 +1,7 @@
 package protocol
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -24,7 +22,7 @@ type storageServer struct {
 
 type refServer struct {
 	store *diskstore.DiskStore
-	hash  diskstore.Hash
+	ref   diskstore.Ref
 }
 
 type rootApiServer struct {
@@ -86,7 +84,7 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 		if err != nil {
 			return err
 		}
-		ref.hash.ToContentId(refs.At(i))
+		ref.ref.Hash().ToContentId(refs.At(i))
 	}
 
 	data, err := capnp.Canonicalize(stored.Struct)
@@ -100,7 +98,7 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 	}
 	refClient := protocol.Ref_ServerToClient(&refServer{
 		store: s.store,
-		hash:  diskRef.Hash(),
+		ref:   diskRef,
 	}, nil)
 
 	res, err := p.AllocResults()
@@ -144,15 +142,9 @@ func (r *refServer) GetStored(ctx context.Context, p protocol.Ref_getStored) err
 }
 
 func (r *refServer) getStored() (protocol.Stored, error) {
-	data, err := r.store.Get(&r.hash)
+	data, err := r.ref.Get()
 	if err != nil {
 		return protocol.Stored{}, err
-	}
-
-	// Verify the hash.
-	digest := sha256.Sum256(data)
-	if bytes.Compare(digest[:], r.hash[:]) != 0 {
-		return protocol.Stored{}, diskstore.ErrCorruptedBlob
 	}
 
 	stored, err := protocol.ReadRootStored(&capnp.Message{Arena: capnp.SingleSegment(data)})
@@ -169,13 +161,18 @@ func (r *refServer) getStored() (protocol.Stored, error) {
 	caps := msg.CapTable
 	for i := 0; i < refs.Len(); i++ {
 		hash, err := diskstore.ContentIdHash(refs.At(i))
-		if err == nil {
-			refClient := protocol.Ref_ServerToClient(&refServer{
-				store: r.store,
-				hash:  hash,
-			}, nil)
-			caps = append(caps, refClient.Client)
+		if err != nil {
+			continue
 		}
+		ref, err := r.store.ResolveHash(hash)
+		if err != nil {
+			continue
+		}
+		refClient := protocol.Ref_ServerToClient(&refServer{
+			store: r.store,
+			ref:   ref,
+		}, nil)
+		caps = append(caps, refClient.Client)
 	}
 	msg.CapTable = caps
 
@@ -205,7 +202,7 @@ func (s rootApiServer) BlobMap(ctx context.Context, p protocol.RootApi_blobMap) 
 }
 
 func (s *rootPtrServer) Get(ctx context.Context, p protocol.Getter_get) error {
-	hash, err := s.store.GetRoot()
+	ref, err := s.store.GetRoot()
 	if err != nil {
 		return err
 	}
@@ -215,7 +212,7 @@ func (s *rootPtrServer) Get(ctx context.Context, p protocol.Getter_get) error {
 	}
 	refClient := protocol.Ref_ServerToClient(&refServer{
 		store: s.store,
-		hash:  hash,
+		ref:   ref,
 	}, nil)
 	res.SetValue(capnp.NewInterface(
 		res.Struct.Segment(),
@@ -233,7 +230,7 @@ func (s *rootPtrServer) Set(ctx context.Context, p protocol.Setter_set) error {
 	if err != nil {
 		return err
 	}
-	err = s.store.SetRoot(&refSrv.hash)
+	err = s.store.SetRoot(refSrv.ref)
 	if err != nil {
 		return err
 	}
