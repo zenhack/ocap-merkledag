@@ -15,6 +15,7 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/ulikunitz/xz v0.5.10 // indirect
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9 // indirect
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect

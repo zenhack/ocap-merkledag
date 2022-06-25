@@ -65,7 +65,7 @@ type KV_List = capnp.StructList[KV]
 // NewKV creates a new list of KV.
 func NewKV_List(s *capnp.Segment, sz int32) (KV_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 2}, sz)
-	return capnp.StructList[KV]{l}, err
+	return capnp.StructList[KV]{List: l}, err
 }
 
 // KV_Future is a wrapper for a KV promised by a client call.
@@ -155,7 +155,7 @@ type BPlusTree_List = capnp.StructList[BPlusTree]
 // NewBPlusTree creates a new list of BPlusTree.
 func NewBPlusTree_List(s *capnp.Segment, sz int32) (BPlusTree_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[BPlusTree]{l}, err
+	return capnp.StructList[BPlusTree]{List: l}, err
 }
 
 // BPlusTree_Future is a wrapper for a BPlusTree promised by a client call.
@@ -303,7 +303,7 @@ type BPlusTree_Node_List = capnp.StructList[BPlusTree_Node]
 // NewBPlusTree_Node creates a new list of BPlusTree_Node.
 func NewBPlusTree_Node_List(s *capnp.Segment, sz int32) (BPlusTree_Node_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2}, sz)
-	return capnp.StructList[BPlusTree_Node]{l}, err
+	return capnp.StructList[BPlusTree_Node]{List: l}, err
 }
 
 // BPlusTree_Node_Future is a wrapper for a BPlusTree_Node promised by a client call.

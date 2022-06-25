@@ -1,9 +1,12 @@
 package types
 
 import (
+	"bytes"
 	"errors"
+	"io"
 
 	"capnproto.org/go/capnp/v3"
+	"github.com/ulikunitz/xz"
 
 	"zenhack.net/go/ocap-md/pkg/schema/diskstore"
 )
@@ -58,7 +61,9 @@ type Storage interface {
 }
 
 var (
-	ErrWrongEntryType = errors.New("Unexpected log entry type.")
+	ErrWrongEntryType     = errors.New("Unexpected log entry type.")
+	ErrUnknownCompression = errors.New("Unknown compression scheme.")
+	ErrPackedNotSupported = errors.New("Packed encoding not yet supported.")
 )
 
 func FetchTrieMap(s Storage, addr Addr) (diskstore.TrieMap, error) {
@@ -80,5 +85,27 @@ func FetchBlob(s Storage, addr Addr) ([]byte, error) {
 	if ent.Which() != diskstore.LogEntry_Which_blob {
 		return nil, ErrWrongEntryType
 	}
-	return ent.Blob()
+	blob := ent.Blob()
+	data, err := blob.Segment()
+	if err != nil {
+		return nil, err
+	}
+	switch blob.Compression() {
+	case diskstore.CompressionScheme_none:
+	case diskstore.CompressionScheme_xz:
+		r, err := xz.NewReader(bytes.NewBuffer(data))
+		if err != nil {
+			return nil, err
+		}
+		data, err = io.ReadAll(r)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, ErrUnknownCompression
+	}
+	if blob.Packed() {
+		return nil, ErrPackedNotSupported
+	}
+	return data, nil
 }

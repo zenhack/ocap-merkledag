@@ -209,7 +209,7 @@ type File_List = capnp.StructList[File]
 // NewFile creates a new list of File.
 func NewFile_List(s *capnp.Segment, sz int32) (File_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2}, sz)
-	return capnp.StructList[File]{l}, err
+	return capnp.StructList[File]{List: l}, err
 }
 
 // File_Future is a wrapper for a File promised by a client call.
@@ -289,7 +289,7 @@ type UnixMetadata_List = capnp.StructList[UnixMetadata]
 // NewUnixMetadata creates a new list of UnixMetadata.
 func NewUnixMetadata_List(s *capnp.Segment, sz int32) (UnixMetadata_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 0}, sz)
-	return capnp.StructList[UnixMetadata]{l}, err
+	return capnp.StructList[UnixMetadata]{List: l}, err
 }
 
 // UnixMetadata_Future is a wrapper for a UnixMetadata promised by a client call.
@@ -410,7 +410,7 @@ type BlobTree_List = capnp.StructList[BlobTree]
 // NewBlobTree creates a new list of BlobTree.
 func NewBlobTree_List(s *capnp.Segment, sz int32) (BlobTree_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 1}, sz)
-	return capnp.StructList[BlobTree]{l}, err
+	return capnp.StructList[BlobTree]{List: l}, err
 }
 
 // BlobTree_Future is a wrapper for a BlobTree promised by a client call.

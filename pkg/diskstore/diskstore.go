@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"capnproto.org/go/capnp/v3"
+	"github.com/ulikunitz/xz"
 
 	"zenhack.net/go/ocap-md/pkg/diskstore/logwriter"
 	"zenhack.net/go/ocap-md/pkg/diskstore/triemap"
@@ -364,10 +365,33 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 		if err != nil {
 			return Ref{}, err
 		}
-		err = ent.SetBlob(data)
+
+		ent.SetBlob()
+		blob := ent.Blob()
+		blob.SetPacked(false) // TODO: maybe pack it.
+
+		// Apply xz compression
+		blob.SetCompression(diskstore.CompressionScheme_xz)
+		buf := &bytes.Buffer{}
+		w, err := xz.NewWriter(buf)
 		if err != nil {
 			return Ref{}, err
 		}
+		_, err = w.Write(data)
+		if err != nil {
+			return Ref{}, err
+		}
+		err = w.Close()
+		if err != nil {
+			return Ref{}, err
+		}
+		data = buf.Bytes()
+
+		err = blob.SetSegment(data)
+		if err != nil {
+			return Ref{}, err
+		}
+
 		addr, err := s.storage.WriteEntry(ent)
 		if err != nil {
 			return Ref{}, err

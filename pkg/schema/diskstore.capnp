@@ -77,17 +77,33 @@ struct Addr {
 struct LogEntry {
   # An entry in one of the log files.
   union {
-    blob @0 :Data;
-    # A blob of stored data. The value is a single capnp segment containing
-    # a Protocol.Stored(AnyPointer) as its root. The value will be in
-    # canonical form, so that it can be hashed to derive or validate its content
-    # id. Similarly, it is a `Data` field so it can be extracted as its own message
-    # for hashing.
+    blob :group {
+      # A blob of stored data.
+      segment @0 :Data;
+      # A single capnp segment containing a Protocol.Stored(AnyPointer) as its root.
+      # The value will be in canonical form, so that it can be hashed to derive or
+      # validate its content id. Similarly, it is a `Data` field so it can be
+      # either compressed, or, if not compressed, extracted as its own message
+      # without a copy (e.g. for hashing).
+
+      compression @2 :CompressionScheme;
+      # The compression scheme applied to the segment, if any
+      packed @3 :Bool;
+      # Whether the segment uses packed encoding. If so, packing is applied *before*
+      # compression, i.e. the stored Data is equal to compress(pack(originalSegment)).
+    }
 
     indexNode @1 :TrieMap;
     # A node in the blob map, which maps hashes to physical locations in the log
     # files.
   }
+}
+
+enum CompressionScheme {
+  # An identifer for a compression scheme.
+
+  none @0; # No compression
+  xz @1; # xz compression
 }
 
 struct TrieMap {

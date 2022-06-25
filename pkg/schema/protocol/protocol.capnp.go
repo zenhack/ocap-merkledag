@@ -141,7 +141,7 @@ type Map_find_Params_List = capnp.StructList[Map_find_Params]
 // NewMap_find_Params creates a new list of Map_find_Params.
 func NewMap_find_Params_List(s *capnp.Segment, sz int32) (Map_find_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[Map_find_Params]{l}, err
+	return capnp.StructList[Map_find_Params]{List: l}, err
 }
 
 // Map_find_Params_Future is a wrapper for a Map_find_Params promised by a client call.
@@ -199,7 +199,7 @@ type Map_find_Results_List = capnp.StructList[Map_find_Results]
 // NewMap_find_Results creates a new list of Map_find_Results.
 func NewMap_find_Results_List(s *capnp.Segment, sz int32) (Map_find_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[Map_find_Results]{l}, err
+	return capnp.StructList[Map_find_Results]{List: l}, err
 }
 
 // Map_find_Results_Future is a wrapper for a Map_find_Results promised by a client call.
@@ -333,7 +333,7 @@ type Getter_get_Params_List = capnp.StructList[Getter_get_Params]
 // NewGetter_get_Params creates a new list of Getter_get_Params.
 func NewGetter_get_Params_List(s *capnp.Segment, sz int32) (Getter_get_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[Getter_get_Params]{l}, err
+	return capnp.StructList[Getter_get_Params]{List: l}, err
 }
 
 // Getter_get_Params_Future is a wrapper for a Getter_get_Params promised by a client call.
@@ -387,7 +387,7 @@ type Getter_get_Results_List = capnp.StructList[Getter_get_Results]
 // NewGetter_get_Results creates a new list of Getter_get_Results.
 func NewGetter_get_Results_List(s *capnp.Segment, sz int32) (Getter_get_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[Getter_get_Results]{l}, err
+	return capnp.StructList[Getter_get_Results]{List: l}, err
 }
 
 // Getter_get_Results_Future is a wrapper for a Getter_get_Results promised by a client call.
@@ -551,7 +551,7 @@ type Ref_getStored_Params_List = capnp.StructList[Ref_getStored_Params]
 // NewRef_getStored_Params creates a new list of Ref_getStored_Params.
 func NewRef_getStored_Params_List(s *capnp.Segment, sz int32) (Ref_getStored_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[Ref_getStored_Params]{l}, err
+	return capnp.StructList[Ref_getStored_Params]{List: l}, err
 }
 
 // Ref_getStored_Params_Future is a wrapper for a Ref_getStored_Params promised by a client call.
@@ -617,7 +617,7 @@ type Ref_getStored_Results_List = capnp.StructList[Ref_getStored_Results]
 // NewRef_getStored_Results creates a new list of Ref_getStored_Results.
 func NewRef_getStored_Results_List(s *capnp.Segment, sz int32) (Ref_getStored_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[Ref_getStored_Results]{l}, err
+	return capnp.StructList[Ref_getStored_Results]{List: l}, err
 }
 
 // Ref_getStored_Results_Future is a wrapper for a Ref_getStored_Results promised by a client call.
@@ -763,7 +763,7 @@ type Setter_set_Params_List = capnp.StructList[Setter_set_Params]
 // NewSetter_set_Params creates a new list of Setter_set_Params.
 func NewSetter_set_Params_List(s *capnp.Segment, sz int32) (Setter_set_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[Setter_set_Params]{l}, err
+	return capnp.StructList[Setter_set_Params]{List: l}, err
 }
 
 // Setter_set_Params_Future is a wrapper for a Setter_set_Params promised by a client call.
@@ -809,7 +809,7 @@ type Setter_set_Results_List = capnp.StructList[Setter_set_Results]
 // NewSetter_set_Results creates a new list of Setter_set_Results.
 func NewSetter_set_Results_List(s *capnp.Segment, sz int32) (Setter_set_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[Setter_set_Results]{l}, err
+	return capnp.StructList[Setter_set_Results]{List: l}, err
 }
 
 // Setter_set_Results_Future is a wrapper for a Setter_set_Results promised by a client call.
@@ -1100,7 +1100,7 @@ type TxCell_txGet_Params_List = capnp.StructList[TxCell_txGet_Params]
 // NewTxCell_txGet_Params creates a new list of TxCell_txGet_Params.
 func NewTxCell_txGet_Params_List(s *capnp.Segment, sz int32) (TxCell_txGet_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[TxCell_txGet_Params]{l}, err
+	return capnp.StructList[TxCell_txGet_Params]{List: l}, err
 }
 
 // TxCell_txGet_Params_Future is a wrapper for a TxCell_txGet_Params promised by a client call.
@@ -1172,7 +1172,7 @@ type TxCell_txGet_Results_List = capnp.StructList[TxCell_txGet_Results]
 // NewTxCell_txGet_Results creates a new list of TxCell_txGet_Results.
 func NewTxCell_txGet_Results_List(s *capnp.Segment, sz int32) (TxCell_txGet_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 2}, sz)
-	return capnp.StructList[TxCell_txGet_Results]{l}, err
+	return capnp.StructList[TxCell_txGet_Results]{List: l}, err
 }
 
 // TxCell_txGet_Results_Future is a wrapper for a TxCell_txGet_Results promised by a client call.
@@ -1453,7 +1453,7 @@ type Storage_put_Params_List = capnp.StructList[Storage_put_Params]
 // NewStorage_put_Params creates a new list of Storage_put_Params.
 func NewStorage_put_Params_List(s *capnp.Segment, sz int32) (Storage_put_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[Storage_put_Params]{l}, err
+	return capnp.StructList[Storage_put_Params]{List: l}, err
 }
 
 // Storage_put_Params_Future is a wrapper for a Storage_put_Params promised by a client call.
@@ -1517,7 +1517,7 @@ type Storage_put_Results_List = capnp.StructList[Storage_put_Results]
 // NewStorage_put_Results creates a new list of Storage_put_Results.
 func NewStorage_put_Results_List(s *capnp.Segment, sz int32) (Storage_put_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[Storage_put_Results]{l}, err
+	return capnp.StructList[Storage_put_Results]{List: l}, err
 }
 
 // Storage_put_Results_Future is a wrapper for a Storage_put_Results promised by a client call.
@@ -1589,7 +1589,7 @@ type Dynamic_List = capnp.StructList[Dynamic]
 // NewDynamic creates a new list of Dynamic.
 func NewDynamic_List(s *capnp.Segment, sz int32) (Dynamic_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[Dynamic]{l}, err
+	return capnp.StructList[Dynamic]{List: l}, err
 }
 
 // Dynamic_Future is a wrapper for a Dynamic promised by a client call.
@@ -1656,7 +1656,7 @@ type ContentId_List = capnp.StructList[ContentId]
 // NewContentId creates a new list of ContentId.
 func NewContentId_List(s *capnp.Segment, sz int32) (ContentId_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[ContentId]{l}, err
+	return capnp.StructList[ContentId]{List: l}, err
 }
 
 // ContentId_Future is a wrapper for a ContentId promised by a client call.
@@ -1773,7 +1773,7 @@ type Stored_List = capnp.StructList[Stored]
 // NewStored creates a new list of Stored.
 func NewStored_List(s *capnp.Segment, sz int32) (Stored_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 2}, sz)
-	return capnp.StructList[Stored]{l}, err
+	return capnp.StructList[Stored]{List: l}, err
 }
 
 // Stored_Future is a wrapper for a Stored promised by a client call.
@@ -2001,7 +2001,7 @@ type RootApi_blobMap_Params_List = capnp.StructList[RootApi_blobMap_Params]
 // NewRootApi_blobMap_Params creates a new list of RootApi_blobMap_Params.
 func NewRootApi_blobMap_Params_List(s *capnp.Segment, sz int32) (RootApi_blobMap_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[RootApi_blobMap_Params]{l}, err
+	return capnp.StructList[RootApi_blobMap_Params]{List: l}, err
 }
 
 // RootApi_blobMap_Params_Future is a wrapper for a RootApi_blobMap_Params promised by a client call.
@@ -2061,7 +2061,7 @@ type RootApi_blobMap_Results_List = capnp.StructList[RootApi_blobMap_Results]
 // NewRootApi_blobMap_Results creates a new list of RootApi_blobMap_Results.
 func NewRootApi_blobMap_Results_List(s *capnp.Segment, sz int32) (RootApi_blobMap_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[RootApi_blobMap_Results]{l}, err
+	return capnp.StructList[RootApi_blobMap_Results]{List: l}, err
 }
 
 // RootApi_blobMap_Results_Future is a wrapper for a RootApi_blobMap_Results promised by a client call.
@@ -2107,7 +2107,7 @@ type RootApi_root_Params_List = capnp.StructList[RootApi_root_Params]
 // NewRootApi_root_Params creates a new list of RootApi_root_Params.
 func NewRootApi_root_Params_List(s *capnp.Segment, sz int32) (RootApi_root_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[RootApi_root_Params]{l}, err
+	return capnp.StructList[RootApi_root_Params]{List: l}, err
 }
 
 // RootApi_root_Params_Future is a wrapper for a RootApi_root_Params promised by a client call.
@@ -2167,7 +2167,7 @@ type RootApi_root_Results_List = capnp.StructList[RootApi_root_Results]
 // NewRootApi_root_Results creates a new list of RootApi_root_Results.
 func NewRootApi_root_Results_List(s *capnp.Segment, sz int32) (RootApi_root_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[RootApi_root_Results]{l}, err
+	return capnp.StructList[RootApi_root_Results]{List: l}, err
 }
 
 // RootApi_root_Results_Future is a wrapper for a RootApi_root_Results promised by a client call.
@@ -2213,7 +2213,7 @@ type RootApi_storage_Params_List = capnp.StructList[RootApi_storage_Params]
 // NewRootApi_storage_Params creates a new list of RootApi_storage_Params.
 func NewRootApi_storage_Params_List(s *capnp.Segment, sz int32) (RootApi_storage_Params_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 0}, sz)
-	return capnp.StructList[RootApi_storage_Params]{l}, err
+	return capnp.StructList[RootApi_storage_Params]{List: l}, err
 }
 
 // RootApi_storage_Params_Future is a wrapper for a RootApi_storage_Params promised by a client call.
@@ -2273,7 +2273,7 @@ type RootApi_storage_Results_List = capnp.StructList[RootApi_storage_Results]
 // NewRootApi_storage_Results creates a new list of RootApi_storage_Results.
 func NewRootApi_storage_Results_List(s *capnp.Segment, sz int32) (RootApi_storage_Results_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 1}, sz)
-	return capnp.StructList[RootApi_storage_Results]{l}, err
+	return capnp.StructList[RootApi_storage_Results]{List: l}, err
 }
 
 // RootApi_storage_Results_Future is a wrapper for a RootApi_storage_Results promised by a client call.

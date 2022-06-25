@@ -121,7 +121,7 @@ type Manifest_List = capnp.StructList[Manifest]
 // NewManifest creates a new list of Manifest.
 func NewManifest_List(s *capnp.Segment, sz int32) (Manifest_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 24, PointerCount: 2}, sz)
-	return capnp.StructList[Manifest]{l}, err
+	return capnp.StructList[Manifest]{List: l}, err
 }
 
 // Manifest_Future is a wrapper for a Manifest promised by a client call.
@@ -205,7 +205,7 @@ type Addr_List = capnp.StructList[Addr]
 // NewAddr creates a new list of Addr.
 func NewAddr_List(s *capnp.Segment, sz int32) (Addr_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 24, PointerCount: 0}, sz)
-	return capnp.StructList[Addr]{l}, err
+	return capnp.StructList[Addr]{List: l}, err
 }
 
 // Addr_Future is a wrapper for a Addr promised by a client call.
@@ -217,6 +217,7 @@ func (p Addr_Future) Struct() (Addr, error) {
 }
 
 type LogEntry struct{ capnp.Struct }
+type LogEntry_blob LogEntry
 type LogEntry_Which uint16
 
 const (
@@ -262,24 +263,39 @@ func (s LogEntry) String() string {
 func (s LogEntry) Which() LogEntry_Which {
 	return LogEntry_Which(s.Struct.Uint16(0))
 }
-func (s LogEntry) Blob() ([]byte, error) {
-	if s.Struct.Uint16(0) != 0 {
-		panic("Which() != blob")
-	}
+func (s LogEntry) Blob() LogEntry_blob { return LogEntry_blob(s) }
+
+func (s LogEntry) SetBlob() {
+	s.Struct.SetUint16(0, 0)
+}
+
+func (s LogEntry_blob) Segment() ([]byte, error) {
 	p, err := s.Struct.Ptr(0)
 	return []byte(p.Data()), err
 }
 
-func (s LogEntry) HasBlob() bool {
-	if s.Struct.Uint16(0) != 0 {
-		return false
-	}
+func (s LogEntry_blob) HasSegment() bool {
 	return s.Struct.HasPtr(0)
 }
 
-func (s LogEntry) SetBlob(v []byte) error {
-	s.Struct.SetUint16(0, 0)
+func (s LogEntry_blob) SetSegment(v []byte) error {
 	return s.Struct.SetData(0, v)
+}
+
+func (s LogEntry_blob) Compression() CompressionScheme {
+	return CompressionScheme(s.Struct.Uint16(2))
+}
+
+func (s LogEntry_blob) SetCompression(v CompressionScheme) {
+	s.Struct.SetUint16(2, uint16(v))
+}
+
+func (s LogEntry_blob) Packed() bool {
+	return s.Struct.Bit(32)
+}
+
+func (s LogEntry_blob) SetPacked(v bool) {
+	s.Struct.SetBit(32, v)
 }
 
 func (s LogEntry) IndexNode() (TrieMap, error) {
@@ -320,7 +336,7 @@ type LogEntry_List = capnp.StructList[LogEntry]
 // NewLogEntry creates a new list of LogEntry.
 func NewLogEntry_List(s *capnp.Segment, sz int32) (LogEntry_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[LogEntry]{l}, err
+	return capnp.StructList[LogEntry]{List: l}, err
 }
 
 // LogEntry_Future is a wrapper for a LogEntry promised by a client call.
@@ -331,8 +347,62 @@ func (p LogEntry_Future) Struct() (LogEntry, error) {
 	return LogEntry{s}, err
 }
 
+func (p LogEntry_Future) Blob() LogEntry_blob_Future { return LogEntry_blob_Future{p.Future} }
+
+// LogEntry_blob_Future is a wrapper for a LogEntry_blob promised by a client call.
+type LogEntry_blob_Future struct{ *capnp.Future }
+
+func (p LogEntry_blob_Future) Struct() (LogEntry_blob, error) {
+	s, err := p.Future.Struct()
+	return LogEntry_blob{s}, err
+}
+
 func (p LogEntry_Future) IndexNode() TrieMap_Future {
 	return TrieMap_Future{Future: p.Future.Field(0, nil)}
+}
+
+type CompressionScheme uint16
+
+// CompressionScheme_TypeID is the unique identifier for the type CompressionScheme.
+const CompressionScheme_TypeID = 0xa9e5a7728baf3d2e
+
+// Values of CompressionScheme.
+const (
+	CompressionScheme_none CompressionScheme = 0
+	CompressionScheme_xz   CompressionScheme = 1
+)
+
+// String returns the enum's constant name.
+func (c CompressionScheme) String() string {
+	switch c {
+	case CompressionScheme_none:
+		return "none"
+	case CompressionScheme_xz:
+		return "xz"
+
+	default:
+		return ""
+	}
+}
+
+// CompressionSchemeFromString returns the enum value with a name,
+// or the zero value if there's no such value.
+func CompressionSchemeFromString(c string) CompressionScheme {
+	switch c {
+	case "none":
+		return CompressionScheme_none
+	case "xz":
+		return CompressionScheme_xz
+
+	default:
+		return 0
+	}
+}
+
+type CompressionScheme_List = capnp.EnumList[CompressionScheme]
+
+func NewCompressionScheme_List(s *capnp.Segment, sz int32) (CompressionScheme_List, error) {
+	return capnp.NewEnumList[CompressionScheme](s, sz)
 }
 
 type TrieMap struct{ capnp.Struct }
@@ -463,7 +533,7 @@ type TrieMap_List = capnp.StructList[TrieMap]
 // NewTrieMap creates a new list of TrieMap.
 func NewTrieMap_List(s *capnp.Segment, sz int32) (TrieMap_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2}, sz)
-	return capnp.StructList[TrieMap]{l}, err
+	return capnp.StructList[TrieMap]{List: l}, err
 }
 
 // TrieMap_Future is a wrapper for a TrieMap promised by a client call.
@@ -488,56 +558,68 @@ func (p TrieMap_leaf_Future) Addr() Addr_Future {
 	return Addr_Future{Future: p.Future.Field(1, nil)}
 }
 
-const schema_dc976fcd6fee6223 = "x\xdat\x93Oh#e\x18\xc6\xdf\xe7\xfd\xa6&-" +
-	"M3\xc3D\xd0C\x11\xd1\xd2Zj\xa9T\xb1\x04\xa1" +
-	"\xb5\xda\xa2\x92\x94|\xd6?\x15*:i&\xc9`:" +
-	"\x13g\xa6X\x0b\xa5\x88\x08\x9e\x04/\xea\xc5\x83\x07\x85" +
-	"z\xe9\xd9\x83b\x17v\x0f\xa5{[\xd8.\xec\xb2\xbb" +
-	"\xd0e\xff\x1c\xf6\xba\xb0\x87\xce\xf2M\x92I\xc8\xee\xde" +
-	"\xf2}<_~\xcf\xfb\xbc\xcf\xcc\xeccA{-s" +
-	"Y#\x96s\x03\xcfD\x8bk\xd7'.\x1c\xfe\xfe3" +
-	"\x19\xba\x16\xbdT\xbe\xef]\xf4~\xbdJ\x84Y\xc9\x93" +
-	"0-N\x11\xad\xae\xb3\xc0j\x9d\x19D\xd1\x8f7\xbf" +
-	"7w\xcfj\xbf\x91|\x0e\x88\x1e\xbcy\xf2\xff;?" +
-	"y\xc7\xf4,\xa7@d~\xc6\xf7\x08\xe6\xe7\xfc\x0d!" +
-	":\xd6\xc7\xbf\xfe\xef\x87\xdc\x01\xc9\xe7!\"k\xe8t" +
-	"\xefS\xff\x97\x1bm\xe5\xec?<\x04\x82y\x18K\x93" +
-	"\xbf\x91:\xd0u\xb1\xc4)&2G\xc59sL\xa4" +
-	"\x88\xcc\x17\x85R\xdfy\xeb\x8d\xb1\xf1\xe5\xf7N\xfa\xd5" +
-	"\x88\xd5[\xe2\xc8\xfc.V\xef\xc6\xea\x04,u\x88\xae" +
-	"z@Mf^\x13G\xe6\xddX|K\xdc&D\x1f" +
-	"\x0f{W\xf2\xa3_\x9c\xf6\x895\xa5\xf8C\xfb\xdb\xdc" +
-	"\x8f\x7f\xfd\xa9\x1d\xd0JTq\x82\xaf\x82\xd0\xf3\x85=" +
-	"\xbda5\xddf^\x1d\xac\x9a\xbd\xec\xf9\x9bV\xf8\x89" +
-	"\xedg\x03\xc7sK\x00\xd2\xc4F\x1a\x84\xe4\x09w\x9e" +
-	"|\xe4;v\xd1jNg\x1b\xb6U\x95i\xa1\x11i" +
-	" 2^\xc9\x13\xc9\x97\x05\xe4\x0c\xc3\x00rP\x97\xaf" +
-	"N\x12\xc9\x09\x01\xf9:c\xbe\xe9\xdbUg\x1b\x19b" +
-	"d\x08Y\xabR\xf1\xa1w\xfd\x13\xa0\xf7\x00\x13\x8fE" +
-	"\xcbu\xaav\x10N7\xac ,x5\xa2\x165\x07" +
-	"V\xd8\xc9>\xacP\xd8|\x17\x9b\x0d\x9c\x1d\x1b\x83\xc4" +
-	"\x18$\xcc\xbb[\x9be\xdb\xef\x1c\x9f:\x1d\x95\x00E" +
-	"\x19\x8e\"\xa0[ E\xe3\x0c\xce\xa2\x16\xdb\xf8\x80H" +
-	"\xea\x02r\x8a\x11\xc7\x11\x95}\xcb\xdd\xa8\xdb\x01\x11a" +
-	"\x84P\x12\xe8\x9bp\xe4I\xd0\x82W[rC\xff[" +
-	"\xea\xc1\xb62\xed\x19\xae\x85\x8dC\xfd\x90HN\x09\xc8" +
-	"9F\xb6\xdc\xf0\xca\x9dH#\xc7\xad\xd8\xdb+^\x85" +
-	"`C\xefV\xb4/Y\xeeO\xb6\xc5\xd5\x85\x06\xc4X" +
-	"k\x91H\xae\x0b\xc8:\xc3\xe0\xf6*m\xe5\xe5K\x01" +
-	"\xd9`@\xa0\xe7c1\x9cEb]\xcbA#2\xa4" +
-	"O$K\x02r\x9d\xb1\xa7\xcc\x15\xad\xe6\xe3[\xce\xfa" +
-	"\x9e\x17B\x8f\xfe\xf2\x1f\xd6/\xed\xfc{\xbe}\xbd\xd7" +
-	"^qTm\x17\x92^\xf0U#U\x1d\x91\xee\x19\x01" +
-	"\x9d\x11\xb2oW*\xber?\x9c\xb8_R\xcb_\x10" +
-	"\x90\x05\xe5\x9e[\xee\xdfW\x97\xef\x0a\xc8\x12C\xe7\xd6" +
-	"\xfa\x8a*\xc7\x82\x80\\c\xcc{\xd5j`\x87IO" +
-	"\x1a\xb6[\x0b\xeb\x09\xb7\xe1\xd5VTs\x08Iw\x1e" +
-	"\x05\x00\x00\xff\xffCK,\xe3"
+const schema_dc976fcd6fee6223 = "x\xda|TOh\x1cU\x1c\xfe}\xef\xcd\xba\x9b\x92" +
+	"tf\x9c\x04T\x94\x0aZ\xda\x04\xb3V\xaa\x14\x16%" +
+	"15\xa5\x95$\xeck\xaa\xf6P\xd0\xd9\xdd\xb7\xbbC" +
+	"w\xe7\xad3#\xc6@\xc9A\x82\xffP\xe8\xc1?\x17" +
+	"O\x82\xd2^BA\x0f\x1e*\x8d\xa0\xd0R\x0f\x82B" +
+	"\x05A\x85\xfa\x07\x0f\x1e\xbc\x08=\xf4\xc9\x9b\xdd\x9d\xdd" +
+	"n\x8d\xb7\x9d\xc7\xf7~\xdf\xf7\xbe\xef\xfb\xed\x81\x1b\x98" +
+	"\xb7\x1e\x99x-GL\xcc\xe7\xee\xd0\x0b'\x7f\xda\xff" +
+	"\xf5\xf6\x87g\xc9u,\xfd@\xe5/\xf5\x8dz\xffG" +
+	"\"\x1c<\xc7f\xe0}\xce\xf2D\xab\x9f2\x8e\xd5K" +
+	"\x8c\x81H\xbf\xfe\xcb\xab\xde\x99\x9b\x8d\x0fH\xdc\x05\xe8" +
+	"\x7f\x0e]\xbbt\xf8\x1du\x95\xa6X\x1eD\xde\x05\xf6" +
+	"'\xc1\xfb\x8c\xbdL\xd0\x9b\xbf\xbd\xb9\xf0\xf0\xfa\xf9\x8f" +
+	"H\xdc\x0d\xe8?\x1e\x7fl\xef\xbe#G\xaf\xd1\x14R" +
+	"\xa4\xcb\xff&xS|\x8b\xa0\x8bOl\xbd\x15}\xf2" +
+	"\xeb9r\x1dv\x8b\x86\x0b\xfcNx\xdb<O\xe4]" +
+	"\xe4\x87\x08\xfa\xaa\xb3\xef\xc5/6'\xb7\xccL\xae\xfd" +
+	"]\xd77\x9e\x8b\xde\xfb\xb9\xc7~p\x9b\xef\x02\xc1\xbb" +
+	"\xcc\x0d}&M8\xc0`\xea\"\xcb3\"o\xaf\xf5" +
+	"\xa57k\x99\xc1\xd3\x96Ag\xf2F\xd0H\xd1g\xac" +
+	"+\xde\x1b)z3Eg\xc4\xc2\x01\x1f\xa0s\xc6-" +
+	"\xef\xb2u\xc5\xfb>\x05\x7fk\xfdN\xd0\xcf\x8c\xab\x1f" +
+	"J\xf7=\x7f}\x04\x9c\"\xde\xce\x9d\xf7\xde\xcd\x99_" +
+	"gs[\xb4\xa2kA|:NT\xc4e\xb1\xeaw" +
+	"\xc2N\xc9|\xf8\x0dyDEm?yVFv\x1c" +
+	"\xa8\xb0\x0c\xa0@\xcc-\x80\x90]a\xfd+'\xa2@" +
+	".\xfb\x9d\xa2\xdd\x92~]\x14\xb8Ed\x81\xc8\x9d." +
+	"\x11\x89\x079\xc4\x01\x06\x17\x98\x849\x9c\x9d!\x12\xfb" +
+	"9\xc4\xa3\x0cs\x9dH\xd6\x835L\x10\xc3\x04\xc1\xf6" +
+	"k\xb5\x08\xce@?\x01\xce\x7f\x11.\xa9\xc6b\x98D" +
+	"\xaf\xec)VZ\xaa\"\xc63\xc6\xc5\x05\"1\xcf!" +
+	"\x96z\x8c\x8c\xc8=V!\x12G9\xc4\x09\x06\x97\xdd" +
+	"?\x09N\xe4\x0a\xa3m\x89C\x9cd\xd8\x88e\xa3-" +
+	"\xc3\xa4\xafCWU\xbb\x13\xc98\xa6|\xa0B\xd8\x83" +
+	"\xba\x10`\x13\xe6:~\xf5\xb4\xac\x01\xc40lH\xe6" +
+	"\xe1\xe1\xde\xfd@\x85\xab\xd5\xa6lC\x96\x01QH\xd5" +
+	"\xb83f\x8a;v\x0f\x91\x1d\xaaP\xf2\xb5\xf5\xdb\x07" +
+	",\xfbaP\x97qRl\xf9q\xb2\xa4\x1aD][" +
+	"\xbb\x0f\x9a\x9e\x19\xf1\xd5<h\xb64\xf0\xd5\x8e\x83u" +
+	"\x891b\x18#\xcc\x85/\xb5+2\xea\x7f\xee\x18\x1f" +
+	"\xa5\x1a\xb95\xae50\xd8:\xc3\xc6&pSw\xb9" +
+	"\xdd\xa7\x89\x84\xc3!\x1ebH\xf3\xd6\x95\xc8\x0f\xabM" +
+	"\x19\x13\x11v\x13\xca\x1c#\x11\xee\xfe\xbf\x08\xe9V\xda" +
+	"l\x85\x87hM\xb0\xee\xf1\x1e\xed\xbd\x0c\xb6\x09]\x07" +
+	"aM\xae\xad\xa8\x1aA\xc2\x19\xec\xdeN\x95\xe9;\xda" +
+	"\xe5s\xb8\x05\xa4\x8d\xf1McNq\x88\xa6)G\xaf" +
+	"\xa3\xd2\x18\xfc\x02\x87h1\x80c\xe8_\xc0\x0d\x16\x88" +
+	"9\xd6$,\xd3\xa1\x88H\x949\xc4)\x86\x0d#j" +
+	"\xd9\xef\xdc^_;R*\x81\xa3?\x8en4\xbf[" +
+	"\xbf\xf8U\xefx\xa3\x17\xad\xae\xf76\x8d\xf6D\xa60" +
+	"f\xcfP\x18z\x02\xfaO\xb0\x9f\xac\xd5\"\xa3~<" +
+	"S\xbfX\x1a\xea;c]\xf5\xc7\xcc\xe1S\x1c\xa2\xcc" +
+	"\xe0\xb0nl\xcb\xc7\x07u\x9fS\xf5z,\x93\xac\x1f" +
+	"-\x196\x92f\xc6\xdbR\x8d\x15\xd3\x18B\xd6\x99\x7f" +
+	"\x03\x00\x00\xff\xff\xa3\x92\x82\xb1"
 
 func init() {
 	schemas.Register(schema_dc976fcd6fee6223,
 		0x919dc1c628df5842,
 		0x9867fe7d1383e188,
+		0xa3aa7a2f428ae685,
+		0xa9e5a7728baf3d2e,
 		0xaf1485be712710cc,
 		0xcc6f8e43c0d837f7,
 		0xd848462725353ce8,
