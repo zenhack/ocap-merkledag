@@ -6,6 +6,7 @@ package websocketcapnp
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"capnproto.org/go/capnp/v3"
@@ -29,21 +30,22 @@ func (c websocketCodec) Encode(ctx context.Context, msg *capnp.Message) error {
 	if err != nil {
 		return err
 	}
-	data, err := msg.Marshal()
+	w, err := c.conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
 		return err
 	}
-	return c.conn.WriteMessage(websocket.BinaryMessage, data)
+	defer w.Close()
+	return capnp.NewEncoder(w).Encode(msg)
 }
 
 func (c websocketCodec) Decode(ctx context.Context) (*capnp.Message, error) {
 	var (
-		typ  int
-		data []byte
-		err  error
+		typ int
+		r   io.Reader
+		err error
 	)
 	for ctx.Err() == nil && typ != websocket.BinaryMessage {
-		typ, data, err = c.conn.ReadMessage()
+		typ, r, err = c.conn.NextReader()
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +56,7 @@ func (c websocketCodec) Decode(ctx context.Context) (*capnp.Message, error) {
 			}
 		}
 	}
-	return capnp.Unmarshal(data)
+	return capnp.NewDecoder(r).Decode()
 }
 
 func (websocketCodec) SetPartialWriteTimeout(time.Duration) {}
