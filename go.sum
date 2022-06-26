@@ -4,6 +4,8 @@ capnproto.org/go/capnp/v3 v3.0.0-alpha.2 h1:11eyK/Bj7dCRjq+5lzhhedrXMVDEEpuKOb3a
 capnproto.org/go/capnp/v3 v3.0.0-alpha.2/go.mod h1:Dynqh9/LE2Wy7jYd2wIoYgqFwh3hZHCmG7j6/uCWX6c=
 capnproto.org/go/capnp/v3 v3.0.0-alpha.3 h1:F2d51g9WVp5TzoWIUttjrkNa8u5WQmxCIk/W6YXUoDY=
 capnproto.org/go/capnp/v3 v3.0.0-alpha.3/go.mod h1:Dynqh9/LE2Wy7jYd2wIoYgqFwh3hZHCmG7j6/uCWX6c=
+capnproto.org/go/capnp/v3 v3.0.0-alpha.3.0.20220524201954-543b5097c0ac h1:bqiJ+65KjizT1iQ9TccI2uXV5Kr320px66xu4rnMePo=
+capnproto.org/go/capnp/v3 v3.0.0-alpha.3.0.20220524201954-543b5097c0ac/go.mod h1:Dynqh9/LE2Wy7jYd2wIoYgqFwh3hZHCmG7j6/uCWX6c=
 github.com/Julusian/godocdown v0.0.0-20170816220326-6d19f8ff2df8/go.mod h1:INZr5t32rG59/5xeltqoCJoNY7e5x/3xoY9WSWVWg74=
 github.com/bobg/hashsplit v1.1.3 h1:u9RWzJcGnLOojFY5ornTHHOfLbJQS1LnrGUufwU+CSA=
 github.com/bobg/hashsplit v1.1.3/go.mod h1:2JjSYhF/skYn30fNpk1CL7gYmh1sZf+YDb12ZNxTa4M=

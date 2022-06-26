@@ -6,75 +6,59 @@ package websocketcapnp
 
 import (
 	"context"
-	"log"
+	"time"
 
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
-	rpccp "capnproto.org/go/capnp/v3/std/capnp/rpc"
+	"capnproto.org/go/capnp/v3/rpc/transport"
 	"github.com/gorilla/websocket"
 )
 
 // Return an rpc.Transport that sends messages over the websocket connection.
 // Sends each capnproto message in its own websocket binary message.
 func NewTransport(conn *websocket.Conn) rpc.Transport {
-	return websocketTransport{conn}
+	return transport.New(websocketCodec{conn})
 }
 
-type websocketTransport struct {
+type websocketCodec struct {
 	conn *websocket.Conn
 }
 
-func (t websocketTransport) NewMessage(ctx context.Context) (
-	_ rpccp.Message,
-	send func() error,
-	_ capnp.ReleaseFunc,
-	_ error,
-) {
-	arena := capnp.SingleSegment(nil)
-	msg, seg, err := capnp.NewMessage(arena)
+func (c websocketCodec) Encode(ctx context.Context, msg *capnp.Message) error {
+	err := ctx.Err()
 	if err != nil {
-		return rpccp.Message{}, func() error { return nil }, func() {}, err
+		return err
 	}
-	send = func() error {
-		data, err := msg.Marshal()
-		if err != nil {
-			log.Print("Error getting segment: ", err)
-			return err
-		}
-		return t.conn.WriteMessage(websocket.BinaryMessage, data)
+	data, err := msg.Marshal()
+	if err != nil {
+		return err
 	}
-	release := func() {}
-	rpcMsg, err := rpccp.NewRootMessage(seg)
-	return rpcMsg, send, release, err
+	return c.conn.WriteMessage(websocket.BinaryMessage, data)
 }
 
-func (t websocketTransport) RecvMessage(ctx context.Context) (rpccp.Message, capnp.ReleaseFunc, error) {
+func (c websocketCodec) Decode(ctx context.Context) (*capnp.Message, error) {
 	var (
 		typ  int
 		data []byte
 		err  error
 	)
 	for ctx.Err() == nil && typ != websocket.BinaryMessage {
-		typ, data, err = t.conn.ReadMessage()
+		typ, data, err = c.conn.ReadMessage()
 		if err != nil {
-			return rpccp.Message{}, func() {}, err
+			return nil, err
 		}
 		if typ == websocket.PingMessage {
-			t.conn.WriteMessage(websocket.PongMessage, nil)
+			err = c.conn.WriteMessage(websocket.PongMessage, nil)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	if err = ctx.Err(); err != nil {
-		return rpccp.Message{}, func() {}, err
-	}
-
-	msg, err := capnp.Unmarshal(data)
-	if err != nil {
-		return rpccp.Message{}, func() {}, err
-	}
-	rpcMsg, err := rpccp.ReadRootMessage(msg)
-	return rpcMsg, func() {}, err
+	return capnp.Unmarshal(data)
 }
 
-func (t websocketTransport) Close() error {
-	return t.conn.Close()
+func (websocketCodec) SetPartialWriteTimeout(time.Duration) {}
+
+func (c websocketCodec) Close() error {
+	return c.conn.Close()
 }
