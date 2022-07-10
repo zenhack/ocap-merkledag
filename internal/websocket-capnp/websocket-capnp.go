@@ -132,7 +132,7 @@ func (p transformPort) Close() error {
 }
 
 // Return an rpc.Transport that sends messages over the websocket connection.
-// Sends each capnproto message in its own websocket binary message.
+// Sends each capnproto message in its own websocket binary message, xz-compressed.
 func NewTransport(conn *websocket.Conn) rpc.Transport {
-	return transport.New(PortCodec(WebSocketPort(conn)))
+	return transport.New(PortCodec(XZPort(WebSocketPort(conn))))
 }
