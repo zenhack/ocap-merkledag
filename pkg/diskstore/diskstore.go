@@ -47,6 +47,9 @@ type DiskStore struct {
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+
+	// Scratch buffers, to reduce allocations
+	scratchBufs [2][]byte
 }
 
 type Ref struct {
@@ -373,12 +376,15 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 
 		// Apply xz compression
 		blob.SetCompression(diskstore.CompressionScheme_xz)
-		buf := &bytes.Buffer{}
-		w, err := xz.NewWriter(buf)
+		xzBuf := bytes.NewBuffer(s.scratchBufs[0][:0])
+		packBuf := s.scratchBufs[1][:0]
+
+		w, err := xz.NewWriter(xzBuf)
 		if err != nil {
 			return Ref{}, err
 		}
-		_, err = w.Write(packed.Pack(nil, data))
+		packBuf = packed.Pack(packBuf, data)
+		_, err = w.Write(packBuf)
 		if err != nil {
 			return Ref{}, err
 		}
@@ -386,7 +392,7 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 		if err != nil {
 			return Ref{}, err
 		}
-		data = buf.Bytes()
+		data = xzBuf.Bytes()
 
 		err = blob.SetSegment(data)
 		if err != nil {
@@ -397,6 +403,9 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 		if err != nil {
 			return Ref{}, err
 		}
+
+		s.scratchBufs[0] = data
+		s.scratchBufs[1] = packBuf
 
 		return Ref{hash: hash, addr: addr, store: s}, s.insert(&hash, addr)
 	}
