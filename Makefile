@@ -1,13 +1,14 @@
 
 
+go_src := $(shell find -type f -name *.go)
 sandstorm_exe := omd-sandstorm-grain
 
-all: webui
+all: webui $(go_src)
 	go build ./...
 
 sandstorm: cmd/$(sandstorm_exe)/$(sandstorm_exe)
 
-cmd/$(sandstorm_exe)/$(sandstorm_exe):
+cmd/$(sandstorm_exe)/$(sandstorm_exe): $(go_src)
 	cd cmd/$(sandstorm_exe) && go build
 
 pack: omd.spk
