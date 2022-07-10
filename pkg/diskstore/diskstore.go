@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"capnproto.org/go/capnp/v3"
+	"capnproto.org/go/capnp/v3/packed"
 	"github.com/ulikunitz/xz"
 
 	"zenhack.net/go/ocap-md/pkg/diskstore/logwriter"
@@ -368,7 +369,7 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 
 		ent.SetBlob()
 		blob := ent.Blob()
-		blob.SetPacked(false) // TODO: maybe pack it.
+		blob.SetPacked(true)
 
 		// Apply xz compression
 		blob.SetCompression(diskstore.CompressionScheme_xz)
@@ -377,7 +378,7 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 		if err != nil {
 			return Ref{}, err
 		}
-		_, err = w.Write(data)
+		_, err = w.Write(packed.Pack(nil, data))
 		if err != nil {
 			return Ref{}, err
 		}

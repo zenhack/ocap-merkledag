@@ -15,6 +15,11 @@ func makeTestStore(t *testing.T) *DiskStore {
 	return ret
 }
 
+// Trim data to a whole number of words (multiple of 8 bytes). Useful for fuzz testing.
+func trimToWords(data []byte) []byte {
+	return data[:len(data)&^0x7]
+}
+
 func TestGetSetRoot(t *testing.T) {
 	store := makeTestStore(t)
 	defer store.Close()
@@ -24,6 +29,7 @@ func TestGetSetRoot(t *testing.T) {
 		"GetRoot() should return ErrNoRoot before a root has been set.")
 
 	assert.Nil(t, quick.Check(func(rootData []byte) bool {
+		rootData = trimToWords(rootData)
 		putRef, err := store.Put(rootData)
 		assert.Nil(t, err)
 
@@ -42,6 +48,7 @@ func TestGetPut(t *testing.T) {
 	ents := make(map[Hash]getPutEntry)
 
 	testPut := func(data []byte) {
+		data = trimToWords(data)
 		r, err := store.Put(data)
 		assert.Nil(t, err, "Put() should succeed.")
 		h := r.Hash()
@@ -69,7 +76,11 @@ func TestGetPut(t *testing.T) {
 	for _, ent := range ents {
 		data, err := ent.ref.Get()
 		assert.Nil(t, err, "Should find all the blobs we Put() earlier.")
-		assert.Equal(t, ent.data, data, "Should return the data we Put() earlier.")
+		if len(ent.data) != 0 || len(data) != 0 {
+			// skip this check if both are empty, because []byte{} and nil will not
+			// be treated as equal though we want them to be.
+			assert.Equal(t, ent.data, data, "Should return the data we Put() earlier.")
+		}
 	}
 }
 
