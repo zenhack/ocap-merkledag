@@ -109,7 +109,7 @@ func (s *DiskStore) resolveHash(h Hash) (Ref, error) {
 	if err != nil {
 		return Ref{}, err
 	}
-	return Ref{hash: h, addr: addr}, nil
+	return Ref{hash: h, addr: addr, store: s}, nil
 }
 
 func (s *DiskStore) GetRoot() (Ref, error) {
