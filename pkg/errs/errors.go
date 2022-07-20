@@ -1,6 +1,7 @@
 package errs
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -17,5 +18,17 @@ func UnknownVariant(typ string, variant uint16) error {
 	return ErrUnknownVariant{
 		Type:    typ,
 		Variant: variant,
+	}
+}
+
+func PushBack(ctx context.Context, ch chan<- error, err error) error {
+	if err == nil {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case ch <- err:
+		return err
 	}
 }

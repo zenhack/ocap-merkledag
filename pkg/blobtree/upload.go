@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 
+	"zenhack.net/go/ocap-md/pkg/errs"
 	"zenhack.net/go/ocap-md/pkg/schema/files"
 	"zenhack.net/go/ocap-md/pkg/schema/protocol"
 
@@ -28,12 +29,12 @@ func (node blobNode) encode(bt files.BlobTree) {
 	bt.SetSize(node.size)
 }
 
-func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (blobNode, error) {
+func writeBranches(ctx context.Context, errch chan<- error, s protocol.Storage, nodes []blobNode) (blobNode, error) {
 	var result blobNode
 	res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
 		branches, err := files.NewBlobTree_List(p.Struct.Segment(), int32(len(nodes)))
 		if err != nil {
-			return err
+			return errs.PushBack(ctx, errch, err)
 		}
 		for i, node := range nodes {
 			result.size += node.size
@@ -51,7 +52,7 @@ func writeBranches(ctx context.Context, s protocol.Storage, nodes []blobNode) (b
 
 // WriteStream constructs a BlobTree in the storage from the contents of r,
 // and encodes its root node in bt.
-func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader, bt files.BlobTree) error {
+func WriteStream(ctx context.Context, errch chan<- error, s protocol.Storage, r io.Reader, bt files.BlobTree) error {
 	var nodes []blobNode
 	defer func() {
 		for _, node := range nodes {
@@ -70,7 +71,7 @@ func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader, bt files.
 		res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
 			list, err := capnp.NewData(p.Struct.Segment(), b)
 			if err != nil {
-				return err
+				return errs.PushBack(ctx, errch, err)
 			}
 			p.SetValue(list.ToPtr())
 			return nil
@@ -88,15 +89,15 @@ func WriteStream(ctx context.Context, s protocol.Storage, r io.Reader, bt files.
 	sp.MinSize = 32 * 1024
 	_, err := io.Copy(sp, r)
 	if err != nil {
-		return err
+		return errs.PushBack(ctx, errch, err)
 	}
 	err = sp.Close()
 	if err != nil {
-		return err
+		return errs.PushBack(ctx, errch, err)
 	}
-	rootNode, err := writeBranches(ctx, s, nodes)
+	rootNode, err := writeBranches(ctx, errch, s, nodes)
 	if err != nil {
-		return err
+		return errs.PushBack(ctx, errch, err)
 	}
 	rootNode.encode(bt)
 	return nil

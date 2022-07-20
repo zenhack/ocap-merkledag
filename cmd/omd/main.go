@@ -68,6 +68,7 @@ func main() {
 		}
 	case "put":
 		ctx := context.Background()
+		ctx, cancel := context.WithCancel(ctx)
 		trans, releaseTrans, err := connect(*addr)
 		chkfatal(err)
 		defer releaseTrans()
@@ -80,7 +81,16 @@ func main() {
 		// Cap outstanding requests to 512MiB, to avoid runaway memory usage:
 		s.Client.SetFlowLimiter(flowcontrol.NewFixedLimiter(512 * 1024 * 1024))
 
-		ref, err := files.PutFile(ctx, s, *path)
+		errch := make(chan error)
+
+		go func() {
+			defer cancel()
+			select {
+			case <-ctx.Done():
+			case <-errch:
+			}
+		}()
+		ref, err := files.PutFile(ctx, errch, s, *path)
 		chkfatal(err)
 		resRoot, rel := api.Root(ctx, nil)
 		defer rel()
