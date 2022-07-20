@@ -10,7 +10,7 @@ import (
 	context "context"
 )
 
-type Map struct{ Client *capnp.Client }
+type Map struct{ Client capnp.Client }
 
 // Map_TypeID is the unique identifier for the type Map.
 const Map_TypeID = 0xfb36f41541e13f38
@@ -96,6 +96,15 @@ func (c Map_find) Args() Map_find_Params {
 func (c Map_find) AllocResults() (Map_find_Results, error) {
 	r, err := c.Call.AllocResults(capnp.ObjectSize{DataSize: 0, PointerCount: 1})
 	return Map_find_Results{Struct: r}, err
+}
+
+// Map_List is a list of Map.
+type Map_List = capnp.CapList[Map]
+
+// NewMap creates a new list of Map.
+func NewMap_List(s *capnp.Segment, sz int32) (Map_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[Map](l), err
 }
 
 type Map_find_Params struct{ capnp.Struct }
@@ -214,7 +223,7 @@ func (p Map_find_Results_Future) Value() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
 
-type Getter struct{ Client *capnp.Client }
+type Getter struct{ Client capnp.Client }
 
 // Getter_TypeID is the unique identifier for the type Getter.
 const Getter_TypeID = 0xb1928944e0fc3173
@@ -300,6 +309,15 @@ func (c Getter_get) Args() Getter_get_Params {
 func (c Getter_get) AllocResults() (Getter_get_Results, error) {
 	r, err := c.Call.AllocResults(capnp.ObjectSize{DataSize: 0, PointerCount: 1})
 	return Getter_get_Results{Struct: r}, err
+}
+
+// Getter_List is a list of Getter.
+type Getter_List = capnp.CapList[Getter]
+
+// NewGetter creates a new list of Getter.
+func NewGetter_List(s *capnp.Segment, sz int32) (Getter_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[Getter](l), err
 }
 
 type Getter_get_Params struct{ capnp.Struct }
@@ -402,7 +420,7 @@ func (p Getter_get_Results_Future) Value() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
 
-type Ref struct{ Client *capnp.Client }
+type Ref struct{ Client capnp.Client }
 
 // Ref_TypeID is the unique identifier for the type Ref.
 const Ref_TypeID = 0xa14ffd6d795dbc31
@@ -520,6 +538,15 @@ func (c Ref_getStored) AllocResults() (Ref_getStored_Results, error) {
 	return Ref_getStored_Results{Struct: r}, err
 }
 
+// Ref_List is a list of Ref.
+type Ref_List = capnp.CapList[Ref]
+
+// NewRef creates a new list of Ref.
+func NewRef_List(s *capnp.Segment, sz int32) (Ref_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[Ref](l), err
+}
+
 type Ref_getStored_Params struct{ capnp.Struct }
 
 // Ref_getStored_Params_TypeID is the unique identifier for the type Ref_getStored_Params.
@@ -632,7 +659,7 @@ func (p Ref_getStored_Results_Future) StoredValue() Stored_Future {
 	return Stored_Future{Future: p.Future.Field(0, nil)}
 }
 
-type Setter struct{ Client *capnp.Client }
+type Setter struct{ Client capnp.Client }
 
 // Setter_TypeID is the unique identifier for the type Setter.
 const Setter_TypeID = 0xedefcf72d1a4dcd5
@@ -718,6 +745,15 @@ func (c Setter_set) Args() Setter_set_Params {
 func (c Setter_set) AllocResults() (Setter_set_Results, error) {
 	r, err := c.Call.AllocResults(capnp.ObjectSize{DataSize: 0, PointerCount: 0})
 	return Setter_set_Results{Struct: r}, err
+}
+
+// Setter_List is a list of Setter.
+type Setter_List = capnp.CapList[Setter]
+
+// NewSetter creates a new list of Setter.
+func NewSetter_List(s *capnp.Segment, sz int32) (Setter_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[Setter](l), err
 }
 
 type Setter_set_Params struct{ capnp.Struct }
@@ -820,7 +856,7 @@ func (p Setter_set_Results_Future) Struct() (Setter_set_Results, error) {
 	return Setter_set_Results{s}, err
 }
 
-type Cell struct{ Client *capnp.Client }
+type Cell struct{ Client capnp.Client }
 
 // Cell_TypeID is the unique identifier for the type Cell.
 const Cell_TypeID = 0x86dfe7e96ebb541d
@@ -921,7 +957,16 @@ func Cell_Methods(methods []server.Method, s Cell_Server) []server.Method {
 	return methods
 }
 
-type TxCell struct{ Client *capnp.Client }
+// Cell_List is a list of Cell.
+type Cell_List = capnp.CapList[Cell]
+
+// NewCell creates a new list of Cell.
+func NewCell_List(s *capnp.Segment, sz int32) (Cell_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[Cell](l), err
+}
+
+type TxCell struct{ Client capnp.Client }
 
 // TxCell_TypeID is the unique identifier for the type TxCell.
 const TxCell_TypeID = 0xfcd1f0de6c4076f9
@@ -1069,6 +1114,15 @@ func (c TxCell_txGet) AllocResults() (TxCell_txGet_Results, error) {
 	return TxCell_txGet_Results{Struct: r}, err
 }
 
+// TxCell_List is a list of TxCell.
+type TxCell_List = capnp.CapList[TxCell]
+
+// NewTxCell creates a new list of TxCell.
+func NewTxCell_List(s *capnp.Segment, sz int32) (TxCell_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[TxCell](l), err
+}
+
 type TxCell_txGet_Params struct{ capnp.Struct }
 
 // TxCell_txGet_Params_TypeID is the unique identifier for the type TxCell_txGet_Params.
@@ -1191,7 +1245,7 @@ func (p TxCell_txGet_Results_Future) Setter() Setter {
 	return Setter{Client: p.Future.Field(1, nil).Client()}
 }
 
-type RootPtr struct{ Client *capnp.Client }
+type RootPtr struct{ Client capnp.Client }
 
 // RootPtr_TypeID is the unique identifier for the type RootPtr.
 const RootPtr_TypeID = 0xec69889c3a1aaf50
@@ -1322,7 +1376,16 @@ func RootPtr_Methods(methods []server.Method, s RootPtr_Server) []server.Method 
 	return methods
 }
 
-type Storage struct{ Client *capnp.Client }
+// RootPtr_List is a list of RootPtr.
+type RootPtr_List = capnp.CapList[RootPtr]
+
+// NewRootPtr creates a new list of RootPtr.
+func NewRootPtr_List(s *capnp.Segment, sz int32) (RootPtr_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[RootPtr](l), err
+}
+
+type Storage struct{ Client capnp.Client }
 
 // Storage_TypeID is the unique identifier for the type Storage.
 const Storage_TypeID = 0x84ec75049386a248
@@ -1408,6 +1471,15 @@ func (c Storage_put) Args() Storage_put_Params {
 func (c Storage_put) AllocResults() (Storage_put_Results, error) {
 	r, err := c.Call.AllocResults(capnp.ObjectSize{DataSize: 0, PointerCount: 1})
 	return Storage_put_Results{Struct: r}, err
+}
+
+// Storage_List is a list of Storage.
+type Storage_List = capnp.CapList[Storage]
+
+// NewStorage creates a new list of Storage.
+func NewStorage_List(s *capnp.Segment, sz int32) (Storage_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[Storage](l), err
 }
 
 type Storage_put_Params struct{ capnp.Struct }
@@ -1788,7 +1860,7 @@ func (p Stored_Future) Data() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
 
-type RootApi struct{ Client *capnp.Client }
+type RootApi struct{ Client capnp.Client }
 
 // RootApi_TypeID is the unique identifier for the type RootApi.
 const RootApi_TypeID = 0xbf3d5608637940e8
@@ -1968,6 +2040,15 @@ func (c RootApi_storage) Args() RootApi_storage_Params {
 func (c RootApi_storage) AllocResults() (RootApi_storage_Results, error) {
 	r, err := c.Call.AllocResults(capnp.ObjectSize{DataSize: 0, PointerCount: 1})
 	return RootApi_storage_Results{Struct: r}, err
+}
+
+// RootApi_List is a list of RootApi.
+type RootApi_List = capnp.CapList[RootApi]
+
+// NewRootApi creates a new list of RootApi.
+func NewRootApi_List(s *capnp.Segment, sz int32) (RootApi_List, error) {
+	l, err := capnp.NewPointerList(s, sz)
+	return capnp.CapList[RootApi](l), err
 }
 
 type RootApi_blobMap_Params struct{ capnp.Struct }
