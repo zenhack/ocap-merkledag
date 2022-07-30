@@ -99,7 +99,7 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 	refClient := protocol.Ref_ServerToClient(&refServer{
 		store: s.store,
 		ref:   diskRef,
-	}, nil)
+	})
 
 	res, err := p.AllocResults()
 	if err != nil {
@@ -171,7 +171,7 @@ func (r *refServer) getStored() (protocol.Stored, error) {
 		refClient := protocol.Ref_ServerToClient(&refServer{
 			store: r.store,
 			ref:   ref,
-		}, nil)
+		})
 		caps = append(caps, refClient.Client)
 	}
 	msg.CapTable = caps
@@ -213,7 +213,7 @@ func (s *rootPtrServer) Get(ctx context.Context, p protocol.Getter_get) error {
 	refClient := protocol.Ref_ServerToClient(&refServer{
 		store: s.store,
 		ref:   ref,
-	}, nil)
+	})
 	res.SetValue(capnp.NewInterface(
 		res.Struct.Segment(),
 		res.Struct.Message().AddCap(refClient.Client),
@@ -244,11 +244,11 @@ func (s *rootPtrServer) TxGet(ctx context.Context, p protocol.TxCell_txGet) erro
 
 func newRootApi(s *diskstore.DiskStore) rootApiServer {
 	return rootApiServer{
-		storage: protocol.Storage_ServerToClient(storageServer{store: s}, nil),
-		root:    protocol.RootPtr_ServerToClient(&rootPtrServer{store: s, version: 0}, nil),
+		storage: protocol.Storage_ServerToClient(storageServer{store: s}),
+		root:    protocol.RootPtr_ServerToClient(&rootPtrServer{store: s, version: 0}),
 	}
 }
 
 func NewRootApi(s *diskstore.DiskStore) protocol.RootApi {
-	return protocol.RootApi_ServerToClient(newRootApi(s), nil)
+	return protocol.RootApi_ServerToClient(newRootApi(s))
 }

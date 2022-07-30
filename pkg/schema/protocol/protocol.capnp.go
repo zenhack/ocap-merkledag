@@ -48,15 +48,15 @@ type Map_Server interface {
 }
 
 // Map_NewServer creates a new Server from an implementation of Map_Server.
-func Map_NewServer(s Map_Server, policy *server.Policy) *server.Server {
+func Map_NewServer(s Map_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(Map_Methods(nil, s), s, c, policy)
+	return server.New(Map_Methods(nil, s), s, c)
 }
 
 // Map_ServerToClient creates a new Client from an implementation of Map_Server.
 // The caller is responsible for calling Release on the returned Client.
-func Map_ServerToClient(s Map_Server, policy *server.Policy) Map {
-	return Map{Client: capnp.NewClient(Map_NewServer(s, policy))}
+func Map_ServerToClient(s Map_Server) Map {
+	return Map{Client: capnp.NewClient(Map_NewServer(s))}
 }
 
 // Map_Methods appends Methods to a slice that invoke the methods on s.
@@ -261,15 +261,15 @@ type Getter_Server interface {
 }
 
 // Getter_NewServer creates a new Server from an implementation of Getter_Server.
-func Getter_NewServer(s Getter_Server, policy *server.Policy) *server.Server {
+func Getter_NewServer(s Getter_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(Getter_Methods(nil, s), s, c, policy)
+	return server.New(Getter_Methods(nil, s), s, c)
 }
 
 // Getter_ServerToClient creates a new Client from an implementation of Getter_Server.
 // The caller is responsible for calling Release on the returned Client.
-func Getter_ServerToClient(s Getter_Server, policy *server.Policy) Getter {
-	return Getter{Client: capnp.NewClient(Getter_NewServer(s, policy))}
+func Getter_ServerToClient(s Getter_Server) Getter {
+	return Getter{Client: capnp.NewClient(Getter_NewServer(s))}
 }
 
 // Getter_Methods appends Methods to a slice that invoke the methods on s.
@@ -476,15 +476,15 @@ type Ref_Server interface {
 }
 
 // Ref_NewServer creates a new Server from an implementation of Ref_Server.
-func Ref_NewServer(s Ref_Server, policy *server.Policy) *server.Server {
+func Ref_NewServer(s Ref_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(Ref_Methods(nil, s), s, c, policy)
+	return server.New(Ref_Methods(nil, s), s, c)
 }
 
 // Ref_ServerToClient creates a new Client from an implementation of Ref_Server.
 // The caller is responsible for calling Release on the returned Client.
-func Ref_ServerToClient(s Ref_Server, policy *server.Policy) Ref {
-	return Ref{Client: capnp.NewClient(Ref_NewServer(s, policy))}
+func Ref_ServerToClient(s Ref_Server) Ref {
+	return Ref{Client: capnp.NewClient(Ref_NewServer(s))}
 }
 
 // Ref_Methods appends Methods to a slice that invoke the methods on s.
@@ -697,15 +697,15 @@ type Setter_Server interface {
 }
 
 // Setter_NewServer creates a new Server from an implementation of Setter_Server.
-func Setter_NewServer(s Setter_Server, policy *server.Policy) *server.Server {
+func Setter_NewServer(s Setter_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(Setter_Methods(nil, s), s, c, policy)
+	return server.New(Setter_Methods(nil, s), s, c)
 }
 
 // Setter_ServerToClient creates a new Client from an implementation of Setter_Server.
 // The caller is responsible for calling Release on the returned Client.
-func Setter_ServerToClient(s Setter_Server, policy *server.Policy) Setter {
-	return Setter{Client: capnp.NewClient(Setter_NewServer(s, policy))}
+func Setter_ServerToClient(s Setter_Server) Setter {
+	return Setter{Client: capnp.NewClient(Setter_NewServer(s))}
 }
 
 // Setter_Methods appends Methods to a slice that invoke the methods on s.
@@ -912,15 +912,15 @@ type Cell_Server interface {
 }
 
 // Cell_NewServer creates a new Server from an implementation of Cell_Server.
-func Cell_NewServer(s Cell_Server, policy *server.Policy) *server.Server {
+func Cell_NewServer(s Cell_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(Cell_Methods(nil, s), s, c, policy)
+	return server.New(Cell_Methods(nil, s), s, c)
 }
 
 // Cell_ServerToClient creates a new Client from an implementation of Cell_Server.
 // The caller is responsible for calling Release on the returned Client.
-func Cell_ServerToClient(s Cell_Server, policy *server.Policy) Cell {
-	return Cell{Client: capnp.NewClient(Cell_NewServer(s, policy))}
+func Cell_ServerToClient(s Cell_Server) Cell {
+	return Cell{Client: capnp.NewClient(Cell_NewServer(s))}
 }
 
 // Cell_Methods appends Methods to a slice that invoke the methods on s.
@@ -1040,15 +1040,15 @@ type TxCell_Server interface {
 }
 
 // TxCell_NewServer creates a new Server from an implementation of TxCell_Server.
-func TxCell_NewServer(s TxCell_Server, policy *server.Policy) *server.Server {
+func TxCell_NewServer(s TxCell_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(TxCell_Methods(nil, s), s, c, policy)
+	return server.New(TxCell_Methods(nil, s), s, c)
 }
 
 // TxCell_ServerToClient creates a new Client from an implementation of TxCell_Server.
 // The caller is responsible for calling Release on the returned Client.
-func TxCell_ServerToClient(s TxCell_Server, policy *server.Policy) TxCell {
-	return TxCell{Client: capnp.NewClient(TxCell_NewServer(s, policy))}
+func TxCell_ServerToClient(s TxCell_Server) TxCell {
+	return TxCell{Client: capnp.NewClient(TxCell_NewServer(s))}
 }
 
 // TxCell_Methods appends Methods to a slice that invoke the methods on s.
@@ -1319,15 +1319,15 @@ type RootPtr_Server interface {
 }
 
 // RootPtr_NewServer creates a new Server from an implementation of RootPtr_Server.
-func RootPtr_NewServer(s RootPtr_Server, policy *server.Policy) *server.Server {
+func RootPtr_NewServer(s RootPtr_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(RootPtr_Methods(nil, s), s, c, policy)
+	return server.New(RootPtr_Methods(nil, s), s, c)
 }
 
 // RootPtr_ServerToClient creates a new Client from an implementation of RootPtr_Server.
 // The caller is responsible for calling Release on the returned Client.
-func RootPtr_ServerToClient(s RootPtr_Server, policy *server.Policy) RootPtr {
-	return RootPtr{Client: capnp.NewClient(RootPtr_NewServer(s, policy))}
+func RootPtr_ServerToClient(s RootPtr_Server) RootPtr {
+	return RootPtr{Client: capnp.NewClient(RootPtr_NewServer(s))}
 }
 
 // RootPtr_Methods appends Methods to a slice that invoke the methods on s.
@@ -1423,15 +1423,15 @@ type Storage_Server interface {
 }
 
 // Storage_NewServer creates a new Server from an implementation of Storage_Server.
-func Storage_NewServer(s Storage_Server, policy *server.Policy) *server.Server {
+func Storage_NewServer(s Storage_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(Storage_Methods(nil, s), s, c, policy)
+	return server.New(Storage_Methods(nil, s), s, c)
 }
 
 // Storage_ServerToClient creates a new Client from an implementation of Storage_Server.
 // The caller is responsible for calling Release on the returned Client.
-func Storage_ServerToClient(s Storage_Server, policy *server.Policy) Storage {
-	return Storage{Client: capnp.NewClient(Storage_NewServer(s, policy))}
+func Storage_ServerToClient(s Storage_Server) Storage {
+	return Storage{Client: capnp.NewClient(Storage_NewServer(s))}
 }
 
 // Storage_Methods appends Methods to a slice that invoke the methods on s.
@@ -1934,15 +1934,15 @@ type RootApi_Server interface {
 }
 
 // RootApi_NewServer creates a new Server from an implementation of RootApi_Server.
-func RootApi_NewServer(s RootApi_Server, policy *server.Policy) *server.Server {
+func RootApi_NewServer(s RootApi_Server) *server.Server {
 	c, _ := s.(server.Shutdowner)
-	return server.New(RootApi_Methods(nil, s), s, c, policy)
+	return server.New(RootApi_Methods(nil, s), s, c)
 }
 
 // RootApi_ServerToClient creates a new Client from an implementation of RootApi_Server.
 // The caller is responsible for calling Release on the returned Client.
-func RootApi_ServerToClient(s RootApi_Server, policy *server.Policy) RootApi {
-	return RootApi{Client: capnp.NewClient(RootApi_NewServer(s, policy))}
+func RootApi_ServerToClient(s RootApi_Server) RootApi {
+	return RootApi{Client: capnp.NewClient(RootApi_NewServer(s))}
 }
 
 // RootApi_Methods appends Methods to a slice that invoke the methods on s.
