@@ -86,7 +86,7 @@ func FetchBlob(s Storage, addr Addr) ([]byte, error) {
 		return nil, ErrWrongEntryType
 	}
 	blob := ent.Blob()
-	data, err := blob.Segment()
+	data, err := blob.Segment_()
 	if err != nil {
 		return nil, err
 	}

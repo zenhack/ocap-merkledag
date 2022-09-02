@@ -76,8 +76,8 @@ func (l *LogWriter) WriteEntry(ent diskstore.LogEntry) (types.LocalAddr, error) 
 		return types.LocalAddr{}, l.err
 	}
 
-	msg := ent.Struct.Message()
-	l.err = msg.SetRoot(ent.Struct.ToPtr())
+	msg := ent.Message()
+	l.err = msg.SetRoot(ent.ToPtr())
 	if l.err != nil {
 		return types.LocalAddr{}, l.err
 	}

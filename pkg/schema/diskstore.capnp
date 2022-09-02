@@ -79,7 +79,7 @@ struct LogEntry {
   union {
     blob :group {
       # A blob of stored data.
-      segment @0 :Data;
+      segment @0 :Data $Go.name("segment_");
       # A single capnp segment containing a Protocol.Stored(AnyPointer) as its root.
       # The value will be in canonical form, so that it can be hashed to derive or
       # validate its content id. Similarly, it is a `Data` field so it can be

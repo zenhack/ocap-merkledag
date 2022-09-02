@@ -59,7 +59,7 @@ func main() {
 			}
 			trans := rpc.NewStreamTransport(conn)
 			capnpConn := rpc.NewConn(trans, &rpc.Options{
-				BootstrapClient: api.Client.AddRef(),
+				BootstrapClient: capnp.Client(api).AddRef(),
 			})
 			go func() {
 				defer conn.Close()
@@ -73,13 +73,13 @@ func main() {
 		chkfatal(err)
 		defer releaseTrans()
 		conn := rpc.NewConn(trans, nil)
-		api := protocol.RootApi{conn.Bootstrap(ctx)}
+		api := protocol.RootApi(conn.Bootstrap(ctx))
 		resStorage, rel := api.Storage(ctx, nil)
 		defer rel()
 		s := resStorage.Storage()
 
 		// Cap outstanding requests to 512MiB, to avoid runaway memory usage:
-		s.Client.SetFlowLimiter(flowcontrol.NewFixedLimiter(512 * 1024 * 1024))
+		capnp.Client(s).SetFlowLimiter(flowcontrol.NewFixedLimiter(512 * 1024 * 1024))
 
 		errch := make(chan error)
 
@@ -96,7 +96,7 @@ func main() {
 		defer rel()
 		resSet, rel := resRoot.Root().Set(ctx, func(p protocol.Setter_set_Params) error {
 			seg := p.Segment()
-			capId := seg.Message().AddCap(ref.Client.AddRef())
+			capId := seg.Message().AddCap(capnp.Client(ref).AddRef())
 			p.SetValue(capnp.NewInterface(seg, capId).ToPtr())
 			return nil
 		})
@@ -109,13 +109,13 @@ func main() {
 		chkfatal(err)
 		defer releaseTrans()
 		conn := rpc.NewConn(trans, nil)
-		api := protocol.RootApi{conn.Bootstrap(ctx)}
+		api := protocol.RootApi(conn.Bootstrap(ctx))
 
 		resRoot, rel := api.Root(ctx, nil)
 		defer rel()
 		resGet, rel := resRoot.Root().Get(ctx, nil)
 		defer rel()
-		ref := protocol.Ref{resGet.Value().Client()}
+		ref := protocol.Ref(resGet.Value().Client())
 		chkfatal(files.Download(ctx, *path, ref))
 	case "mount":
 		ctx := context.Background()
@@ -123,17 +123,17 @@ func main() {
 		chkfatal(err)
 		defer releaseTrans()
 		conn := rpc.NewConn(trans, nil)
-		api := protocol.RootApi{conn.Bootstrap(ctx)}
+		api := protocol.RootApi(conn.Bootstrap(ctx))
 		resRoot, rel := api.Root(ctx, nil)
 		defer rel()
 		resRootGet, rel := resRoot.Root().Get(ctx, nil)
 		defer rel()
-		ref := protocol.Ref{resRootGet.Value().Client()}
+		ref := protocol.Ref(resRootGet.Value().Client())
 		resGet, rel := ref.Get(ctx, nil)
 		defer rel()
 		s, err := resGet.Value().Struct()
 		chkfatal(err)
-		rootFile := filescapnp.File{s}
+		rootFile := filescapnp.File(s)
 		filesystem := omdfuse.FS(func() (filescapnp.File, error) {
 			return rootFile, nil
 		})

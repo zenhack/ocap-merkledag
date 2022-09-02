@@ -106,7 +106,7 @@ func (n *Node) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	if err != nil {
 		return nil, err
 	}
-	bt := bptree.Open(containers.BPlusTree{v.Struct()}, func(x, y capnp.Ptr) int {
+	bt := bptree.Open(containers.BPlusTree(v.Struct()), func(x, y capnp.Ptr) int {
 		return strings.Compare(x.Text(), y.Text())
 	})
 	iterCtx, cancel := context.WithCancel(ctx)
@@ -124,7 +124,7 @@ func (n *Node) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 			return nil, err
 		}
 
-		f := files.File{v.Struct()}
+		f := files.File(v.Struct())
 		var typ fuse.DirentType
 		switch f.Which() {
 		case files.File_Which_file:
@@ -181,7 +181,7 @@ func readBlobTree(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadRes
 		if err != nil {
 			return err
 		}
-		branches := files.BlobTree_List{v.List()}
+		branches := files.BlobTree_List(v.List())
 		for i := 0; i < branches.Len(); i++ {
 			branch := branches.At(i)
 			size := int64(branch.Size())
@@ -213,7 +213,7 @@ func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	bt := bptree.Open(containers.BPlusTree{s}, func(x, y capnp.Ptr) int {
+	bt := bptree.Open(containers.BPlusTree(s), func(x, y capnp.Ptr) int {
 		return strings.Compare(x.Text(), y.Text())
 	})
 
@@ -230,7 +230,7 @@ func (n *Node) Lookup(ctx context.Context, name string) (fusefs.Node, error) {
 		return nil, fuse.Errno(syscall.ENOENT)
 	}
 	return &Node{
-		f:   files.File{ret.Struct()},
+		f:   files.File(ret.Struct()),
 		rel: rel,
 	}, nil
 }

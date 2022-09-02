@@ -30,7 +30,7 @@ func Download(ctx context.Context, path string, ref protocol.Ref) error {
 	if err != nil {
 		return err
 	}
-	f := files.File{v.Struct()}
+	f := files.File(v.Struct())
 	return saveFile(ctx, path, f)
 }
 
@@ -104,7 +104,7 @@ func saveDir(ctx context.Context, path string, f files.File) error {
 	if err != nil {
 		return err
 	}
-	bt := bptree.Open(containers.BPlusTree{s}, func(x, y capnp.Ptr) int {
+	bt := bptree.Open(containers.BPlusTree(s), func(x, y capnp.Ptr) int {
 		// TODO: move this function somewhere.
 		return strings.Compare(x.Text(), y.Text())
 	})
@@ -125,7 +125,7 @@ func saveDir(ctx context.Context, path string, f files.File) error {
 		if err != nil {
 			return err
 		}
-		f := files.File{v.Struct()}
+		f := files.File(v.Struct())
 		if err = saveFile(ctx, filepath.Join(path, name), f); err != nil {
 			return err
 		}
@@ -159,7 +159,7 @@ func writeBlobTree(ctx context.Context, w io.Writer, bt files.BlobTree) error {
 		if err != nil {
 			return err
 		}
-		kids := files.BlobTree_List{v.List()}
+		kids := files.BlobTree_List(v.List())
 		for i := 0; i < kids.Len(); i++ {
 			kid := kids.At(i)
 			if err = writeBlobTree(ctx, w, kid); err != nil {

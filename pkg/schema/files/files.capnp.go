@@ -10,7 +10,7 @@ import (
 	protocol "zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
-type File struct{ capnp.Struct }
+type File capnp.Struct
 type File_metadata File
 type File_Which uint16
 
@@ -58,149 +58,183 @@ const File_TypeID = 0xc4abcc30dd3a9483
 
 func NewFile(s *capnp.Segment) (File, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2})
-	return File{st}, err
+	return File(st), err
 }
 
 func NewRootFile(s *capnp.Segment) (File, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2})
-	return File{st}, err
+	return File(st), err
 }
 
 func ReadRootFile(msg *capnp.Message) (File, error) {
 	root, err := msg.Root()
-	return File{root.Struct()}, err
+	return File(root.Struct()), err
 }
 
 func (s File) String() string {
-	str, _ := text.Marshal(0xc4abcc30dd3a9483, s.Struct)
+	str, _ := text.Marshal(0xc4abcc30dd3a9483, capnp.Struct(s))
 	return str
 }
 
+func (s File) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+	return capnp.Struct(s).EncodeAsPtr(seg)
+}
+
+func (File) DecodeFromPtr(p capnp.Ptr) File {
+	return File(capnp.Struct{}.DecodeFromPtr(p))
+}
+
+func (s File) ToPtr() capnp.Ptr {
+	return capnp.Struct(s).ToPtr()
+}
+
 func (s File) Which() File_Which {
-	return File_Which(s.Struct.Uint16(0))
+	return File_Which(capnp.Struct(s).Uint16(0))
+}
+func (s File) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s File) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s File) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
 }
 func (s File) Metadata() File_metadata { return File_metadata(s) }
 
 func (s File_metadata) Which() File_metadata_Which {
-	return File_metadata_Which(s.Struct.Uint16(2))
+	return File_metadata_Which(capnp.Struct(s).Uint16(2))
+}
+func (s File_metadata) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s File_metadata) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s File_metadata) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
 }
 func (s File_metadata) SetNoMetadata() {
-	s.Struct.SetUint16(2, 0)
+	capnp.Struct(s).SetUint16(2, 0)
 
 }
 
 func (s File_metadata) UnixMetadata() (UnixMetadata, error) {
-	if s.Struct.Uint16(2) != 1 {
+	if capnp.Struct(s).Uint16(2) != 1 {
 		panic("Which() != unixMetadata")
 	}
-	p, err := s.Struct.Ptr(1)
-	return UnixMetadata{Struct: p.Struct()}, err
+	p, err := capnp.Struct(s).Ptr(1)
+	return UnixMetadata(p.Struct()), err
 }
 
 func (s File_metadata) HasUnixMetadata() bool {
-	if s.Struct.Uint16(2) != 1 {
+	if capnp.Struct(s).Uint16(2) != 1 {
 		return false
 	}
-	return s.Struct.HasPtr(1)
+	return capnp.Struct(s).HasPtr(1)
 }
 
 func (s File_metadata) SetUnixMetadata(v UnixMetadata) error {
-	s.Struct.SetUint16(2, 1)
-	return s.Struct.SetPtr(1, v.Struct.ToPtr())
+	capnp.Struct(s).SetUint16(2, 1)
+	return capnp.Struct(s).SetPtr(1, capnp.Struct(v).ToPtr())
 }
 
 // NewUnixMetadata sets the unixMetadata field to a newly
 // allocated UnixMetadata struct, preferring placement in s's segment.
 func (s File_metadata) NewUnixMetadata() (UnixMetadata, error) {
-	s.Struct.SetUint16(2, 1)
-	ss, err := NewUnixMetadata(s.Struct.Segment())
+	capnp.Struct(s).SetUint16(2, 1)
+	ss, err := NewUnixMetadata(capnp.Struct(s).Segment())
 	if err != nil {
 		return UnixMetadata{}, err
 	}
-	err = s.Struct.SetPtr(1, ss.Struct.ToPtr())
+	err = capnp.Struct(s).SetPtr(1, capnp.Struct(ss).ToPtr())
 	return ss, err
 }
 
 func (s File) File() (BlobTree, error) {
-	if s.Struct.Uint16(0) != 0 {
+	if capnp.Struct(s).Uint16(0) != 0 {
 		panic("Which() != file")
 	}
-	p, err := s.Struct.Ptr(0)
-	return BlobTree{Struct: p.Struct()}, err
+	p, err := capnp.Struct(s).Ptr(0)
+	return BlobTree(p.Struct()), err
 }
 
 func (s File) HasFile() bool {
-	if s.Struct.Uint16(0) != 0 {
+	if capnp.Struct(s).Uint16(0) != 0 {
 		return false
 	}
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s File) SetFile(v BlobTree) error {
-	s.Struct.SetUint16(0, 0)
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+	capnp.Struct(s).SetUint16(0, 0)
+	return capnp.Struct(s).SetPtr(0, capnp.Struct(v).ToPtr())
 }
 
 // NewFile sets the file field to a newly
 // allocated BlobTree struct, preferring placement in s's segment.
 func (s File) NewFile() (BlobTree, error) {
-	s.Struct.SetUint16(0, 0)
-	ss, err := NewBlobTree(s.Struct.Segment())
+	capnp.Struct(s).SetUint16(0, 0)
+	ss, err := NewBlobTree(capnp.Struct(s).Segment())
 	if err != nil {
 		return BlobTree{}, err
 	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	err = capnp.Struct(s).SetPtr(0, capnp.Struct(ss).ToPtr())
 	return ss, err
 }
 
 func (s File) Dir() protocol.Ref {
-	if s.Struct.Uint16(0) != 2 {
+	if capnp.Struct(s).Uint16(0) != 2 {
 		panic("Which() != dir")
 	}
-	p, _ := s.Struct.Ptr(0)
-	return protocol.Ref{Client: p.Interface().Client()}
+	p, _ := capnp.Struct(s).Ptr(0)
+	return protocol.Ref(p.Interface().Client())
 }
 
 func (s File) HasDir() bool {
-	if s.Struct.Uint16(0) != 2 {
+	if capnp.Struct(s).Uint16(0) != 2 {
 		return false
 	}
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s File) SetDir(v protocol.Ref) error {
-	s.Struct.SetUint16(0, 2)
-	if !v.Client.IsValid() {
-		return s.Struct.SetPtr(0, capnp.Ptr{})
+	capnp.Struct(s).SetUint16(0, 2)
+	if !v.IsValid() {
+		return capnp.Struct(s).SetPtr(0, capnp.Ptr{})
 	}
 	seg := s.Segment()
-	in := capnp.NewInterface(seg, seg.Message().AddCap(v.Client))
-	return s.Struct.SetPtr(0, in.ToPtr())
+	in := capnp.NewInterface(seg, seg.Message().AddCap(capnp.Client(v)))
+	return capnp.Struct(s).SetPtr(0, in.ToPtr())
 }
 
 func (s File) Symlink() (string, error) {
-	if s.Struct.Uint16(0) != 1 {
+	if capnp.Struct(s).Uint16(0) != 1 {
 		panic("Which() != symlink")
 	}
-	p, err := s.Struct.Ptr(0)
+	p, err := capnp.Struct(s).Ptr(0)
 	return p.Text(), err
 }
 
 func (s File) HasSymlink() bool {
-	if s.Struct.Uint16(0) != 1 {
+	if capnp.Struct(s).Uint16(0) != 1 {
 		return false
 	}
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s File) SymlinkBytes() ([]byte, error) {
-	p, err := s.Struct.Ptr(0)
+	p, err := capnp.Struct(s).Ptr(0)
 	return p.TextBytes(), err
 }
 
 func (s File) SetSymlink(v string) error {
-	s.Struct.SetUint16(0, 1)
-	return s.Struct.SetText(0, v)
+	capnp.Struct(s).SetUint16(0, 1)
+	return capnp.Struct(s).SetText(0, v)
 }
 
 // File_List is a list of File.
@@ -209,7 +243,7 @@ type File_List = capnp.StructList[File]
 // NewFile creates a new list of File.
 func NewFile_List(s *capnp.Segment, sz int32) (File_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2}, sz)
-	return capnp.StructList[File]{List: l}, err
+	return capnp.StructList[File](l), err
 }
 
 // File_Future is a wrapper for a File promised by a client call.
@@ -217,7 +251,7 @@ type File_Future struct{ *capnp.Future }
 
 func (p File_Future) Struct() (File, error) {
 	s, err := p.Future.Struct()
-	return File{s}, err
+	return File(s), err
 }
 
 func (p File_Future) Metadata() File_metadata_Future { return File_metadata_Future{p.Future} }
@@ -227,7 +261,7 @@ type File_metadata_Future struct{ *capnp.Future }
 
 func (p File_metadata_Future) Struct() (File_metadata, error) {
 	s, err := p.Future.Struct()
-	return File_metadata{s}, err
+	return File_metadata(s), err
 }
 
 func (p File_metadata_Future) UnixMetadata() UnixMetadata_Future {
@@ -239,48 +273,70 @@ func (p File_Future) File() BlobTree_Future {
 }
 
 func (p File_Future) Dir() protocol.Ref {
-	return protocol.Ref{Client: p.Future.Field(0, nil).Client()}
+	return protocol.Ref(p.Future.Field(0, nil).Client())
 }
 
-type UnixMetadata struct{ capnp.Struct }
+type UnixMetadata capnp.Struct
 
 // UnixMetadata_TypeID is the unique identifier for the type UnixMetadata.
 const UnixMetadata_TypeID = 0xeab612050895537a
 
 func NewUnixMetadata(s *capnp.Segment) (UnixMetadata, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 0})
-	return UnixMetadata{st}, err
+	return UnixMetadata(st), err
 }
 
 func NewRootUnixMetadata(s *capnp.Segment) (UnixMetadata, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 0})
-	return UnixMetadata{st}, err
+	return UnixMetadata(st), err
 }
 
 func ReadRootUnixMetadata(msg *capnp.Message) (UnixMetadata, error) {
 	root, err := msg.Root()
-	return UnixMetadata{root.Struct()}, err
+	return UnixMetadata(root.Struct()), err
 }
 
 func (s UnixMetadata) String() string {
-	str, _ := text.Marshal(0xeab612050895537a, s.Struct)
+	str, _ := text.Marshal(0xeab612050895537a, capnp.Struct(s))
 	return str
 }
 
+func (s UnixMetadata) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+	return capnp.Struct(s).EncodeAsPtr(seg)
+}
+
+func (UnixMetadata) DecodeFromPtr(p capnp.Ptr) UnixMetadata {
+	return UnixMetadata(capnp.Struct{}.DecodeFromPtr(p))
+}
+
+func (s UnixMetadata) ToPtr() capnp.Ptr {
+	return capnp.Struct(s).ToPtr()
+}
+func (s UnixMetadata) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s UnixMetadata) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s UnixMetadata) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
+}
 func (s UnixMetadata) Permissions() uint32 {
-	return s.Struct.Uint32(0)
+	return capnp.Struct(s).Uint32(0)
 }
 
 func (s UnixMetadata) SetPermissions(v uint32) {
-	s.Struct.SetUint32(0, v)
+	capnp.Struct(s).SetUint32(0, v)
 }
 
 func (s UnixMetadata) ModTime() int64 {
-	return int64(s.Struct.Uint64(8))
+	return int64(capnp.Struct(s).Uint64(8))
 }
 
 func (s UnixMetadata) SetModTime(v int64) {
-	s.Struct.SetUint64(8, uint64(v))
+	capnp.Struct(s).SetUint64(8, uint64(v))
 }
 
 // UnixMetadata_List is a list of UnixMetadata.
@@ -289,7 +345,7 @@ type UnixMetadata_List = capnp.StructList[UnixMetadata]
 // NewUnixMetadata creates a new list of UnixMetadata.
 func NewUnixMetadata_List(s *capnp.Segment, sz int32) (UnixMetadata_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 0}, sz)
-	return capnp.StructList[UnixMetadata]{List: l}, err
+	return capnp.StructList[UnixMetadata](l), err
 }
 
 // UnixMetadata_Future is a wrapper for a UnixMetadata promised by a client call.
@@ -297,10 +353,10 @@ type UnixMetadata_Future struct{ *capnp.Future }
 
 func (p UnixMetadata_Future) Struct() (UnixMetadata, error) {
 	s, err := p.Future.Struct()
-	return UnixMetadata{s}, err
+	return UnixMetadata(s), err
 }
 
-type BlobTree struct{ capnp.Struct }
+type BlobTree capnp.Struct
 type BlobTree_Which uint16
 
 const (
@@ -325,83 +381,106 @@ const BlobTree_TypeID = 0xfde2c325eeeb9f0a
 
 func NewBlobTree(s *capnp.Segment) (BlobTree, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 1})
-	return BlobTree{st}, err
+	return BlobTree(st), err
 }
 
 func NewRootBlobTree(s *capnp.Segment) (BlobTree, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 16, PointerCount: 1})
-	return BlobTree{st}, err
+	return BlobTree(st), err
 }
 
 func ReadRootBlobTree(msg *capnp.Message) (BlobTree, error) {
 	root, err := msg.Root()
-	return BlobTree{root.Struct()}, err
+	return BlobTree(root.Struct()), err
 }
 
 func (s BlobTree) String() string {
-	str, _ := text.Marshal(0xfde2c325eeeb9f0a, s.Struct)
+	str, _ := text.Marshal(0xfde2c325eeeb9f0a, capnp.Struct(s))
 	return str
 }
 
+func (s BlobTree) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+	return capnp.Struct(s).EncodeAsPtr(seg)
+}
+
+func (BlobTree) DecodeFromPtr(p capnp.Ptr) BlobTree {
+	return BlobTree(capnp.Struct{}.DecodeFromPtr(p))
+}
+
+func (s BlobTree) ToPtr() capnp.Ptr {
+	return capnp.Struct(s).ToPtr()
+}
+
 func (s BlobTree) Which() BlobTree_Which {
-	return BlobTree_Which(s.Struct.Uint16(0))
+	return BlobTree_Which(capnp.Struct(s).Uint16(0))
+}
+func (s BlobTree) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s BlobTree) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s BlobTree) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
 }
 func (s BlobTree) Leaf() protocol.Ref {
-	if s.Struct.Uint16(0) != 0 {
+	if capnp.Struct(s).Uint16(0) != 0 {
 		panic("Which() != leaf")
 	}
-	p, _ := s.Struct.Ptr(0)
-	return protocol.Ref{Client: p.Interface().Client()}
+	p, _ := capnp.Struct(s).Ptr(0)
+	return protocol.Ref(p.Interface().Client())
 }
 
 func (s BlobTree) HasLeaf() bool {
-	if s.Struct.Uint16(0) != 0 {
+	if capnp.Struct(s).Uint16(0) != 0 {
 		return false
 	}
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s BlobTree) SetLeaf(v protocol.Ref) error {
-	s.Struct.SetUint16(0, 0)
-	if !v.Client.IsValid() {
-		return s.Struct.SetPtr(0, capnp.Ptr{})
+	capnp.Struct(s).SetUint16(0, 0)
+	if !v.IsValid() {
+		return capnp.Struct(s).SetPtr(0, capnp.Ptr{})
 	}
 	seg := s.Segment()
-	in := capnp.NewInterface(seg, seg.Message().AddCap(v.Client))
-	return s.Struct.SetPtr(0, in.ToPtr())
+	in := capnp.NewInterface(seg, seg.Message().AddCap(capnp.Client(v)))
+	return capnp.Struct(s).SetPtr(0, in.ToPtr())
 }
 
 func (s BlobTree) Branch() protocol.Ref {
-	if s.Struct.Uint16(0) != 1 {
+	if capnp.Struct(s).Uint16(0) != 1 {
 		panic("Which() != branch")
 	}
-	p, _ := s.Struct.Ptr(0)
-	return protocol.Ref{Client: p.Interface().Client()}
+	p, _ := capnp.Struct(s).Ptr(0)
+	return protocol.Ref(p.Interface().Client())
 }
 
 func (s BlobTree) HasBranch() bool {
-	if s.Struct.Uint16(0) != 1 {
+	if capnp.Struct(s).Uint16(0) != 1 {
 		return false
 	}
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s BlobTree) SetBranch(v protocol.Ref) error {
-	s.Struct.SetUint16(0, 1)
-	if !v.Client.IsValid() {
-		return s.Struct.SetPtr(0, capnp.Ptr{})
+	capnp.Struct(s).SetUint16(0, 1)
+	if !v.IsValid() {
+		return capnp.Struct(s).SetPtr(0, capnp.Ptr{})
 	}
 	seg := s.Segment()
-	in := capnp.NewInterface(seg, seg.Message().AddCap(v.Client))
-	return s.Struct.SetPtr(0, in.ToPtr())
+	in := capnp.NewInterface(seg, seg.Message().AddCap(capnp.Client(v)))
+	return capnp.Struct(s).SetPtr(0, in.ToPtr())
 }
 
 func (s BlobTree) Size() uint64 {
-	return s.Struct.Uint64(8)
+	return capnp.Struct(s).Uint64(8)
 }
 
 func (s BlobTree) SetSize(v uint64) {
-	s.Struct.SetUint64(8, v)
+	capnp.Struct(s).SetUint64(8, v)
 }
 
 // BlobTree_List is a list of BlobTree.
@@ -410,7 +489,7 @@ type BlobTree_List = capnp.StructList[BlobTree]
 // NewBlobTree creates a new list of BlobTree.
 func NewBlobTree_List(s *capnp.Segment, sz int32) (BlobTree_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 16, PointerCount: 1}, sz)
-	return capnp.StructList[BlobTree]{List: l}, err
+	return capnp.StructList[BlobTree](l), err
 }
 
 // BlobTree_Future is a wrapper for a BlobTree promised by a client call.
@@ -418,15 +497,15 @@ type BlobTree_Future struct{ *capnp.Future }
 
 func (p BlobTree_Future) Struct() (BlobTree, error) {
 	s, err := p.Future.Struct()
-	return BlobTree{s}, err
+	return BlobTree(s), err
 }
 
 func (p BlobTree_Future) Leaf() protocol.Ref {
-	return protocol.Ref{Client: p.Future.Field(0, nil).Client()}
+	return protocol.Ref(p.Future.Field(0, nil).Client())
 }
 
 func (p BlobTree_Future) Branch() protocol.Ref {
-	return protocol.Ref{Client: p.Future.Field(0, nil).Client()}
+	return protocol.Ref(p.Future.Field(0, nil).Client())
 }
 
 const schema_ae1c58020a8c26ad = "x\xda\x94\x92?hSQ\x14\xc6\xbf\xef\xde\xf7\xfa\xd2" +

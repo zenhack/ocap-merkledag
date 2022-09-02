@@ -36,10 +36,10 @@ type rootPtrServer struct {
 }
 
 func getRefServer(ctx context.Context, ref protocol.Ref) (*refServer, error) {
-	if err := ref.Client.Resolve(ctx); err != nil {
+	if err := capnp.Client(ref).Resolve(ctx); err != nil {
 		return nil, err
 	}
-	brand := ref.Client.State().Brand
+	brand := capnp.Client(ref).State().Brand
 	if err, ok := brand.Value.(error); ok {
 		return nil, fmt.Errorf("getRefServer: ref is an error: %w\n", err)
 	}
@@ -60,7 +60,7 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 
 	args := p.Args()
 
-	stored, err := protocol.NewStored(args.Struct.Segment())
+	stored, err := protocol.NewStored(args.Segment())
 	if err != nil {
 		return err
 	}
@@ -80,14 +80,14 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 	}
 
 	for i, c := range caps {
-		ref, err := getRefServer(ctx, protocol.Ref{c})
+		ref, err := getRefServer(ctx, protocol.Ref(c))
 		if err != nil {
 			return err
 		}
 		ref.ref.Hash().ToContentId(refs.At(i))
 	}
 
-	data, err := capnp.Canonicalize(stored.Struct)
+	data, err := capnp.Canonicalize(capnp.Struct(stored))
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func (r *refServer) getStored() (protocol.Stored, error) {
 	if err != nil {
 		return protocol.Stored{}, err
 	}
-	msg := stored.Struct.Message()
+	msg := stored.Message()
 	refs, err := stored.Refs()
 	if err != nil {
 		return protocol.Stored{}, err
@@ -172,7 +172,7 @@ func (r *refServer) getStored() (protocol.Stored, error) {
 			store: r.store,
 			ref:   ref,
 		})
-		caps = append(caps, refClient.Client)
+		caps = append(caps, capnp.Client(refClient))
 	}
 	msg.CapTable = caps
 
@@ -215,8 +215,8 @@ func (s *rootPtrServer) Get(ctx context.Context, p protocol.Getter_get) error {
 		ref:   ref,
 	})
 	res.SetValue(capnp.NewInterface(
-		res.Struct.Segment(),
-		res.Struct.Message().AddCap(refClient.Client),
+		res.Segment(),
+		res.Message().AddCap(capnp.Client(refClient)),
 	).ToPtr())
 	return nil
 }
@@ -226,7 +226,7 @@ func (s *rootPtrServer) Set(ctx context.Context, p protocol.Setter_set) error {
 	if err != nil {
 		return err
 	}
-	refSrv, err := getRefServer(ctx, protocol.Ref{v.Interface().Client()})
+	refSrv, err := getRefServer(ctx, protocol.Ref(v.Interface().Client()))
 	if err != nil {
 		return err
 	}

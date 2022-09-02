@@ -11,6 +11,7 @@ import (
 	protoimpl "zenhack.net/go/ocap-md/pkg/diskstore/protocol"
 	"zenhack.net/go/ocap-md/pkg/webui"
 
+	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -36,7 +37,7 @@ func main() {
 		transport := wscapnp.NewTransport(wsConn)
 		defer transport.Close()
 		rpcConn := rpc.NewConn(transport, &rpc.Options{
-			BootstrapClient: api.Client.AddRef(),
+			BootstrapClient: capnp.Client(api).AddRef(),
 		})
 		defer rpcConn.Close()
 		<-rpcConn.Done()

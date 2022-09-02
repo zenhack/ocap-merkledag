@@ -171,7 +171,7 @@ func (s *DiskStore) writeManifest() error {
 			return err
 		}
 		defer f.Close()
-		err = capnp.NewEncoder(f).Encode(s.manifest.Struct.Message())
+		err = capnp.NewEncoder(f).Encode(s.manifest.Message())
 		if err != nil {
 			return err
 		}
@@ -394,7 +394,7 @@ func (s *DiskStore) Put(data []byte) (Ref, error) {
 		}
 		data = xzBuf.Bytes()
 
-		err = blob.SetSegment(data)
+		err = blob.SetSegment_(data)
 		if err != nil {
 			return Ref{}, err
 		}

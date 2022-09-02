@@ -10,53 +10,75 @@ import (
 	protocol "zenhack.net/go/ocap-md/pkg/schema/protocol"
 )
 
-type KV struct{ capnp.Struct }
+type KV capnp.Struct
 
 // KV_TypeID is the unique identifier for the type KV.
 const KV_TypeID = 0xcfcc3326923195bc
 
 func NewKV(s *capnp.Segment) (KV, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 2})
-	return KV{st}, err
+	return KV(st), err
 }
 
 func NewRootKV(s *capnp.Segment) (KV, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 0, PointerCount: 2})
-	return KV{st}, err
+	return KV(st), err
 }
 
 func ReadRootKV(msg *capnp.Message) (KV, error) {
 	root, err := msg.Root()
-	return KV{root.Struct()}, err
+	return KV(root.Struct()), err
 }
 
 func (s KV) String() string {
-	str, _ := text.Marshal(0xcfcc3326923195bc, s.Struct)
+	str, _ := text.Marshal(0xcfcc3326923195bc, capnp.Struct(s))
 	return str
 }
 
+func (s KV) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+	return capnp.Struct(s).EncodeAsPtr(seg)
+}
+
+func (KV) DecodeFromPtr(p capnp.Ptr) KV {
+	return KV(capnp.Struct{}.DecodeFromPtr(p))
+}
+
+func (s KV) ToPtr() capnp.Ptr {
+	return capnp.Struct(s).ToPtr()
+}
+func (s KV) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s KV) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s KV) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
+}
 func (s KV) Key() (capnp.Ptr, error) {
-	return s.Struct.Ptr(0)
+	return capnp.Struct(s).Ptr(0)
 }
 
 func (s KV) HasKey() bool {
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s KV) SetKey(v capnp.Ptr) error {
-	return s.Struct.SetPtr(0, v)
+	return capnp.Struct(s).SetPtr(0, v)
 }
 
 func (s KV) Val() (capnp.Ptr, error) {
-	return s.Struct.Ptr(1)
+	return capnp.Struct(s).Ptr(1)
 }
 
 func (s KV) HasVal() bool {
-	return s.Struct.HasPtr(1)
+	return capnp.Struct(s).HasPtr(1)
 }
 
 func (s KV) SetVal(v capnp.Ptr) error {
-	return s.Struct.SetPtr(1, v)
+	return capnp.Struct(s).SetPtr(1, v)
 }
 
 // KV_List is a list of KV.
@@ -65,7 +87,7 @@ type KV_List = capnp.StructList[KV]
 // NewKV creates a new list of KV.
 func NewKV_List(s *capnp.Segment, sz int32) (KV_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 0, PointerCount: 2}, sz)
-	return capnp.StructList[KV]{List: l}, err
+	return capnp.StructList[KV](l), err
 }
 
 // KV_Future is a wrapper for a KV promised by a client call.
@@ -73,7 +95,7 @@ type KV_Future struct{ *capnp.Future }
 
 func (p KV_Future) Struct() (KV, error) {
 	s, err := p.Future.Struct()
-	return KV{s}, err
+	return KV(s), err
 }
 
 func (p KV_Future) Key() *capnp.Future {
@@ -84,69 +106,91 @@ func (p KV_Future) Val() *capnp.Future {
 	return p.Future.Field(1, nil)
 }
 
-type BPlusTree struct{ capnp.Struct }
+type BPlusTree capnp.Struct
 
 // BPlusTree_TypeID is the unique identifier for the type BPlusTree.
 const BPlusTree_TypeID = 0x96262c98f85cc890
 
 func NewBPlusTree(s *capnp.Segment) (BPlusTree, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return BPlusTree{st}, err
+	return BPlusTree(st), err
 }
 
 func NewRootBPlusTree(s *capnp.Segment) (BPlusTree, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1})
-	return BPlusTree{st}, err
+	return BPlusTree(st), err
 }
 
 func ReadRootBPlusTree(msg *capnp.Message) (BPlusTree, error) {
 	root, err := msg.Root()
-	return BPlusTree{root.Struct()}, err
+	return BPlusTree(root.Struct()), err
 }
 
 func (s BPlusTree) String() string {
-	str, _ := text.Marshal(0x96262c98f85cc890, s.Struct)
+	str, _ := text.Marshal(0x96262c98f85cc890, capnp.Struct(s))
 	return str
 }
 
+func (s BPlusTree) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+	return capnp.Struct(s).EncodeAsPtr(seg)
+}
+
+func (BPlusTree) DecodeFromPtr(p capnp.Ptr) BPlusTree {
+	return BPlusTree(capnp.Struct{}.DecodeFromPtr(p))
+}
+
+func (s BPlusTree) ToPtr() capnp.Ptr {
+	return capnp.Struct(s).ToPtr()
+}
+func (s BPlusTree) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s BPlusTree) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s BPlusTree) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
+}
 func (s BPlusTree) Root() (BPlusTree_Node, error) {
-	p, err := s.Struct.Ptr(0)
-	return BPlusTree_Node{Struct: p.Struct()}, err
+	p, err := capnp.Struct(s).Ptr(0)
+	return BPlusTree_Node(p.Struct()), err
 }
 
 func (s BPlusTree) HasRoot() bool {
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s BPlusTree) SetRoot(v BPlusTree_Node) error {
-	return s.Struct.SetPtr(0, v.Struct.ToPtr())
+	return capnp.Struct(s).SetPtr(0, capnp.Struct(v).ToPtr())
 }
 
 // NewRoot sets the root field to a newly
 // allocated BPlusTree_Node struct, preferring placement in s's segment.
 func (s BPlusTree) NewRoot() (BPlusTree_Node, error) {
-	ss, err := NewBPlusTree_Node(s.Struct.Segment())
+	ss, err := NewBPlusTree_Node(capnp.Struct(s).Segment())
 	if err != nil {
 		return BPlusTree_Node{}, err
 	}
-	err = s.Struct.SetPtr(0, ss.Struct.ToPtr())
+	err = capnp.Struct(s).SetPtr(0, capnp.Struct(ss).ToPtr())
 	return ss, err
 }
 
 func (s BPlusTree) MinBranches() uint32 {
-	return s.Struct.Uint32(0)
+	return capnp.Struct(s).Uint32(0)
 }
 
 func (s BPlusTree) SetMinBranches(v uint32) {
-	s.Struct.SetUint32(0, v)
+	capnp.Struct(s).SetUint32(0, v)
 }
 
 func (s BPlusTree) MaxBranches() uint32 {
-	return s.Struct.Uint32(4)
+	return capnp.Struct(s).Uint32(4)
 }
 
 func (s BPlusTree) SetMaxBranches(v uint32) {
-	s.Struct.SetUint32(4, v)
+	capnp.Struct(s).SetUint32(4, v)
 }
 
 // BPlusTree_List is a list of BPlusTree.
@@ -155,7 +199,7 @@ type BPlusTree_List = capnp.StructList[BPlusTree]
 // NewBPlusTree creates a new list of BPlusTree.
 func NewBPlusTree_List(s *capnp.Segment, sz int32) (BPlusTree_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 1}, sz)
-	return capnp.StructList[BPlusTree]{List: l}, err
+	return capnp.StructList[BPlusTree](l), err
 }
 
 // BPlusTree_Future is a wrapper for a BPlusTree promised by a client call.
@@ -163,14 +207,14 @@ type BPlusTree_Future struct{ *capnp.Future }
 
 func (p BPlusTree_Future) Struct() (BPlusTree, error) {
 	s, err := p.Future.Struct()
-	return BPlusTree{s}, err
+	return BPlusTree(s), err
 }
 
 func (p BPlusTree_Future) Root() BPlusTree_Node_Future {
 	return BPlusTree_Node_Future{Future: p.Future.Field(0, nil)}
 }
 
-type BPlusTree_Node struct{ capnp.Struct }
+type BPlusTree_Node capnp.Struct
 type BPlusTree_Node_interior BPlusTree_Node
 type BPlusTree_Node_Which uint16
 
@@ -196,104 +240,138 @@ const BPlusTree_Node_TypeID = 0x892485c6916ad641
 
 func NewBPlusTree_Node(s *capnp.Segment) (BPlusTree_Node, error) {
 	st, err := capnp.NewStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2})
-	return BPlusTree_Node{st}, err
+	return BPlusTree_Node(st), err
 }
 
 func NewRootBPlusTree_Node(s *capnp.Segment) (BPlusTree_Node, error) {
 	st, err := capnp.NewRootStruct(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2})
-	return BPlusTree_Node{st}, err
+	return BPlusTree_Node(st), err
 }
 
 func ReadRootBPlusTree_Node(msg *capnp.Message) (BPlusTree_Node, error) {
 	root, err := msg.Root()
-	return BPlusTree_Node{root.Struct()}, err
+	return BPlusTree_Node(root.Struct()), err
 }
 
 func (s BPlusTree_Node) String() string {
-	str, _ := text.Marshal(0x892485c6916ad641, s.Struct)
+	str, _ := text.Marshal(0x892485c6916ad641, capnp.Struct(s))
 	return str
 }
 
+func (s BPlusTree_Node) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
+	return capnp.Struct(s).EncodeAsPtr(seg)
+}
+
+func (BPlusTree_Node) DecodeFromPtr(p capnp.Ptr) BPlusTree_Node {
+	return BPlusTree_Node(capnp.Struct{}.DecodeFromPtr(p))
+}
+
+func (s BPlusTree_Node) ToPtr() capnp.Ptr {
+	return capnp.Struct(s).ToPtr()
+}
+
 func (s BPlusTree_Node) Which() BPlusTree_Node_Which {
-	return BPlusTree_Node_Which(s.Struct.Uint16(0))
+	return BPlusTree_Node_Which(capnp.Struct(s).Uint16(0))
+}
+func (s BPlusTree_Node) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s BPlusTree_Node) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s BPlusTree_Node) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
 }
 func (s BPlusTree_Node) Leaf() (KV_List, error) {
-	if s.Struct.Uint16(0) != 0 {
+	if capnp.Struct(s).Uint16(0) != 0 {
 		panic("Which() != leaf")
 	}
-	p, err := s.Struct.Ptr(0)
-	return KV_List{List: p.List()}, err
+	p, err := capnp.Struct(s).Ptr(0)
+	return KV_List(p.List()), err
 }
 
 func (s BPlusTree_Node) HasLeaf() bool {
-	if s.Struct.Uint16(0) != 0 {
+	if capnp.Struct(s).Uint16(0) != 0 {
 		return false
 	}
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s BPlusTree_Node) SetLeaf(v KV_List) error {
-	s.Struct.SetUint16(0, 0)
-	return s.Struct.SetPtr(0, v.List.ToPtr())
+	capnp.Struct(s).SetUint16(0, 0)
+	return capnp.Struct(s).SetPtr(0, v.ToPtr())
 }
 
 // NewLeaf sets the leaf field to a newly
 // allocated KV_List, preferring placement in s's segment.
 func (s BPlusTree_Node) NewLeaf(n int32) (KV_List, error) {
-	s.Struct.SetUint16(0, 0)
-	l, err := NewKV_List(s.Struct.Segment(), n)
+	capnp.Struct(s).SetUint16(0, 0)
+	l, err := NewKV_List(capnp.Struct(s).Segment(), n)
 	if err != nil {
 		return KV_List{}, err
 	}
-	err = s.Struct.SetPtr(0, l.List.ToPtr())
+	err = capnp.Struct(s).SetPtr(0, l.ToPtr())
 	return l, err
 }
 
 func (s BPlusTree_Node) Interior() BPlusTree_Node_interior { return BPlusTree_Node_interior(s) }
 
 func (s BPlusTree_Node) SetInterior() {
-	s.Struct.SetUint16(0, 1)
+	capnp.Struct(s).SetUint16(0, 1)
 }
 
+func (s BPlusTree_Node_interior) IsValid() bool {
+	return capnp.Struct(s).IsValid()
+}
+
+func (s BPlusTree_Node_interior) Message() *capnp.Message {
+	return capnp.Struct(s).Message()
+}
+
+func (s BPlusTree_Node_interior) Segment() *capnp.Segment {
+	return capnp.Struct(s).Segment()
+}
 func (s BPlusTree_Node_interior) Left() protocol.Ref {
-	p, _ := s.Struct.Ptr(0)
-	return protocol.Ref{Client: p.Interface().Client()}
+	p, _ := capnp.Struct(s).Ptr(0)
+	return protocol.Ref(p.Interface().Client())
 }
 
 func (s BPlusTree_Node_interior) HasLeft() bool {
-	return s.Struct.HasPtr(0)
+	return capnp.Struct(s).HasPtr(0)
 }
 
 func (s BPlusTree_Node_interior) SetLeft(v protocol.Ref) error {
-	if !v.Client.IsValid() {
-		return s.Struct.SetPtr(0, capnp.Ptr{})
+	if !v.IsValid() {
+		return capnp.Struct(s).SetPtr(0, capnp.Ptr{})
 	}
 	seg := s.Segment()
-	in := capnp.NewInterface(seg, seg.Message().AddCap(v.Client))
-	return s.Struct.SetPtr(0, in.ToPtr())
+	in := capnp.NewInterface(seg, seg.Message().AddCap(capnp.Client(v)))
+	return capnp.Struct(s).SetPtr(0, in.ToPtr())
 }
 
 func (s BPlusTree_Node_interior) Branches() (KV_List, error) {
-	p, err := s.Struct.Ptr(1)
-	return KV_List{List: p.List()}, err
+	p, err := capnp.Struct(s).Ptr(1)
+	return KV_List(p.List()), err
 }
 
 func (s BPlusTree_Node_interior) HasBranches() bool {
-	return s.Struct.HasPtr(1)
+	return capnp.Struct(s).HasPtr(1)
 }
 
 func (s BPlusTree_Node_interior) SetBranches(v KV_List) error {
-	return s.Struct.SetPtr(1, v.List.ToPtr())
+	return capnp.Struct(s).SetPtr(1, v.ToPtr())
 }
 
 // NewBranches sets the branches field to a newly
 // allocated KV_List, preferring placement in s's segment.
 func (s BPlusTree_Node_interior) NewBranches(n int32) (KV_List, error) {
-	l, err := NewKV_List(s.Struct.Segment(), n)
+	l, err := NewKV_List(capnp.Struct(s).Segment(), n)
 	if err != nil {
 		return KV_List{}, err
 	}
-	err = s.Struct.SetPtr(1, l.List.ToPtr())
+	err = capnp.Struct(s).SetPtr(1, l.ToPtr())
 	return l, err
 }
 
@@ -303,7 +381,7 @@ type BPlusTree_Node_List = capnp.StructList[BPlusTree_Node]
 // NewBPlusTree_Node creates a new list of BPlusTree_Node.
 func NewBPlusTree_Node_List(s *capnp.Segment, sz int32) (BPlusTree_Node_List, error) {
 	l, err := capnp.NewCompositeList(s, capnp.ObjectSize{DataSize: 8, PointerCount: 2}, sz)
-	return capnp.StructList[BPlusTree_Node]{List: l}, err
+	return capnp.StructList[BPlusTree_Node](l), err
 }
 
 // BPlusTree_Node_Future is a wrapper for a BPlusTree_Node promised by a client call.
@@ -311,7 +389,7 @@ type BPlusTree_Node_Future struct{ *capnp.Future }
 
 func (p BPlusTree_Node_Future) Struct() (BPlusTree_Node, error) {
 	s, err := p.Future.Struct()
-	return BPlusTree_Node{s}, err
+	return BPlusTree_Node(s), err
 }
 
 func (p BPlusTree_Node_Future) Interior() BPlusTree_Node_interior_Future {
@@ -323,11 +401,11 @@ type BPlusTree_Node_interior_Future struct{ *capnp.Future }
 
 func (p BPlusTree_Node_interior_Future) Struct() (BPlusTree_Node_interior, error) {
 	s, err := p.Future.Struct()
-	return BPlusTree_Node_interior{s}, err
+	return BPlusTree_Node_interior(s), err
 }
 
 func (p BPlusTree_Node_interior_Future) Left() protocol.Ref {
-	return protocol.Ref{Client: p.Future.Field(0, nil).Client()}
+	return protocol.Ref(p.Future.Field(0, nil).Client())
 }
 
 const schema_eb26e91f28682410 = "x\xda\xb4\x92\xc1k\x13A\x18\xc5\xbf7\xb3\xdb\x8d\xd0" +

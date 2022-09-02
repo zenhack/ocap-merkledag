@@ -80,7 +80,7 @@ func (t BPlusTree) iterInterior(ctx context.Context, ch chan<- containers.KV, no
 		if err != nil {
 			return err
 		}
-		if err = t.iterNodeRef(ctx, ch, protocol.Ref{v.Interface().Client()}); err != nil {
+		if err = t.iterNodeRef(ctx, ch, protocol.Ref(v.Interface().Client())); err != nil {
 			return err
 		}
 	}
@@ -94,5 +94,5 @@ func (t BPlusTree) iterNodeRef(ctx context.Context, ch chan<- containers.KV, ref
 	if err != nil {
 		return err
 	}
-	return t.iterNode(ctx, ch, containers.BPlusTree_Node{s})
+	return t.iterNode(ctx, ch, containers.BPlusTree_Node(s))
 }

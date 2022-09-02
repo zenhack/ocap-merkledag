@@ -32,7 +32,7 @@ func (node blobNode) encode(bt files.BlobTree) {
 func writeBranches(ctx context.Context, errch chan<- error, s protocol.Storage, nodes []blobNode) (blobNode, error) {
 	var result blobNode
 	res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
-		branches, err := files.NewBlobTree_List(p.Struct.Segment(), int32(len(nodes)))
+		branches, err := files.NewBlobTree_List(p.Segment(), int32(len(nodes)))
 		if err != nil {
 			return errs.PushBack(ctx, errch, err)
 		}
@@ -69,7 +69,7 @@ func WriteStream(ctx context.Context, errch chan<- error, s protocol.Storage, r 
 		log.Print("Level: ", level)
 
 		res, rel := s.Put(ctx, func(p protocol.Storage_put_Params) error {
-			list, err := capnp.NewData(p.Struct.Segment(), b)
+			list, err := capnp.NewData(p.Segment(), b)
 			if err != nil {
 				return errs.PushBack(ctx, errch, err)
 			}
