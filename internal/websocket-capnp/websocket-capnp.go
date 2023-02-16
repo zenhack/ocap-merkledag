@@ -5,9 +5,7 @@
 package websocketcapnp
 
 import (
-	"context"
 	"io"
-	"time"
 
 	"capnproto.org/go/capnp/v3"
 	"capnproto.org/go/capnp/v3/rpc"
@@ -17,8 +15,8 @@ import (
 )
 
 type Port interface {
-	NextWriter(context.Context) (io.WriteCloser, error)
-	NextReader(context.Context) (io.Reader, error)
+	NextWriter() (io.WriteCloser, error)
+	NextReader() (io.Reader, error)
 	Close() error
 }
 
@@ -46,20 +44,17 @@ type websocketPort struct {
 	conn *websocket.Conn
 }
 
-func (p websocketPort) NextWriter(ctx context.Context) (io.WriteCloser, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
+func (p websocketPort) NextWriter() (io.WriteCloser, error) {
 	return p.conn.NextWriter(websocket.BinaryMessage)
 }
 
-func (p websocketPort) NextReader(ctx context.Context) (io.Reader, error) {
+func (p websocketPort) NextReader() (io.Reader, error) {
 	var (
 		typ int
 		r   io.Reader
 		err error
 	)
-	for ctx.Err() == nil && typ != websocket.BinaryMessage {
+	for typ != websocket.BinaryMessage {
 		typ, r, err = p.conn.NextReader()
 		if err != nil {
 			return nil, err
@@ -82,8 +77,8 @@ type portCodec struct {
 	p Port
 }
 
-func (c portCodec) Encode(ctx context.Context, msg *capnp.Message) error {
-	w, err := c.p.NextWriter(ctx)
+func (c portCodec) Encode(msg *capnp.Message) error {
+	w, err := c.p.NextWriter()
 	if err != nil {
 		return err
 	}
@@ -91,8 +86,8 @@ func (c portCodec) Encode(ctx context.Context, msg *capnp.Message) error {
 	return capnp.NewEncoder(w).Encode(msg)
 }
 
-func (c portCodec) Decode(ctx context.Context) (*capnp.Message, error) {
-	r, err := c.p.NextReader(ctx)
+func (c portCodec) Decode() (*capnp.Message, error) {
+	r, err := c.p.NextReader()
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +98,8 @@ func (c portCodec) Close() error {
 	return c.p.Close()
 }
 
-func (portCodec) SetPartialWriteTimeout(time.Duration) {}
+func (portCodec) ReleaseMessage(*capnp.Message) {
+}
 
 type transformPort struct {
 	underlying Port
@@ -111,16 +107,16 @@ type transformPort struct {
 	wrapW      func(io.WriteCloser) (io.WriteCloser, error)
 }
 
-func (p transformPort) NextWriter(ctx context.Context) (io.WriteCloser, error) {
-	w, err := p.underlying.NextWriter(ctx)
+func (p transformPort) NextWriter() (io.WriteCloser, error) {
+	w, err := p.underlying.NextWriter()
 	if err != nil {
 		return nil, err
 	}
 	return p.wrapW(w)
 }
 
-func (p transformPort) NextReader(ctx context.Context) (io.Reader, error) {
-	r, err := p.underlying.NextReader(ctx)
+func (p transformPort) NextReader() (io.Reader, error) {
+	r, err := p.underlying.NextReader()
 	if err != nil {
 		return nil, err
 	}

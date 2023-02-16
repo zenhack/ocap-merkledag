@@ -68,7 +68,6 @@ func (s KV) HasKey() bool {
 func (s KV) SetKey(v capnp.Ptr) error {
 	return capnp.Struct(s).SetPtr(0, v)
 }
-
 func (s KV) Val() (capnp.Ptr, error) {
 	return capnp.Struct(s).Ptr(1)
 }
@@ -93,15 +92,13 @@ func NewKV_List(s *capnp.Segment, sz int32) (KV_List, error) {
 // KV_Future is a wrapper for a KV promised by a client call.
 type KV_Future struct{ *capnp.Future }
 
-func (p KV_Future) Struct() (KV, error) {
-	s, err := p.Future.Struct()
-	return KV(s), err
+func (f KV_Future) Struct() (KV, error) {
+	p, err := f.Future.Ptr()
+	return KV(p.Struct()), err
 }
-
 func (p KV_Future) Key() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
-
 func (p KV_Future) Val() *capnp.Future {
 	return p.Future.Field(1, nil)
 }
@@ -205,11 +202,10 @@ func NewBPlusTree_List(s *capnp.Segment, sz int32) (BPlusTree_List, error) {
 // BPlusTree_Future is a wrapper for a BPlusTree promised by a client call.
 type BPlusTree_Future struct{ *capnp.Future }
 
-func (p BPlusTree_Future) Struct() (BPlusTree, error) {
-	s, err := p.Future.Struct()
-	return BPlusTree(s), err
+func (f BPlusTree_Future) Struct() (BPlusTree, error) {
+	p, err := f.Future.Ptr()
+	return BPlusTree(p.Struct()), err
 }
-
 func (p BPlusTree_Future) Root() BPlusTree_Node_Future {
 	return BPlusTree_Node_Future{Future: p.Future.Field(0, nil)}
 }
@@ -315,7 +311,6 @@ func (s BPlusTree_Node) NewLeaf(n int32) (KV_List, error) {
 	err = capnp.Struct(s).SetPtr(0, l.ToPtr())
 	return l, err
 }
-
 func (s BPlusTree_Node) Interior() BPlusTree_Node_interior { return BPlusTree_Node_interior(s) }
 
 func (s BPlusTree_Node) SetInterior() {
@@ -387,11 +382,10 @@ func NewBPlusTree_Node_List(s *capnp.Segment, sz int32) (BPlusTree_Node_List, er
 // BPlusTree_Node_Future is a wrapper for a BPlusTree_Node promised by a client call.
 type BPlusTree_Node_Future struct{ *capnp.Future }
 
-func (p BPlusTree_Node_Future) Struct() (BPlusTree_Node, error) {
-	s, err := p.Future.Struct()
-	return BPlusTree_Node(s), err
+func (f BPlusTree_Node_Future) Struct() (BPlusTree_Node, error) {
+	p, err := f.Future.Ptr()
+	return BPlusTree_Node(p.Struct()), err
 }
-
 func (p BPlusTree_Node_Future) Interior() BPlusTree_Node_interior_Future {
 	return BPlusTree_Node_interior_Future{p.Future}
 }
@@ -399,11 +393,10 @@ func (p BPlusTree_Node_Future) Interior() BPlusTree_Node_interior_Future {
 // BPlusTree_Node_interior_Future is a wrapper for a BPlusTree_Node_interior promised by a client call.
 type BPlusTree_Node_interior_Future struct{ *capnp.Future }
 
-func (p BPlusTree_Node_interior_Future) Struct() (BPlusTree_Node_interior, error) {
-	s, err := p.Future.Struct()
-	return BPlusTree_Node_interior(s), err
+func (f BPlusTree_Node_interior_Future) Struct() (BPlusTree_Node_interior, error) {
+	p, err := f.Future.Ptr()
+	return BPlusTree_Node_interior(p.Struct()), err
 }
-
 func (p BPlusTree_Node_interior_Future) Left() protocol.Ref {
 	return protocol.Ref(p.Future.Field(0, nil).Client())
 }

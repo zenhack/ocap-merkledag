@@ -160,27 +160,24 @@ func NewManifest_List(s *capnp.Segment, sz int32) (Manifest_List, error) {
 // Manifest_Future is a wrapper for a Manifest promised by a client call.
 type Manifest_Future struct{ *capnp.Future }
 
-func (p Manifest_Future) Struct() (Manifest, error) {
-	s, err := p.Future.Struct()
-	return Manifest(s), err
+func (f Manifest_Future) Struct() (Manifest, error) {
+	p, err := f.Future.Ptr()
+	return Manifest(p.Struct()), err
 }
-
 func (p Manifest_Future) BlobMap() Addr_Future {
 	return Addr_Future{Future: p.Future.Field(0, nil)}
 }
-
 func (p Manifest_Future) Root() protocol.ContentId_Future {
 	return protocol.ContentId_Future{Future: p.Future.Field(1, nil)}
 }
-
 func (p Manifest_Future) LastLog() Manifest_lastLog_Future { return Manifest_lastLog_Future{p.Future} }
 
 // Manifest_lastLog_Future is a wrapper for a Manifest_lastLog promised by a client call.
 type Manifest_lastLog_Future struct{ *capnp.Future }
 
-func (p Manifest_lastLog_Future) Struct() (Manifest_lastLog, error) {
-	s, err := p.Future.Struct()
-	return Manifest_lastLog(s), err
+func (f Manifest_lastLog_Future) Struct() (Manifest_lastLog, error) {
+	p, err := f.Future.Ptr()
+	return Manifest_lastLog(p.Struct()), err
 }
 
 type Addr capnp.Struct
@@ -266,9 +263,9 @@ func NewAddr_List(s *capnp.Segment, sz int32) (Addr_List, error) {
 // Addr_Future is a wrapper for a Addr promised by a client call.
 type Addr_Future struct{ *capnp.Future }
 
-func (p Addr_Future) Struct() (Addr, error) {
-	s, err := p.Future.Struct()
-	return Addr(s), err
+func (f Addr_Future) Struct() (Addr, error) {
+	p, err := f.Future.Ptr()
+	return Addr(p.Struct()), err
 }
 
 type LogEntry capnp.Struct
@@ -431,21 +428,19 @@ func NewLogEntry_List(s *capnp.Segment, sz int32) (LogEntry_List, error) {
 // LogEntry_Future is a wrapper for a LogEntry promised by a client call.
 type LogEntry_Future struct{ *capnp.Future }
 
-func (p LogEntry_Future) Struct() (LogEntry, error) {
-	s, err := p.Future.Struct()
-	return LogEntry(s), err
+func (f LogEntry_Future) Struct() (LogEntry, error) {
+	p, err := f.Future.Ptr()
+	return LogEntry(p.Struct()), err
 }
-
 func (p LogEntry_Future) Blob() LogEntry_blob_Future { return LogEntry_blob_Future{p.Future} }
 
 // LogEntry_blob_Future is a wrapper for a LogEntry_blob promised by a client call.
 type LogEntry_blob_Future struct{ *capnp.Future }
 
-func (p LogEntry_blob_Future) Struct() (LogEntry_blob, error) {
-	s, err := p.Future.Struct()
-	return LogEntry_blob(s), err
+func (f LogEntry_blob_Future) Struct() (LogEntry_blob, error) {
+	p, err := f.Future.Ptr()
+	return LogEntry_blob(p.Struct()), err
 }
-
 func (p LogEntry_Future) IndexNode() TrieMap_Future {
 	return TrieMap_Future{Future: p.Future.Field(0, nil)}
 }
@@ -662,21 +657,19 @@ func NewTrieMap_List(s *capnp.Segment, sz int32) (TrieMap_List, error) {
 // TrieMap_Future is a wrapper for a TrieMap promised by a client call.
 type TrieMap_Future struct{ *capnp.Future }
 
-func (p TrieMap_Future) Struct() (TrieMap, error) {
-	s, err := p.Future.Struct()
-	return TrieMap(s), err
+func (f TrieMap_Future) Struct() (TrieMap, error) {
+	p, err := f.Future.Ptr()
+	return TrieMap(p.Struct()), err
 }
-
 func (p TrieMap_Future) Leaf() TrieMap_leaf_Future { return TrieMap_leaf_Future{p.Future} }
 
 // TrieMap_leaf_Future is a wrapper for a TrieMap_leaf promised by a client call.
 type TrieMap_leaf_Future struct{ *capnp.Future }
 
-func (p TrieMap_leaf_Future) Struct() (TrieMap_leaf, error) {
-	s, err := p.Future.Struct()
-	return TrieMap_leaf(s), err
+func (f TrieMap_leaf_Future) Struct() (TrieMap_leaf, error) {
+	p, err := f.Future.Ptr()
+	return TrieMap_leaf(p.Struct()), err
 }
-
 func (p TrieMap_leaf_Future) Addr() Addr_Future {
 	return Addr_Future{Future: p.Future.Field(1, nil)}
 }

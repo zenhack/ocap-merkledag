@@ -56,7 +56,7 @@ func getRefServer(ctx context.Context, ref protocol.Ref) (*refServer, error) {
 }
 
 func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
-	p.Ack()
+	p.Go()
 
 	args := p.Args()
 
@@ -110,7 +110,7 @@ func (s storageServer) Put(ctx context.Context, p protocol.Storage_put) error {
 }
 
 func (r *refServer) Get(ctx context.Context, p protocol.Getter_get) error {
-	p.Ack()
+	p.Go()
 	stored, err := r.getStored()
 	if err != nil {
 		return err
@@ -128,7 +128,7 @@ func (r *refServer) Get(ctx context.Context, p protocol.Getter_get) error {
 }
 
 func (r *refServer) GetStored(ctx context.Context, p protocol.Ref_getStored) error {
-	p.Ack()
+	p.Go()
 	stored, err := r.getStored()
 	if err != nil {
 		return err

@@ -5,9 +5,11 @@ package protocol
 import (
 	capnp "capnproto.org/go/capnp/v3"
 	text "capnproto.org/go/capnp/v3/encoding/text"
+	fc "capnproto.org/go/capnp/v3/flowcontrol"
 	schemas "capnproto.org/go/capnp/v3/schemas"
 	server "capnproto.org/go/capnp/v3/server"
 	context "context"
+	fmt "fmt"
 )
 
 type Map capnp.Client
@@ -16,6 +18,7 @@ type Map capnp.Client
 const Map_TypeID = 0xfb36f41541e13f38
 
 func (c Map) Find(ctx context.Context, params func(Map_find_Params) error) (Map_find_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xfb36f41541e13f38,
@@ -28,16 +31,44 @@ func (c Map) Find(ctx context.Context, params func(Map_find_Params) error) (Map_
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 1}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Map_find_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Map_find_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c Map) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c Map) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c Map) AddRef() Map {
 	return Map(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c Map) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c Map) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c Map) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -48,8 +79,33 @@ func (Map) DecodeFromPtr(p capnp.Ptr) Map {
 	return Map(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c Map) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c Map) IsSame(other Map) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c Map) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c Map) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A Map_Server is a Map with a local implementation.
@@ -188,11 +244,10 @@ func NewMap_find_Params_List(s *capnp.Segment, sz int32) (Map_find_Params_List, 
 // Map_find_Params_Future is a wrapper for a Map_find_Params promised by a client call.
 type Map_find_Params_Future struct{ *capnp.Future }
 
-func (p Map_find_Params_Future) Struct() (Map_find_Params, error) {
-	s, err := p.Future.Struct()
-	return Map_find_Params(s), err
+func (f Map_find_Params_Future) Struct() (Map_find_Params, error) {
+	p, err := f.Future.Ptr()
+	return Map_find_Params(p.Struct()), err
 }
-
 func (p Map_find_Params_Future) Key() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
@@ -268,11 +323,10 @@ func NewMap_find_Results_List(s *capnp.Segment, sz int32) (Map_find_Results_List
 // Map_find_Results_Future is a wrapper for a Map_find_Results promised by a client call.
 type Map_find_Results_Future struct{ *capnp.Future }
 
-func (p Map_find_Results_Future) Struct() (Map_find_Results, error) {
-	s, err := p.Future.Struct()
-	return Map_find_Results(s), err
+func (f Map_find_Results_Future) Struct() (Map_find_Results, error) {
+	p, err := f.Future.Ptr()
+	return Map_find_Results(p.Struct()), err
 }
-
 func (p Map_find_Results_Future) Value() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
@@ -283,6 +337,7 @@ type Getter capnp.Client
 const Getter_TypeID = 0xb1928944e0fc3173
 
 func (c Getter) Get(ctx context.Context, params func(Getter_get_Params) error) (Getter_get_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xb1928944e0fc3173,
@@ -295,16 +350,44 @@ func (c Getter) Get(ctx context.Context, params func(Getter_get_Params) error) (
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Getter_get_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Getter_get_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c Getter) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c Getter) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c Getter) AddRef() Getter {
 	return Getter(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c Getter) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c Getter) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c Getter) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -315,8 +398,33 @@ func (Getter) DecodeFromPtr(p capnp.Ptr) Getter {
 	return Getter(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c Getter) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c Getter) IsSame(other Getter) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c Getter) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c Getter) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A Getter_Server is a Getter with a local implementation.
@@ -444,9 +552,9 @@ func NewGetter_get_Params_List(s *capnp.Segment, sz int32) (Getter_get_Params_Li
 // Getter_get_Params_Future is a wrapper for a Getter_get_Params promised by a client call.
 type Getter_get_Params_Future struct{ *capnp.Future }
 
-func (p Getter_get_Params_Future) Struct() (Getter_get_Params, error) {
-	s, err := p.Future.Struct()
-	return Getter_get_Params(s), err
+func (f Getter_get_Params_Future) Struct() (Getter_get_Params, error) {
+	p, err := f.Future.Ptr()
+	return Getter_get_Params(p.Struct()), err
 }
 
 type Getter_get_Results capnp.Struct
@@ -520,11 +628,10 @@ func NewGetter_get_Results_List(s *capnp.Segment, sz int32) (Getter_get_Results_
 // Getter_get_Results_Future is a wrapper for a Getter_get_Results promised by a client call.
 type Getter_get_Results_Future struct{ *capnp.Future }
 
-func (p Getter_get_Results_Future) Struct() (Getter_get_Results, error) {
-	s, err := p.Future.Struct()
-	return Getter_get_Results(s), err
+func (f Getter_get_Results_Future) Struct() (Getter_get_Results, error) {
+	p, err := f.Future.Ptr()
+	return Getter_get_Results(p.Struct()), err
 }
-
 func (p Getter_get_Results_Future) Value() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
@@ -535,6 +642,7 @@ type Ref capnp.Client
 const Ref_TypeID = 0xa14ffd6d795dbc31
 
 func (c Ref) GetStored(ctx context.Context, params func(Ref_getStored_Params) error) (Ref_getStored_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xa14ffd6d795dbc31,
@@ -547,10 +655,14 @@ func (c Ref) GetStored(ctx context.Context, params func(Ref_getStored_Params) er
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Ref_getStored_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Ref_getStored_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c Ref) Get(ctx context.Context, params func(Getter_get_Params) error) (Getter_get_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xb1928944e0fc3173,
@@ -563,16 +675,44 @@ func (c Ref) Get(ctx context.Context, params func(Getter_get_Params) error) (Get
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Getter_get_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Getter_get_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c Ref) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c Ref) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c Ref) AddRef() Ref {
 	return Ref(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c Ref) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c Ref) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c Ref) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -583,8 +723,33 @@ func (Ref) DecodeFromPtr(p capnp.Ptr) Ref {
 	return Ref(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c Ref) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c Ref) IsSame(other Ref) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c Ref) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c Ref) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A Ref_Server is a Ref with a local implementation.
@@ -726,9 +891,9 @@ func NewRef_getStored_Params_List(s *capnp.Segment, sz int32) (Ref_getStored_Par
 // Ref_getStored_Params_Future is a wrapper for a Ref_getStored_Params promised by a client call.
 type Ref_getStored_Params_Future struct{ *capnp.Future }
 
-func (p Ref_getStored_Params_Future) Struct() (Ref_getStored_Params, error) {
-	s, err := p.Future.Struct()
-	return Ref_getStored_Params(s), err
+func (f Ref_getStored_Params_Future) Struct() (Ref_getStored_Params, error) {
+	p, err := f.Future.Ptr()
+	return Ref_getStored_Params(p.Struct()), err
 }
 
 type Ref_getStored_Results capnp.Struct
@@ -814,11 +979,10 @@ func NewRef_getStored_Results_List(s *capnp.Segment, sz int32) (Ref_getStored_Re
 // Ref_getStored_Results_Future is a wrapper for a Ref_getStored_Results promised by a client call.
 type Ref_getStored_Results_Future struct{ *capnp.Future }
 
-func (p Ref_getStored_Results_Future) Struct() (Ref_getStored_Results, error) {
-	s, err := p.Future.Struct()
-	return Ref_getStored_Results(s), err
+func (f Ref_getStored_Results_Future) Struct() (Ref_getStored_Results, error) {
+	p, err := f.Future.Ptr()
+	return Ref_getStored_Results(p.Struct()), err
 }
-
 func (p Ref_getStored_Results_Future) StoredValue() Stored_Future {
 	return Stored_Future{Future: p.Future.Field(0, nil)}
 }
@@ -829,6 +993,7 @@ type Setter capnp.Client
 const Setter_TypeID = 0xedefcf72d1a4dcd5
 
 func (c Setter) Set(ctx context.Context, params func(Setter_set_Params) error) (Setter_set_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xedefcf72d1a4dcd5,
@@ -841,16 +1006,44 @@ func (c Setter) Set(ctx context.Context, params func(Setter_set_Params) error) (
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 1}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Setter_set_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Setter_set_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c Setter) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c Setter) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c Setter) AddRef() Setter {
 	return Setter(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c Setter) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c Setter) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c Setter) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -861,8 +1054,33 @@ func (Setter) DecodeFromPtr(p capnp.Ptr) Setter {
 	return Setter(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c Setter) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c Setter) IsSame(other Setter) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c Setter) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c Setter) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A Setter_Server is a Setter with a local implementation.
@@ -1001,11 +1219,10 @@ func NewSetter_set_Params_List(s *capnp.Segment, sz int32) (Setter_set_Params_Li
 // Setter_set_Params_Future is a wrapper for a Setter_set_Params promised by a client call.
 type Setter_set_Params_Future struct{ *capnp.Future }
 
-func (p Setter_set_Params_Future) Struct() (Setter_set_Params, error) {
-	s, err := p.Future.Struct()
-	return Setter_set_Params(s), err
+func (f Setter_set_Params_Future) Struct() (Setter_set_Params, error) {
+	p, err := f.Future.Ptr()
+	return Setter_set_Params(p.Struct()), err
 }
-
 func (p Setter_set_Params_Future) Value() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
@@ -1070,9 +1287,9 @@ func NewSetter_set_Results_List(s *capnp.Segment, sz int32) (Setter_set_Results_
 // Setter_set_Results_Future is a wrapper for a Setter_set_Results promised by a client call.
 type Setter_set_Results_Future struct{ *capnp.Future }
 
-func (p Setter_set_Results_Future) Struct() (Setter_set_Results, error) {
-	s, err := p.Future.Struct()
-	return Setter_set_Results(s), err
+func (f Setter_set_Results_Future) Struct() (Setter_set_Results, error) {
+	p, err := f.Future.Ptr()
+	return Setter_set_Results(p.Struct()), err
 }
 
 type Cell capnp.Client
@@ -1081,6 +1298,7 @@ type Cell capnp.Client
 const Cell_TypeID = 0x86dfe7e96ebb541d
 
 func (c Cell) Set(ctx context.Context, params func(Setter_set_Params) error) (Setter_set_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xedefcf72d1a4dcd5,
@@ -1093,10 +1311,14 @@ func (c Cell) Set(ctx context.Context, params func(Setter_set_Params) error) (Se
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 1}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Setter_set_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Setter_set_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c Cell) Get(ctx context.Context, params func(Getter_get_Params) error) (Getter_get_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xb1928944e0fc3173,
@@ -1109,16 +1331,44 @@ func (c Cell) Get(ctx context.Context, params func(Getter_get_Params) error) (Ge
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Getter_get_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Getter_get_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c Cell) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c Cell) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c Cell) AddRef() Cell {
 	return Cell(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c Cell) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c Cell) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c Cell) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -1129,8 +1379,33 @@ func (Cell) DecodeFromPtr(p capnp.Ptr) Cell {
 	return Cell(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c Cell) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c Cell) IsSame(other Cell) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c Cell) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c Cell) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A Cell_Server is a Cell with a local implementation.
@@ -1201,6 +1476,7 @@ type TxCell capnp.Client
 const TxCell_TypeID = 0xfcd1f0de6c4076f9
 
 func (c TxCell) TxGet(ctx context.Context, params func(TxCell_txGet_Params) error) (TxCell_txGet_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xfcd1f0de6c4076f9,
@@ -1213,10 +1489,14 @@ func (c TxCell) TxGet(ctx context.Context, params func(TxCell_txGet_Params) erro
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(TxCell_txGet_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return TxCell_txGet_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c TxCell) Set(ctx context.Context, params func(Setter_set_Params) error) (Setter_set_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xedefcf72d1a4dcd5,
@@ -1229,10 +1509,14 @@ func (c TxCell) Set(ctx context.Context, params func(Setter_set_Params) error) (
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 1}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Setter_set_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Setter_set_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c TxCell) Get(ctx context.Context, params func(Getter_get_Params) error) (Getter_get_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xb1928944e0fc3173,
@@ -1245,16 +1529,44 @@ func (c TxCell) Get(ctx context.Context, params func(Getter_get_Params) error) (
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Getter_get_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Getter_get_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c TxCell) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c TxCell) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c TxCell) AddRef() TxCell {
 	return TxCell(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c TxCell) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c TxCell) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c TxCell) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -1265,8 +1577,33 @@ func (TxCell) DecodeFromPtr(p capnp.Ptr) TxCell {
 	return TxCell(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c TxCell) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c TxCell) IsSame(other TxCell) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c TxCell) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c TxCell) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A TxCell_Server is a TxCell with a local implementation.
@@ -1422,9 +1759,9 @@ func NewTxCell_txGet_Params_List(s *capnp.Segment, sz int32) (TxCell_txGet_Param
 // TxCell_txGet_Params_Future is a wrapper for a TxCell_txGet_Params promised by a client call.
 type TxCell_txGet_Params_Future struct{ *capnp.Future }
 
-func (p TxCell_txGet_Params_Future) Struct() (TxCell_txGet_Params, error) {
-	s, err := p.Future.Struct()
-	return TxCell_txGet_Params(s), err
+func (f TxCell_txGet_Params_Future) Struct() (TxCell_txGet_Params, error) {
+	p, err := f.Future.Ptr()
+	return TxCell_txGet_Params(p.Struct()), err
 }
 
 type TxCell_txGet_Results capnp.Struct
@@ -1485,7 +1822,6 @@ func (s TxCell_txGet_Results) HasValue() bool {
 func (s TxCell_txGet_Results) SetValue(v capnp.Ptr) error {
 	return capnp.Struct(s).SetPtr(0, v)
 }
-
 func (s TxCell_txGet_Results) Setter() Setter {
 	p, _ := capnp.Struct(s).Ptr(1)
 	return Setter(p.Interface().Client())
@@ -1516,15 +1852,13 @@ func NewTxCell_txGet_Results_List(s *capnp.Segment, sz int32) (TxCell_txGet_Resu
 // TxCell_txGet_Results_Future is a wrapper for a TxCell_txGet_Results promised by a client call.
 type TxCell_txGet_Results_Future struct{ *capnp.Future }
 
-func (p TxCell_txGet_Results_Future) Struct() (TxCell_txGet_Results, error) {
-	s, err := p.Future.Struct()
-	return TxCell_txGet_Results(s), err
+func (f TxCell_txGet_Results_Future) Struct() (TxCell_txGet_Results, error) {
+	p, err := f.Future.Ptr()
+	return TxCell_txGet_Results(p.Struct()), err
 }
-
 func (p TxCell_txGet_Results_Future) Value() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
-
 func (p TxCell_txGet_Results_Future) Setter() Setter {
 	return Setter(p.Future.Field(1, nil).Client())
 }
@@ -1535,6 +1869,7 @@ type RootPtr capnp.Client
 const RootPtr_TypeID = 0xec69889c3a1aaf50
 
 func (c RootPtr) TxGet(ctx context.Context, params func(TxCell_txGet_Params) error) (TxCell_txGet_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xfcd1f0de6c4076f9,
@@ -1547,10 +1882,14 @@ func (c RootPtr) TxGet(ctx context.Context, params func(TxCell_txGet_Params) err
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(TxCell_txGet_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return TxCell_txGet_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c RootPtr) Set(ctx context.Context, params func(Setter_set_Params) error) (Setter_set_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xedefcf72d1a4dcd5,
@@ -1563,10 +1902,14 @@ func (c RootPtr) Set(ctx context.Context, params func(Setter_set_Params) error) 
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 1}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Setter_set_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Setter_set_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c RootPtr) Get(ctx context.Context, params func(Getter_get_Params) error) (Getter_get_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xb1928944e0fc3173,
@@ -1579,16 +1922,44 @@ func (c RootPtr) Get(ctx context.Context, params func(Getter_get_Params) error) 
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Getter_get_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Getter_get_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c RootPtr) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c RootPtr) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c RootPtr) AddRef() RootPtr {
 	return RootPtr(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c RootPtr) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c RootPtr) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c RootPtr) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -1599,8 +1970,33 @@ func (RootPtr) DecodeFromPtr(p capnp.Ptr) RootPtr {
 	return RootPtr(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c RootPtr) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c RootPtr) IsSame(other RootPtr) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c RootPtr) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c RootPtr) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A RootPtr_Server is a RootPtr with a local implementation.
@@ -1685,6 +2081,7 @@ type Storage capnp.Client
 const Storage_TypeID = 0x84ec75049386a248
 
 func (c Storage) Put(ctx context.Context, params func(Storage_put_Params) error) (Storage_put_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0x84ec75049386a248,
@@ -1697,16 +2094,44 @@ func (c Storage) Put(ctx context.Context, params func(Storage_put_Params) error)
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 1}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(Storage_put_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return Storage_put_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c Storage) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c Storage) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c Storage) AddRef() Storage {
 	return Storage(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c Storage) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c Storage) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c Storage) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -1717,8 +2142,33 @@ func (Storage) DecodeFromPtr(p capnp.Ptr) Storage {
 	return Storage(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c Storage) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c Storage) IsSame(other Storage) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c Storage) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c Storage) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A Storage_Server is a Storage with a local implementation.
@@ -1857,11 +2307,10 @@ func NewStorage_put_Params_List(s *capnp.Segment, sz int32) (Storage_put_Params_
 // Storage_put_Params_Future is a wrapper for a Storage_put_Params promised by a client call.
 type Storage_put_Params_Future struct{ *capnp.Future }
 
-func (p Storage_put_Params_Future) Struct() (Storage_put_Params, error) {
-	s, err := p.Future.Struct()
-	return Storage_put_Params(s), err
+func (f Storage_put_Params_Future) Struct() (Storage_put_Params, error) {
+	p, err := f.Future.Ptr()
+	return Storage_put_Params(p.Struct()), err
 }
-
 func (p Storage_put_Params_Future) Value() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
@@ -1943,11 +2392,10 @@ func NewStorage_put_Results_List(s *capnp.Segment, sz int32) (Storage_put_Result
 // Storage_put_Results_Future is a wrapper for a Storage_put_Results promised by a client call.
 type Storage_put_Results_Future struct{ *capnp.Future }
 
-func (p Storage_put_Results_Future) Struct() (Storage_put_Results, error) {
-	s, err := p.Future.Struct()
-	return Storage_put_Results(s), err
+func (f Storage_put_Results_Future) Struct() (Storage_put_Results, error) {
+	p, err := f.Future.Ptr()
+	return Storage_put_Results(p.Struct()), err
 }
-
 func (p Storage_put_Results_Future) Ref() Ref {
 	return Ref(p.Future.Field(0, nil).Client())
 }
@@ -2037,11 +2485,10 @@ func NewDynamic_List(s *capnp.Segment, sz int32) (Dynamic_List, error) {
 // Dynamic_Future is a wrapper for a Dynamic promised by a client call.
 type Dynamic_Future struct{ *capnp.Future }
 
-func (p Dynamic_Future) Struct() (Dynamic, error) {
-	s, err := p.Future.Struct()
-	return Dynamic(s), err
+func (f Dynamic_Future) Struct() (Dynamic, error) {
+	p, err := f.Future.Ptr()
+	return Dynamic(p.Struct()), err
 }
-
 func (p Dynamic_Future) Ref() Ref {
 	return Ref(p.Future.Field(0, nil).Client())
 }
@@ -2126,9 +2573,9 @@ func NewContentId_List(s *capnp.Segment, sz int32) (ContentId_List, error) {
 // ContentId_Future is a wrapper for a ContentId promised by a client call.
 type ContentId_Future struct{ *capnp.Future }
 
-func (p ContentId_Future) Struct() (ContentId, error) {
-	s, err := p.Future.Struct()
-	return ContentId(s), err
+func (f ContentId_Future) Struct() (ContentId, error) {
+	p, err := f.Future.Ptr()
+	return ContentId(p.Struct()), err
 }
 
 type ContentId_Algo uint16
@@ -2228,7 +2675,6 @@ func (s Stored) HasData() bool {
 func (s Stored) SetData(v capnp.Ptr) error {
 	return capnp.Struct(s).SetPtr(0, v)
 }
-
 func (s Stored) Refs() (ContentId_List, error) {
 	p, err := capnp.Struct(s).Ptr(1)
 	return ContentId_List(p.List()), err
@@ -2265,11 +2711,10 @@ func NewStored_List(s *capnp.Segment, sz int32) (Stored_List, error) {
 // Stored_Future is a wrapper for a Stored promised by a client call.
 type Stored_Future struct{ *capnp.Future }
 
-func (p Stored_Future) Struct() (Stored, error) {
-	s, err := p.Future.Struct()
-	return Stored(s), err
+func (f Stored_Future) Struct() (Stored, error) {
+	p, err := f.Future.Ptr()
+	return Stored(p.Struct()), err
 }
-
 func (p Stored_Future) Data() *capnp.Future {
 	return p.Future.Field(0, nil)
 }
@@ -2280,6 +2725,7 @@ type RootApi capnp.Client
 const RootApi_TypeID = 0xbf3d5608637940e8
 
 func (c RootApi) BlobMap(ctx context.Context, params func(RootApi_blobMap_Params) error) (RootApi_blobMap_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xbf3d5608637940e8,
@@ -2292,10 +2738,14 @@ func (c RootApi) BlobMap(ctx context.Context, params func(RootApi_blobMap_Params
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(RootApi_blobMap_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return RootApi_blobMap_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c RootApi) Root(ctx context.Context, params func(RootApi_root_Params) error) (RootApi_root_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xbf3d5608637940e8,
@@ -2308,10 +2758,14 @@ func (c RootApi) Root(ctx context.Context, params func(RootApi_root_Params) erro
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(RootApi_root_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return RootApi_root_Results_Future{Future: ans.Future()}, release
+
 }
+
 func (c RootApi) Storage(ctx context.Context, params func(RootApi_storage_Params) error) (RootApi_storage_Results_Future, capnp.ReleaseFunc) {
+
 	s := capnp.Send{
 		Method: capnp.Method{
 			InterfaceID:   0xbf3d5608637940e8,
@@ -2324,16 +2778,44 @@ func (c RootApi) Storage(ctx context.Context, params func(RootApi_storage_Params
 		s.ArgsSize = capnp.ObjectSize{DataSize: 0, PointerCount: 0}
 		s.PlaceArgs = func(s capnp.Struct) error { return params(RootApi_storage_Params(s)) }
 	}
+
 	ans, release := capnp.Client(c).SendCall(ctx, s)
 	return RootApi_storage_Results_Future{Future: ans.Future()}, release
+
 }
 
+func (c RootApi) WaitStreaming() error {
+	return capnp.Client(c).WaitStreaming()
+}
+
+// String returns a string that identifies this capability for debugging
+// purposes.  Its format should not be depended on: in particular, it
+// should not be used to compare clients.  Use IsSame to compare clients
+// for equality.
+func (c RootApi) String() string {
+	return fmt.Sprintf("%T(%v)", c, capnp.Client(c))
+}
+
+// AddRef creates a new Client that refers to the same capability as c.
+// If c is nil or has resolved to null, then AddRef returns nil.
 func (c RootApi) AddRef() RootApi {
 	return RootApi(capnp.Client(c).AddRef())
 }
 
+// Release releases a capability reference.  If this is the last
+// reference to the capability, then the underlying resources associated
+// with the capability will be released.
+//
+// Release will panic if c has already been released, but not if c is
+// nil or resolved to null.
 func (c RootApi) Release() {
 	capnp.Client(c).Release()
+}
+
+// Resolve blocks until the capability is fully resolved or the Context
+// expires.
+func (c RootApi) Resolve(ctx context.Context) error {
+	return capnp.Client(c).Resolve(ctx)
 }
 
 func (c RootApi) EncodeAsPtr(seg *capnp.Segment) capnp.Ptr {
@@ -2344,8 +2826,33 @@ func (RootApi) DecodeFromPtr(p capnp.Ptr) RootApi {
 	return RootApi(capnp.Client{}.DecodeFromPtr(p))
 }
 
+// IsValid reports whether c is a valid reference to a capability.
+// A reference is invalid if it is nil, has resolved to null, or has
+// been released.
 func (c RootApi) IsValid() bool {
 	return capnp.Client(c).IsValid()
+}
+
+// IsSame reports whether c and other refer to a capability created by the
+// same call to NewClient.  This can return false negatives if c or other
+// are not fully resolved: use Resolve if this is an issue.  If either
+// c or other are released, then IsSame panics.
+func (c RootApi) IsSame(other RootApi) bool {
+	return capnp.Client(c).IsSame(capnp.Client(other))
+}
+
+// Update the flowcontrol.FlowLimiter used to manage flow control for
+// this client. This affects all future calls, but not calls already
+// waiting to send. Passing nil sets the value to flowcontrol.NopLimiter,
+// which is also the default.
+func (c RootApi) SetFlowLimiter(lim fc.FlowLimiter) {
+	capnp.Client(c).SetFlowLimiter(lim)
+}
+
+// Get the current flowcontrol.FlowLimiter used to manage flow control
+// for this client.
+func (c RootApi) GetFlowLimiter() fc.FlowLimiter {
+	return capnp.Client(c).GetFlowLimiter()
 }
 
 // A RootApi_Server is a RootApi with a local implementation.
@@ -2535,9 +3042,9 @@ func NewRootApi_blobMap_Params_List(s *capnp.Segment, sz int32) (RootApi_blobMap
 // RootApi_blobMap_Params_Future is a wrapper for a RootApi_blobMap_Params promised by a client call.
 type RootApi_blobMap_Params_Future struct{ *capnp.Future }
 
-func (p RootApi_blobMap_Params_Future) Struct() (RootApi_blobMap_Params, error) {
-	s, err := p.Future.Struct()
-	return RootApi_blobMap_Params(s), err
+func (f RootApi_blobMap_Params_Future) Struct() (RootApi_blobMap_Params, error) {
+	p, err := f.Future.Ptr()
+	return RootApi_blobMap_Params(p.Struct()), err
 }
 
 type RootApi_blobMap_Results capnp.Struct
@@ -2617,11 +3124,10 @@ func NewRootApi_blobMap_Results_List(s *capnp.Segment, sz int32) (RootApi_blobMa
 // RootApi_blobMap_Results_Future is a wrapper for a RootApi_blobMap_Results promised by a client call.
 type RootApi_blobMap_Results_Future struct{ *capnp.Future }
 
-func (p RootApi_blobMap_Results_Future) Struct() (RootApi_blobMap_Results, error) {
-	s, err := p.Future.Struct()
-	return RootApi_blobMap_Results(s), err
+func (f RootApi_blobMap_Results_Future) Struct() (RootApi_blobMap_Results, error) {
+	p, err := f.Future.Ptr()
+	return RootApi_blobMap_Results(p.Struct()), err
 }
-
 func (p RootApi_blobMap_Results_Future) Map() Map {
 	return Map(p.Future.Field(0, nil).Client())
 }
@@ -2686,9 +3192,9 @@ func NewRootApi_root_Params_List(s *capnp.Segment, sz int32) (RootApi_root_Param
 // RootApi_root_Params_Future is a wrapper for a RootApi_root_Params promised by a client call.
 type RootApi_root_Params_Future struct{ *capnp.Future }
 
-func (p RootApi_root_Params_Future) Struct() (RootApi_root_Params, error) {
-	s, err := p.Future.Struct()
-	return RootApi_root_Params(s), err
+func (f RootApi_root_Params_Future) Struct() (RootApi_root_Params, error) {
+	p, err := f.Future.Ptr()
+	return RootApi_root_Params(p.Struct()), err
 }
 
 type RootApi_root_Results capnp.Struct
@@ -2768,11 +3274,10 @@ func NewRootApi_root_Results_List(s *capnp.Segment, sz int32) (RootApi_root_Resu
 // RootApi_root_Results_Future is a wrapper for a RootApi_root_Results promised by a client call.
 type RootApi_root_Results_Future struct{ *capnp.Future }
 
-func (p RootApi_root_Results_Future) Struct() (RootApi_root_Results, error) {
-	s, err := p.Future.Struct()
-	return RootApi_root_Results(s), err
+func (f RootApi_root_Results_Future) Struct() (RootApi_root_Results, error) {
+	p, err := f.Future.Ptr()
+	return RootApi_root_Results(p.Struct()), err
 }
-
 func (p RootApi_root_Results_Future) Root() RootPtr {
 	return RootPtr(p.Future.Field(0, nil).Client())
 }
@@ -2837,9 +3342,9 @@ func NewRootApi_storage_Params_List(s *capnp.Segment, sz int32) (RootApi_storage
 // RootApi_storage_Params_Future is a wrapper for a RootApi_storage_Params promised by a client call.
 type RootApi_storage_Params_Future struct{ *capnp.Future }
 
-func (p RootApi_storage_Params_Future) Struct() (RootApi_storage_Params, error) {
-	s, err := p.Future.Struct()
-	return RootApi_storage_Params(s), err
+func (f RootApi_storage_Params_Future) Struct() (RootApi_storage_Params, error) {
+	p, err := f.Future.Ptr()
+	return RootApi_storage_Params(p.Struct()), err
 }
 
 type RootApi_storage_Results capnp.Struct
@@ -2919,11 +3424,10 @@ func NewRootApi_storage_Results_List(s *capnp.Segment, sz int32) (RootApi_storag
 // RootApi_storage_Results_Future is a wrapper for a RootApi_storage_Results promised by a client call.
 type RootApi_storage_Results_Future struct{ *capnp.Future }
 
-func (p RootApi_storage_Results_Future) Struct() (RootApi_storage_Results, error) {
-	s, err := p.Future.Struct()
-	return RootApi_storage_Results(s), err
+func (f RootApi_storage_Results_Future) Struct() (RootApi_storage_Results, error) {
+	p, err := f.Future.Ptr()
+	return RootApi_storage_Results(p.Struct()), err
 }
-
 func (p RootApi_storage_Results_Future) Storage() Storage {
 	return Storage(p.Future.Field(0, nil).Client())
 }

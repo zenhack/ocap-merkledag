@@ -249,29 +249,25 @@ func NewFile_List(s *capnp.Segment, sz int32) (File_List, error) {
 // File_Future is a wrapper for a File promised by a client call.
 type File_Future struct{ *capnp.Future }
 
-func (p File_Future) Struct() (File, error) {
-	s, err := p.Future.Struct()
-	return File(s), err
+func (f File_Future) Struct() (File, error) {
+	p, err := f.Future.Ptr()
+	return File(p.Struct()), err
 }
-
 func (p File_Future) Metadata() File_metadata_Future { return File_metadata_Future{p.Future} }
 
 // File_metadata_Future is a wrapper for a File_metadata promised by a client call.
 type File_metadata_Future struct{ *capnp.Future }
 
-func (p File_metadata_Future) Struct() (File_metadata, error) {
-	s, err := p.Future.Struct()
-	return File_metadata(s), err
+func (f File_metadata_Future) Struct() (File_metadata, error) {
+	p, err := f.Future.Ptr()
+	return File_metadata(p.Struct()), err
 }
-
 func (p File_metadata_Future) UnixMetadata() UnixMetadata_Future {
 	return UnixMetadata_Future{Future: p.Future.Field(1, nil)}
 }
-
 func (p File_Future) File() BlobTree_Future {
 	return BlobTree_Future{Future: p.Future.Field(0, nil)}
 }
-
 func (p File_Future) Dir() protocol.Ref {
 	return protocol.Ref(p.Future.Field(0, nil).Client())
 }
@@ -351,9 +347,9 @@ func NewUnixMetadata_List(s *capnp.Segment, sz int32) (UnixMetadata_List, error)
 // UnixMetadata_Future is a wrapper for a UnixMetadata promised by a client call.
 type UnixMetadata_Future struct{ *capnp.Future }
 
-func (p UnixMetadata_Future) Struct() (UnixMetadata, error) {
-	s, err := p.Future.Struct()
-	return UnixMetadata(s), err
+func (f UnixMetadata_Future) Struct() (UnixMetadata, error) {
+	p, err := f.Future.Ptr()
+	return UnixMetadata(p.Struct()), err
 }
 
 type BlobTree capnp.Struct
@@ -495,11 +491,10 @@ func NewBlobTree_List(s *capnp.Segment, sz int32) (BlobTree_List, error) {
 // BlobTree_Future is a wrapper for a BlobTree promised by a client call.
 type BlobTree_Future struct{ *capnp.Future }
 
-func (p BlobTree_Future) Struct() (BlobTree, error) {
-	s, err := p.Future.Struct()
-	return BlobTree(s), err
+func (f BlobTree_Future) Struct() (BlobTree, error) {
+	p, err := f.Future.Ptr()
+	return BlobTree(p.Struct()), err
 }
-
 func (p BlobTree_Future) Leaf() protocol.Ref {
 	return protocol.Ref(p.Future.Field(0, nil).Client())
 }
